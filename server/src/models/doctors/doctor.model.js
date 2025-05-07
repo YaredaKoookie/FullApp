@@ -41,7 +41,7 @@ const doctorSchema = new mongoose.Schema(
         },
         slots: {
           type: [
-          {
+            {
               start: { type: Date, required: true },
               end: { type: Date, required: true },
             },
