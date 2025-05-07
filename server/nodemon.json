@@ -1,0 +1,8 @@
+{
+    "watch": ["src"],
+    "ext": "js,ts,json",
+    "execMap": {
+        "js": "node -r esbuild-register",
+        "ts": "ts-node"
+    }
+}
