@@ -22,12 +22,22 @@ router.put(
     patientController.updateProfile,
 )
 router.post('/appointments/:doctorId/book', validate(appointmentChains.validateAppointmentCreation), patientController.bookAppointment);
-router.get("/appointments", patientController.getPatientAppointments);
+
+router.get("/appointments", 
+    validate(appointmentChains.validateGetAppointmentByStatus),
+    patientController.getPatientAppointments
+);
+
+router.put(
+    '/appointments/:appointmentId/cancel', 
+    validate(appointmentChains.validateCancelAppointment),
+    patientController.cancelAppointment
+); 
+
+
 
 // router.get('/patient/doctors', auth, isPatient, doctorController.getAllApprovedDoctors);
 // router.get('/patient/doctors/:id', auth, isPatient, doctorController.getDoctorById);
-// router.get('/patient/appointments', auth, isPatient, patientController.getAppointments);
-// router.put('/patient/appointments/:id/cancel', auth, isPatient, patientController.cancelAppointment); // NEW
 // router.get('/patient/chats', auth, isPatient, chatController.getChats);
 // router.post('/patient/feedback/:doctorId', auth, isPatient, patientController.giveFeedback);
 // router.post('/patient/upload-record', auth, isPatient, patientController.uploadMedicalRecord); // NEW
