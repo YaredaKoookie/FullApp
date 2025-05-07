@@ -1,4 +1,4 @@
-import { body, param } from "express-validator";
+import { body, param, check } from "express-validator";
 import mongoose from "mongoose";
 
 // Enums
@@ -26,6 +26,23 @@ const CANCELLATION_REASONS = [
   "emergency",
 ];
 const PAYMENT_METHODS = ["cash", "card", "insurance", "online"];
+
+export const validateGetAppointmentByStatus = [
+  check('status')
+  .optional()
+  .isIn(APPOINTMENT_STATUS)
+  .withMessage(`Appointment status must be one of the following ${APPOINTMENT_STATUS.join(", ")}`)
+]
+
+export const validateCancelAppointment = [
+  param("appointmentId")
+  .notEmpty()
+  .withMessage("Appointment id is required"),
+  body("cancellationReason")
+  .optional()
+  .isIn(CANCELLATION_REASONS)
+  .withMessage(`Appointment cancellation reason must be one of the following ${CANCELLATION_REASONS.join(", ")}`)
+]
 
 // Utility: Validate ObjectId
 const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);

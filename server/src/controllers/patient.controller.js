@@ -1,7 +1,7 @@
 import Patient from "../models/patient/patient.model.js";
 import User from "../models/user.model.js";
 import ServerError from "../utils/ServerError.js";
-import Doctor from "../models/doctors/doctor.model.js"
+import Doctor from "../models/doctors/doctor.model.js";
 import Appointment from "../models/appointment/appointment.model.js";
 
 /**
@@ -96,12 +96,13 @@ export const createPatientProfile = async (req, res) => {
 
 export const getProfile = async (req, res) => {
   const { sub: userId } = req.user;
-  
+
   let user = await User.findById(userId);
-  if(!user) throw ServerError.notFound("user not found")
+  if (!user) throw ServerError.notFound("user not found");
   let patient = await Patient.findOne({ user: userId });
 
-  if (!patient || !patient.user) throw ServerError.notFound("profile not found");
+  if (!patient || !patient.user)
+    throw ServerError.notFound("profile not found");
 
   res.json({
     success: true,
@@ -112,11 +113,11 @@ export const getProfile = async (req, res) => {
 };
 
 export const updateProfile = async (req, res) => {
-  const {sub: userId} = req.user;
+  const { sub: userId } = req.user;
 
-  const patient = await Patient.findOne({user: userId});
+  const patient = await Patient.findOne({ user: userId });
 
-  if(!patient) throw ServerError("Profile not found");
+  if (!patient) throw ServerError("Profile not found");
 
   await patient.updateOne(req.body);
 
@@ -124,93 +125,178 @@ export const updateProfile = async (req, res) => {
     success: true,
     message: "profile updated",
     data: {
-      patient
-    }
-  })
-}
+      patient,
+    },
+  });
+};
 
 export const bookAppointment = async (req, res) => {
-  const {slot, reason, appointmentApp } = req.body;
-  const doctorId = req.params.doctorId;
+  const { appointmentType, reason, slot } = req.body;
 
-  const patient = await Patient.findOne({user: req.user.sub}).populate("user");
-  console.log("patient", patient);
+  const { doctorId } = req.params;
 
-  if(!patient) throw ServerError.notFound("Patient profile not found");
+  const patient = await Patient.findOne({ user: req.user.sub });
 
-  if(!patient.user.isProfileCompleted)
-    throw ServerError.badRequest("Complete your profile to book an appointment");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-  const doctor = await Doctor.findById(doctorId);
-  
-  console.log("doctor", doctor);
-  if(!doctor || doctor.approvalStatus !== "approved")
-    throw ServerError.notFound("Doctor not found or not approved");
-  
-  
-  const {start, end} = slot;
+  let patientId = patient._id;
+  const { start, end } = slot;
+  if (!start || !end) {
+    throw ServerError.badRequest(
+      "Invalid slot structure. Start and end time are required."
+    );
+  }
 
-  const startTime =  new Date(start);
+  const startTime = new Date(start);
   const endTime = new Date(end);
 
-  if(startTime >= endTime)
-    throw ServerError.badRequest("end time must be after start time");
+  if (startTime >= endTime) {
+    return res
+      .status(400)
+      .json({ error: "End time must be after start time." });
+  }
 
-  if(startTime > (new Date()))
-    throw ServerError.badRequest("Appointment start time can not be in the past");
+  const doctor = await Doctor.findById(doctorId);
 
-  const dayOfWeek = startTime.getDay().toString();
-  const availability = doctor.weeklyAvailability.get(dayOfWeek);
+  if (!doctor) {
+    throw ServerError.notFound("Doctor not found.");
+  }
 
-  if(!availability)
-    throw ServerError.badRequest("Doctor is not available on selected day.");
-// 681b94302a3f468306cd9d1b
+  if (doctor.approvalStatus !== "approved") {
+    throw ServerError.badRequest("Doctor is not available for appointments.");
+  }
 
-  const isWithinAvailability = startTime >= availability.start && endTime <= availability.end;
+  // Check if the slot is within the doctor's availability
+  const selectedDay = startTime.toLocaleDateString("en-US", {
+    weekday: "long",
+  });
+  console.log("selected day", selectedDay);
+  console.log("doctor", doctor);
 
-  if(!isWithinAvailability)
-   throw ServerError.badRequest("Selected time slot is outside the doctor availability hours.");
+  const dayAvailability = doctor.weeklyAvailability.find(
+    (availability) => availability.day === selectedDay
+  );
 
-  const isOverlappingAppointment = await Appointment.findOne({
+  if (!dayAvailability) {
+    throw ServerError.badRequest(`Doctor is not available on ${selectedDay}.`)
+  }
+
+  const isSlotAvailable = dayAvailability.slots.some(
+    (availableSlot) =>
+      startTime >= availableSlot.start && endTime <= availableSlot.end
+  );
+
+  if (!isSlotAvailable) {
+    throw ServerError.badRequest(
+      "The selected time slot is not within the doctor's availability."
+    );
+  }
+
+
+  // Check for overlapping appointments for the doctor
+  const overlappingAppointment = await Appointment.findOne({
     doctor: doctorId,
-    slot,
-    status: {$in: ["scheduled", "confirmed"]},
-    "slot.start": {$lt: endTime},
-    "slot.end": {$gt: startTime}
-  })
-
-  if(!isOverlappingAppointment) 
-    throw ServerError.badRequest("Selected slot is not available");
-
-  const appointment = await Appointment.create({
-    patient: patient._id,
-    doctor: doctor._id,
-    slot,
-    reason,
-    status: "pending"
+    "slot.start": { $lt: endTime },
+    "slot.end": { $gt: startTime },
   });
 
+  if (overlappingAppointment) {
+    return res.status(400).json({
+      error: "The selected time slot is already booked for the doctor.",
+    });
+  }
 
-  res.json({
-    success: true, 
-    message: "appointment created successfully",
-    data: {
-      appointment
-    }
-  })
-}
+  // Create new appointment
+  const newAppointment = new Appointment({
+    patient: patientId,
+    doctor: doctorId,
+    appointmentType,
+    reason,
+    slot: {
+      start: startTime,
+      end: endTime,
+    },
+    status: "pending",
+  });
+
+  await newAppointment.save();
+
+  doctor.totalAppointments += 1;
+  await doctor.save();
+
+  return res.status(201).json({
+    message: "Appointment booked successfully.",
+    appointment: newAppointment,
+  });
+};
 
 export const getPatientAppointments = async (req, res) => {
   const userId = req.user.sub;
+  const status = req.body.status;
 
-  const patient = await Patient.findOne({user: userId});
-  if(!patient) throw ServerError.notFound("Patient profile not found");
-  const appointments = await Appointment.find({patient: patient._id}).populate("doctor", "fullName specialization").sort({createdAt: -1});
+  const patient = await Patient.findOne({ user: userId });
+  if (!patient) throw ServerError.notFound("Patient profile not found");
+
+  const query = {patient: patient._id}
+  if(status) query.status = status;
+
+  const appointments = await Appointment.find(query)
+    .populate("doctor", "fullName specialization")
+    .sort({ createdAt: -1 });
 
   res.json({
-    success: true, 
+    success: true,
     data: {
-      appointments
+      appointments,
+    },
+  });
+};
+
+export const cancelAppointment = async (req, res) => {
+    const { appointmentId } = req.params;
+   
+    const { cancellationReason } = req.body;
+
+    const patient = await Patient.findOne({user: req.user.sub});
+
+    if(!patient) throw ServerError.notFound("Patient not found");
+
+    const appointment = await Appointment.findById(appointmentId);
+
+    if(!appointment) throw ServerError.notFound("Appointment not found");
+
+    if(appointment.patient.toString() !== patient._id.toString()){
+      throw ServerError.forbidden("You can only cancel you appointments");
     }
-  })
+
+    if(appointment.status === "cancelled" || appointment.status === "completed")
+      throw ServerError.badRequest(`You Cannot cancel an already ${appointment.status} appointment`);
+
+    if(['doctor request'].includes(cancellationReason))
+      throw ServerError.badRequest("Cancellation reason is not allowed")
+
+    appointment.status = 'cancelled';
+    appointment.cancellation = {
+      reason: cancellationReason || 'patient request',
+      cancelledBy: patient._id,
+      cancelledByRole: 'Patient',
+      cancelledAt: new Date().toISOString()
+    }
+
+    await appointment.save();
+
+    const doctor = await Doctor.findById(appointment.doctor);
+
+    if(doctor) {
+      doctor.totalAppointments -= 1;
+      await doctor.save();
+    }
+
+    res.json({
+      success: true, 
+      message: "Appointment successfully cancelled",
+      data: {
+        appointment,
+      }
+    })
 }
