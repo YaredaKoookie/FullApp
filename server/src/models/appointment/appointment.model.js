@@ -123,7 +123,7 @@ const appointmentSchema = new Schema(
     status: {
       type: String,
       enum: APPOINTMENT_STATUS,
-      default: "scheduled",
+      default: "pending",
       index: true,
     },
     payment: {
