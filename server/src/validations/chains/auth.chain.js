@@ -10,11 +10,6 @@ export const validateGoogleCode = [
   body("state").optional().isBase64().withMessage("invalid state"),
 ];
 
-export const validateGoogleIdToken = [
-  body("idToken").notEmpty().withMessage("Id token is required"),
-  body("state").optional().isBase64().withMessage("invalid state"),
-];
-
 export const validateAccessToken = [
   header("authorization")
     .notEmpty()
@@ -87,5 +82,3 @@ export const validatePasswordReset = [
     .notEmpty()
     .withMessage("Password is required")
 ];
-
-

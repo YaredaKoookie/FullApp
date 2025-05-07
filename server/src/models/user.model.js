@@ -13,7 +13,6 @@ const oauthProviderSchema = new Schema({
 }, {
   _id: false
 });
-
 const userSchema = new Schema({
   email: {
     type: String,
@@ -23,8 +22,7 @@ const userSchema = new Schema({
     index: true
   },
   password: {
-    type: String,
-    select: false,
+    type: String
   },
   isPasswordSet: {
     type: Boolean,
@@ -51,15 +49,8 @@ const userSchema = new Schema({
   oauthProviders: [oauthProviderSchema]
 }, {
   timestamps: true,
-  virtuals: true,
-  toJSON: {
-    transform: (doc, ret) => {
-      delete ret.password;
-      return ret;
-    }
-  }
+  virtuals: true
 });
-
 userSchema.statics.findByEmailOrOauthProvider = async function (email, profileId, provider) {
   return this.findOne({
     $or: [{

@@ -19,11 +19,6 @@ class ServerError extends Error {
   static notFound(message, details) {
     return new ServerError(404, message, details);
   }
-
-  static conflict(message, details) {
-    return new ServerError(409, message, details)
-  }
-
   static internal(message, details) {
     return new ServerError(500, message, details);
   }

@@ -1,15 +1,13 @@
 import {Router} from "express"
 import authRoutes from "./auth.route";
-import patientRoutes from "./patient.route";
-import { isPatient } from "../middlewares/auth.middleware";
+import doctorRoutes from "./doctor.route";
+
 
 const router = Router();
 
-router.use("/auth", authRoutes);
-router.use("/patient", (req, res, next) => {
-  console.log("patient profile completion", req.body);
-    next();
-}, isPatient, patientRoutes)
 
+
+router.use("/auth", authRoutes);
+router.use("/doctors", doctorRoutes);
 
 export default router;

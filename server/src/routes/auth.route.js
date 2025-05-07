@@ -37,7 +37,6 @@ router.post(
 
 router.post(
   "/google/token/callback",
-  validate(authChains.validateGoogleIdToken),
   authController.GoogleTokenIdCallback
 );
 
