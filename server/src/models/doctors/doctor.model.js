@@ -36,23 +36,33 @@ const doctorSchema = new mongoose.Schema(
       {
         day: {
           type: String,
-          enum: [
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-            "Sunday",
-          ],
+          enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
           required: true,
         },
-        slots: [
-          {
-            start: { type: Date, required: true }, // e.g., "09:00"
-            end: { type: Date, required: true }, // e.g., "17:00"
+        slots: {
+          type: [
+            {
+              start: { type: Date, required: true },
+              end: { type: Date, required: true },
+            },
+          ],
+          validate: {
+            validator: function (slots) {
+              for (let i = 0; i < slots.length - 1; i++) {
+                for (let j = i + 1; j < slots.length; j++) {
+                  if (
+                    (slots[i].start < slots[j].end && slots[i].end > slots[j].start) ||
+                    (slots[j].start < slots[i].end && slots[j].end > slots[i].start)
+                  ) {
+                    return false;
+                  }
+                }
+              }
+              return true;
+            },
+            message: "Time slots cannot overlap.",
           },
-        ],
+        },
       },
     ],
     totalReviews: {

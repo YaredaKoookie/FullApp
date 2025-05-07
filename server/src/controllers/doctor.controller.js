@@ -226,12 +226,11 @@ export const deleteAccount = async (req, res) => {
 
 export const getAppointments = async (req, res) => {
   try {
-    // const doctorId = req.user.userId;
-    const { sub: userId } = req.user;
+    const doctorId = req.user.userId;
 
-    const appointments = await Appointment.find({ userId })
-      .populate("patientId", "fullName profilePicture") // adjust as needed
-      .sort({ date: -1 }); // latest first
+    const appointments = await Appointment.find({ doctorId })
+      .populate("patient", "fullName email profilePicture")
+      .sort({ date: -1, "slot.start": 1 });
 
     return res.status(200).json({
       message: "Appointments fetched successfully",
@@ -248,8 +247,7 @@ export const getAppointments = async (req, res) => {
 
 export const approveAppointment = async (req, res) => {
   try {
-    // const doctorId = req.user.userId;
-    const { sub: userId } = req.user;
+    const doctorId = req.user.userId;
     const appointmentId = req.params.id;
 
     const appointment = await Appointment.findOne({
@@ -263,7 +261,7 @@ export const approveAppointment = async (req, res) => {
         .json({ message: "Appointment not found or unauthorized" });
     }
 
-    if (appointment.status !== "pending") {
+    if (appointment.status.enum !== "pending") {
       return res
         .status(400)
         .json({ message: "Only pending appointments can be approved" });
