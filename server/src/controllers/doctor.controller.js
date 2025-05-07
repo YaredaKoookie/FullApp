@@ -1,6 +1,6 @@
 import Doctor from "./../models/doctors/doctor.model";
 import User from "../models/user.model";
-import Appointment from '../models/Appointments.models'
+import Appointment from '../models/appointment/appointment.model';
 
 export const completeProfile = async (req, res) => {
   try {

@@ -1,6 +1,8 @@
 import Patient from "../models/patient/patient.model.js";
 import User from "../models/user.model.js";
 import ServerError from "../utils/ServerError.js";
+import Doctor from "../models/doctors/doctor.model.js"
+import Appointment from "../models/appointment/appointment.model.js";
 
 /**
  * @desc Create a new patient profile linked to an existing user.
@@ -108,3 +110,107 @@ export const getProfile = async (req, res) => {
     },
   });
 };
+
+export const updateProfile = async (req, res) => {
+  const {sub: userId} = req.user;
+
+  const patient = await Patient.findOne({user: userId});
+
+  if(!patient) throw ServerError("Profile not found");
+
+  await patient.updateOne(req.body);
+
+  res.json({
+    success: true,
+    message: "profile updated",
+    data: {
+      patient
+    }
+  })
+}
+
+export const bookAppointment = async (req, res) => {
+  const {slot, reason, appointmentApp } = req.body;
+  const doctorId = req.params.doctorId;
+
+  const patient = await Patient.findOne({user: req.user.sub}).populate("user");
+  console.log("patient", patient);
+
+  if(!patient) throw ServerError.notFound("Patient profile not found");
+
+  if(!patient.user.isProfileCompleted)
+    throw ServerError.badRequest("Complete your profile to book an appointment");
+
+  const doctor = await Doctor.findById(doctorId);
+  
+  console.log("doctor", doctor);
+  if(!doctor || doctor.approvalStatus !== "approved")
+    throw ServerError.notFound("Doctor not found or not approved");
+  
+  
+  const {start, end} = slot;
+
+  const startTime =  new Date(start);
+  const endTime = new Date(end);
+
+  if(startTime >= endTime)
+    throw ServerError.badRequest("end time must be after start time");
+
+  if(startTime > (new Date()))
+    throw ServerError.badRequest("Appointment start time can not be in the past");
+
+  const dayOfWeek = startTime.getDay().toString();
+  const availability = doctor.weeklyAvailability.get(dayOfWeek);
+
+  if(!availability)
+    throw ServerError.badRequest("Doctor is not available on selected day.");
+// 681b94302a3f468306cd9d1b
+
+  const isWithinAvailability = startTime >= availability.start && endTime <= availability.end;
+
+  if(!isWithinAvailability)
+   throw ServerError.badRequest("Selected time slot is outside the doctor availability hours.");
+
+  const isOverlappingAppointment = await Appointment.findOne({
+    doctor: doctorId,
+    slot,
+    status: {$in: ["scheduled", "confirmed"]},
+    "slot.start": {$lt: endTime},
+    "slot.end": {$gt: startTime}
+  })
+
+  if(!isOverlappingAppointment) 
+    throw ServerError.badRequest("Selected slot is not available");
+
+  const appointment = await Appointment.create({
+    patient: patient._id,
+    doctor: doctor._id,
+    slot,
+    reason,
+    status: "pending"
+  });
+
+
+  res.json({
+    success: true, 
+    message: "appointment created successfully",
+    data: {
+      appointment
+    }
+  })
+}
+
+export const getPatientAppointments = async (req, res) => {
+  const userId = req.user.sub;
+
+  const patient = await Patient.findOne({user: userId});
+  if(!patient) throw ServerError.notFound("Patient profile not found");
+  const appointments = await Appointment.find({patient: patient._id}).populate("doctor", "fullName specialization").sort({createdAt: -1});
+
+  res.json({
+    success: true, 
+    data: {
+      appointments
+    }
+  })
+}

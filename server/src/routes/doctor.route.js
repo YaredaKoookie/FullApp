@@ -20,7 +20,7 @@ router.get('/profile/me', isDoctor, doctorController.getProfile);
 router.put('/profile/edit', isDoctor, validate(doctorEditProfileValidation), doctorController.editProfile);
 router.delete('/delete-account', isDoctor, doctorController.deleteAccount);
 router.get('/appointments', isDoctor, doctorController.getAppointments);
-router.put('/appointments/:id/approve', isDoctor, doctorController.approveAppointment);
+
 // router.put('/appointments/:id/decline', isDoctor, doctorController.declineAppointment);
 // router.put('/appointments/:id/mark-complete', isDoctor, doctorController.markComplete);
 // router.put('/appointments/:id/cancel', isDoctor, doctorController.cancelAppointment); 

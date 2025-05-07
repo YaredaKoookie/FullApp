@@ -1,7 +1,7 @@
 import { Schema, model } from "mongoose";
 
 // Enums
-const APPOINTMENT_STATUS = ["scheduled", "completed", "cancelled", "no-show", "rescheduled"];
+const APPOINTMENT_STATUS = ["pending", "confirmed", "completed", "cancelled", "no-show", "rescheduled"];
 const PAYMENT_STATUS = ["pending", "paid", "failed", "refunded"];
 const APPOINTMENT_TYPE = ["consultation", "follow-up", "emergency", "therapy", "check-up"];
 const CANCELLATION_REASONS = [
@@ -38,6 +38,11 @@ const paymentSchema = new Schema(
       type: String,
       default: null,
     },
+    refundStats: {
+      type: String, 
+      enum: ["none", "requested", "processed"],
+      default: "none"
+    },
     paidAt: {
       type: Date,
       default: null,
@@ -49,16 +54,16 @@ const paymentSchema = new Schema(
 // Time Slot Schema
 const timeSlotSchema = new Schema(
   {
-    startTime: {
+    start: {
       type: Date,
       required: true,
     },
-    endTime: {
+    end: {
       type: Date,
       required: true,
       validate: {
         validator: function () {
-          return this.endTime > this.startTime;
+          return this.end > this.start;
         },
         message: "End time must be after start time.",
       },
@@ -106,12 +111,12 @@ const appointmentSchema = new Schema(
       required: true,
       default: "consultation",
     },
-    reasonForVisit: {
+    reason: {
       type: String,
       trim: true,
       required: true,
     },
-    timeSlot: {
+    slot: {
       type: timeSlotSchema,
       required: true,
     },
@@ -155,6 +160,14 @@ const appointmentSchema = new Schema(
       trim: true,
       default: "",
     },
+    videoCallToken: {
+      type: String, 
+      default: "",
+    },
+    chatToken: {
+      type: String, 
+      default: ""
+    }
   },
   {
     timestamps: true,
@@ -162,8 +175,8 @@ const appointmentSchema = new Schema(
 );
 
 // Indexes
-appointmentSchema.index({ "timeSlot.startTime": 1, "timeSlot.endTime": 1 });
+appointmentSchema.index({ "slot.startTime": 1, "slot.endTime": 1 });
 appointmentSchema.index({ "payment.status": 1 });
-appointmentSchema.index({ status: 1, "timeSlot.startTime": 1 });
+appointmentSchema.index({ status: 1, "slot.start": 1 });
 
 export default model("Appointment", appointmentSchema);
