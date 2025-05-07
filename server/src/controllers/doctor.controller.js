@@ -204,7 +204,7 @@ export const editProfile = async (req, res) => {
 
 export const deleteAccount = async (req, res) => {
   try {
-    const { sub : userId } = req.user;
+    const { sub: userId } = req.user;
 
     console.log(`Doctor with userId ${userId} deleted their account.`);
 
@@ -227,7 +227,7 @@ export const deleteAccount = async (req, res) => {
 export const getAppointments = async (req, res) => {
   try {
     // const doctorId = req.user.userId;
-    const {sub: userId} = req.user;
+    const { sub: userId } = req.user;
 
     const appointments = await Appointment.find({ userId })
       .populate("patientId", "fullName profilePicture") // adjust as needed
@@ -246,162 +246,166 @@ export const getAppointments = async (req, res) => {
   }
 };
 
-// const approveAppointment = async (req, res) => {
-//   try {
-//     const doctorId = req.user.userId;
-//     const appointmentId = req.params.id;
+export const approveAppointment = async (req, res) => {
+  try {
+    // const doctorId = req.user.userId;
+    const { sub: userId } = req.user;
+    const appointmentId = req.params.id;
 
-//     const appointment = await Appointment.findOne({
-//       _id: appointmentId,
-//       doctorId,
-//     });
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      doctorId,
+    });
 
-//     if (!appointment) {
-//       return res
-//         .status(404)
-//         .json({ message: "Appointment not found or unauthorized" });
-//     }
+    if (!appointment) {
+      return res
+        .status(404)
+        .json({ message: "Appointment not found or unauthorized" });
+    }
 
-//     if (appointment.status !== "pending") {
-//       return res
-//         .status(400)
-//         .json({ message: "Only pending appointments can be approved" });
-//     }
+    if (appointment.status !== "pending") {
+      return res
+        .status(400)
+        .json({ message: "Only pending appointments can be approved" });
+    }
 
-//     appointment.status = "approved";
-//     await appointment.save();
+    appointment.status = "approved";
+    await appointment.save();
 
-//     return res.status(200).json({
-//       message: "Appointment approved successfully",
-//       appointment,
-//     });
-//   } catch (err) {
-//     console.error("Error approving appointment:", err);
-//     return res.status(500).json({
-//       message: "An error occurred while approving the appointment",
-//       error: err.message,
-//     });
-//   }
-// };
+    return res.status(200).json({
+      message: "Appointment approved successfully",
+      appointment,
+    });
+  } catch (err) {
+    console.error("Error approving appointment:", err);
+    return res.status(500).json({
+      message: "An error occurred while approving the appointment",
+      error: err.message,
+    });
+  }
+};
 
-// const declineAppointment = async (req, res) => {
-//   try {
-//     const doctorId = req.user.userId;
-//     const appointmentId = req.params.id;
+export const declineAppointment = async (req, res) => {
+  try {
+    // const doctorId = req.user.userId;
+    const { sub: userId } = req.user;
+    const appointmentId = req.params.id;
 
-//     const appointment = await Appointment.findOne({
-//       _id: appointmentId,
-//       doctorId,
-//     });
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      doctorId,
+    });
 
-//     if (!appointment) {
-//       return res
-//         .status(404)
-//         .json({ message: "Appointment not found or unauthorized" });
-//     }
+    if (!appointment) {
+      return res
+        .status(404)
+        .json({ message: "Appointment not found or unauthorized" });
+    }
 
-//     if (appointment.status !== "pending") {
-//       return res
-//         .status(400)
-//         .json({ message: "Only pending appointments can be declined" });
-//     }
+    if (appointment.status !== "pending") {
+      return res
+        .status(400)
+        .json({ message: "Only pending appointments can be declined" });
+    }
 
-//     appointment.status = "declined";
-//     await appointment.save();
+    appointment.status = "declined";
+    await appointment.save();
 
-//     return res.status(200).json({
-//       message: "Appointment declined successfully",
-//       appointment,
-//     });
-//   } catch (err) {
-//     console.error("Error declining appointment:", err);
-//     return res.status(500).json({
-//       message: "An error occurred while declining the appointment",
-//       error: err.message,
-//     });
-//   }
-// };
+    return res.status(200).json({
+      message: "Appointment declined successfully",
+      appointment,
+    });
+  } catch (err) {
+    console.error("Error declining appointment:", err);
+    return res.status(500).json({
+      message: "An error occurred while declining the appointment",
+      error: err.message,
+    });
+  }
+};
 
-// const markComplete = async (req, res) => {
-//   try {
-//     const doctorId = req.user.userId;
-//     const appointmentId = req.params.id;
+export const markComplete = async (req, res) => {
+  try {
+    // const doctorId = req.user.userId;
+    const { sub: userId } = req.user;
+    const appointmentId = req.params.id;
 
-//     const appointment = await Appointment.findOne({
-//       _id: appointmentId,
-//       doctorId,
-//     });
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      doctorId,
+    });
 
-//     if (!appointment) {
-//       return res
-//         .status(404)
-//         .json({ message: "Appointment not found or unauthorized" });
-//     }
+    if (!appointment) {
+      return res
+        .status(404)
+        .json({ message: "Appointment not found or unauthorized" });
+    }
 
-//     if (appointment.status !== "approved") {
-//       return res.status(400).json({
-//         message: "Only approved appointments can be marked as complete",
-//       });
-//     }
-//     appointment.status = "completed";
-//     appointment.completedAt = new Date(); // Mark the completion time
-//     await appointment.save();
+    if (appointment.status !== "approved") {
+      return res.status(400).json({
+        message: "Only approved appointments can be marked as complete",
+      });
+    }
+    appointment.status = "completed";
+    appointment.completedAt = new Date(); // Mark the completion time
+    await appointment.save();
 
-//     return res.status(200).json({
-//       message: "Appointment marked as completed successfully",
-//       appointment,
-//     });
-//   } catch (err) {
-//     console.error("Error marking appointment as complete:", err);
-//     return res.status(500).json({
-//       message: "An error occurred while marking the appointment as complete",
-//       error: err.message,
-//     });
-//   }
-// };
+    return res.status(200).json({
+      message: "Appointment marked as completed successfully",
+      appointment,
+    });
+  } catch (err) {
+    console.error("Error marking appointment as complete:", err);
+    return res.status(500).json({
+      message: "An error occurred while marking the appointment as complete",
+      error: err.message,
+    });
+  }
+};
 
-// const cancelAppointment = async (req, res) => {
-//   try {
-//     const doctorId = req.user.userId;
-//     const appointmentId = req.params.id;
-//     const { cancellationReason } = req.body; // Optionally pass a reason for cancellation
+export const cancelAppointment = async (req, res) => {
+  try {
+    // const doctorId = req.user.userId;
+    const { sub: userId } = req.user;
+    const appointmentId = req.params.id;
+    const { cancellationReason } = req.body; // Optionally pass a reason for cancellation
 
-//     // Find the appointment
-//     const appointment = await Appointment.findOne({
-//       _id: appointmentId,
-//       doctorId,
-//     });
+    // Find the appointment
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      doctorId,
+    });
 
-//     if (!appointment) {
-//       return res
-//         .status(404)
-//         .json({ message: "Appointment not found or unauthorized" });
-//     }
+    if (!appointment) {
+      return res
+        .status(404)
+        .json({ message: "Appointment not found or unauthorized" });
+    }
 
-//     if (appointment.status === "completed") {
-//       return res
-//         .status(400)
-//         .json({ message: "Cannot cancel a completed appointment" });
-//     }
+    if (appointment.status === "completed") {
+      return res
+        .status(400)
+        .json({ message: "Cannot cancel a completed appointment" });
+    }
 
-//     // Update the appointment status to "cancelled"
-//     appointment.status = "cancelled";
-//     appointment.cancellationReason = cancellationReason || "No reason provided"; // Set cancellation reason if provided
-//     appointment.cancelledAt = new Date(); // Mark the time when cancelled
-//     await appointment.save();
+    // Update the appointment status to "cancelled"
+    appointment.status = "cancelled";
+    appointment.cancellationReason = cancellationReason || "No reason provided"; // Set cancellation reason if provided
+    appointment.cancelledAt = new Date(); // Mark the time when cancelled
+    await appointment.save();
 
-//     return res.status(200).json({
-//       message: "Appointment cancelled successfully",
-//       appointment,
-//     });
-//   } catch (err) {
-//     console.error("Error canceling appointment:", err);
-//     return res.status(500).json({
-//       message: "An error occurred while canceling the appointment",
-//       error: err.message,
-//     });
-//   }
-// };
+    return res.status(200).json({
+      message: "Appointment cancelled successfully",
+      appointment,
+    });
+  } catch (err) {
+    console.error("Error canceling appointment:", err);
+    return res.status(500).json({
+      message: "An error occurred while canceling the appointment",
+      error: err.message,
+    });
+  }
+};
 
 // const setAvailability = async (req, res) => {
 //   try {

@@ -32,7 +32,7 @@ export const doctorEditProfileValidation = [
 
   body("weeklyAvailability")
     .optional()
-    .isObject()
+    .isArray()
     .withMessage(
       "Weekly availability must be an object (e.g., { Monday: [{start, end}] })"
     ),

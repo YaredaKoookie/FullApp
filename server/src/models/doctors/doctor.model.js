@@ -32,17 +32,29 @@ const doctorSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    weeklyAvailability: {
-      type: Map,
-      of: new mongoose.Schema(
-        {
-          start: { type: String, required: true },
-          end: { type: String, required: true },
+    weeklyAvailability: [
+      {
+        day: {
+          type: String,
+          enum: [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+          ],
+          required: true,
         },
-        { _id: false }
-      ),
-      default: {},
-    },
+        slots: [
+          {
+            start: { type: Date, required: true }, // e.g., "09:00"
+            end: { type: Date, required: true }, // e.g., "17:00"
+          },
+        ],
+      },
+    ],
     totalReviews: {
       type: Number,
       default: 0,
