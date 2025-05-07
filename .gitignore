@@ -1,0 +1,121 @@
+# ================================
+# Root
+# ================================
+*.log
+*.pid
+*.seed
+*.pid.lock
+.DS_Store
+Thumbs.db
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.idea/
+.vscode/
+*.swp
+*.swo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.tern-port
+.vercel/
+.output/
+
+# ================================
+# Dependency directories
+# ================================
+**/node_modules/
+**/.pnp
+.pnp.js
+**/.yarn-integrity
+**/.yarn/cache
+**/.yarn/unplugged
+**/.yarn/build-state.yml
+**/.yarn/install-state.gz
+**/jspm_packages/
+
+# ================================
+# Testing
+# ================================
+**/coverage/
+**/.nyc_output/
+**/.jest/
+**/cypress/screenshots/
+**/cypress/videos/
+
+# ================================
+# Build directories
+# ================================
+**/dist/
+**/build/
+**/out/
+**/.next/
+**/storybook-static/
+**/.serverless/
+**/.cache/
+**/temp/
+
+# ================================
+# Server/Backend specific
+# ================================
+server/node_modules
+server/uploads/
+server/storage/
+server/**/*.sqlite
+server/**/*.sqlite3
+server/**/*.db
+server/**/*.dump
+server/**/dump.rdb
+server/.env
+server/.env.*
+server/sessions/
+server/logs/
+server/tmp/
+server/data/geoip
+
+# ================================
+# Client/Frontend specific
+# ================================
+client/.env
+client/.env.*
+client/.svelte-kit/
+client/src-tauri/
+client/.expo/
+client/dist/
+client/.nuxt/
+client/.output/
+client/.vuepress/dist/
+client/.cache/
+client/.parcel-cache/
+
+# ================================
+# Editor/IDE
+# ================================
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.code-workspace
+
+# ================================
+# OS generated files
+# ================================
+ehthumbs.db
+[Tt]humbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# ================================
+# Package manager specific
+# ================================
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+shrinkwrap.json
