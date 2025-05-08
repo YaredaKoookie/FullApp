@@ -1,7 +1,8 @@
 import {Router} from "express";
 import {validate} from "../validations"
-import { appointmentChains, patientChains } from "../validations/chains";
-import { patientController } from "../controllers";
+import { appointmentChains, doctorChains, patientChains } from "../validations/chains";
+import { patientController, reviewController } from "../controllers";
+import { validateCreateReview, validateUpdateReview } from "../validations/chains/review.chain";
 
 const router = Router();
 
@@ -19,8 +20,10 @@ router.get(
 
 router.put(
     "/edit",
+    validate(patientChains.validatePatientUpdate),
     patientController.updateProfile,
 )
+
 router.post('/appointments/:doctorId/book', validate(appointmentChains.validateAppointmentCreation), patientController.bookAppointment);
 
 router.get("/appointments", 
@@ -34,12 +37,23 @@ router.put(
     patientController.cancelAppointment
 ); 
 
+router.get(
+    '/doctors',
+   validate(doctorChains.validateGetDoctor),
+   patientController.getApprovedDoctors
+)
+
+router.get(
+    "/doctors/:doctorId",
+    patientController.getApprovedDoctorById
+)
+
+router.post("/review", validate(validateCreateReview), reviewController.createReview)
+router.put("/reviews/:reviewId", validate(validateUpdateReview), reviewController.updateReview);
+router.delete("/reviews/:reviewId", reviewController.deleteReview);
 
 
-// router.get('/patient/doctors', auth, isPatient, doctorController.getAllApprovedDoctors);
-// router.get('/patient/doctors/:id', auth, isPatient, doctorController.getDoctorById);
 // router.get('/patient/chats', auth, isPatient, chatController.getChats);
-// router.post('/patient/feedback/:doctorId', auth, isPatient, patientController.giveFeedback);
 // router.post('/patient/upload-record', auth, isPatient, patientController.uploadMedicalRecord); // NEW
 // router.get('/patient/transactions', auth, isPatient, patientController.getTransactionHistory); // NEW
 

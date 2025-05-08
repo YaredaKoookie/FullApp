@@ -3,6 +3,7 @@ import User from "../models/user.model.js";
 import ServerError from "../utils/ServerError.js";
 import Doctor from "../models/doctors/doctor.model.js";
 import Appointment from "../models/appointment/appointment.model.js";
+import Review from "../models/review.model.js";
 
 /**
  * @desc Create a new patient profile linked to an existing user.
@@ -115,17 +116,29 @@ export const getProfile = async (req, res) => {
 export const updateProfile = async (req, res) => {
   const { sub: userId } = req.user;
 
-  const patient = await Patient.findOne({ user: userId });
+  console.log(req.body);
 
-  if (!patient) throw ServerError("Profile not found");
+  // Find the patient associated with the user
+  let patient = await Patient.findOne({ user: userId });
 
-  await patient.updateOne(req.body);
+  if (!patient) throw ServerError.notFound("Profile not found");
 
+  // Only update specific fields from req.body to prevent unwanted changes
+  const updatedPatient = await Patient.findByIdAndUpdate(
+    patient._id, // Find by the patient's id
+    req.body, // Fields to update
+    {
+      new: true, // Return the updated document
+      runValidators: true, // Apply validation rules
+    }
+  );
+
+  // Return the updated patient profile
   res.json({
     success: true,
-    message: "profile updated",
+    message: "Profile updated",
     data: {
-      patient,
+      patient: updatedPatient,
     },
   });
 };
@@ -178,7 +191,7 @@ export const bookAppointment = async (req, res) => {
   );
 
   if (!dayAvailability) {
-    throw ServerError.badRequest(`Doctor is not available on ${selectedDay}.`)
+    throw ServerError.badRequest(`Doctor is not available on ${selectedDay}.`);
   }
 
   const isSlotAvailable = dayAvailability.slots.some(
@@ -191,7 +204,6 @@ export const bookAppointment = async (req, res) => {
       "The selected time slot is not within the doctor's availability."
     );
   }
-
 
   // Check for overlapping appointments for the doctor
   const overlappingAppointment = await Appointment.findOne({
@@ -237,8 +249,8 @@ export const getPatientAppointments = async (req, res) => {
   const patient = await Patient.findOne({ user: userId });
   if (!patient) throw ServerError.notFound("Patient profile not found");
 
-  const query = {patient: patient._id}
-  if(status) query.status = status;
+  const query = { patient: patient._id };
+  if (status) query.status = status;
 
   const appointments = await Appointment.find(query)
     .populate("doctor", "fullName specialization")
@@ -253,50 +265,128 @@ export const getPatientAppointments = async (req, res) => {
 };
 
 export const cancelAppointment = async (req, res) => {
-    const { appointmentId } = req.params;
-   
-    const { cancellationReason } = req.body;
+  const { appointmentId } = req.params;
 
-    const patient = await Patient.findOne({user: req.user.sub});
+  const { cancellationReason } = req.body;
 
-    if(!patient) throw ServerError.notFound("Patient not found");
+  const patient = await Patient.findOne({ user: req.user.sub });
 
-    const appointment = await Appointment.findById(appointmentId);
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    if(!appointment) throw ServerError.notFound("Appointment not found");
+  const appointment = await Appointment.findById(appointmentId);
 
-    if(appointment.patient.toString() !== patient._id.toString()){
-      throw ServerError.forbidden("You can only cancel you appointments");
+  if (!appointment) throw ServerError.notFound("Appointment not found");
+
+  if (appointment.patient.toString() !== patient._id.toString()) {
+    throw ServerError.forbidden("You can only cancel you appointments");
+  }
+
+  if (appointment.status === "cancelled" || appointment.status === "completed")
+    throw ServerError.badRequest(
+      `You Cannot cancel an already ${appointment.status} appointment`
+    );
+
+  if (["doctor request", "no-show"].includes(cancellationReason))
+    throw ServerError.badRequest(
+      "Cancellation reason is not allowed for patient"
+    );
+
+  appointment.status = "cancelled";
+  appointment.cancellation = {
+    reason: cancellationReason || "patient request",
+    cancelledBy: patient._id,
+    cancelledByRole: "Patient",
+    cancelledAt: new Date().toISOString(),
+  };
+
+  await appointment.save();
+
+  const doctor = await Doctor.findById(appointment.doctor);
+
+  if (doctor) {
+    doctor.totalAppointments -= 1;
+    await doctor.save();
+  }
+
+  res.json({
+    success: true,
+    message: "Appointment successfully cancelled",
+    data: {
+      appointment,
+    },
+  });
+};
+
+// ##### PUBLIC
+export const getApprovedDoctors = async (req, res) => {
+  const {
+    page = 1,
+    limit = 1,
+    specialization,
+    location,
+    minRating,
+  } = req.query;
+  const skip = (page - 1) * limit;
+
+  const query = { approvalStatus: "approved" };
+
+  if (specialization) {
+    const specializations = specialization
+      .split(",")
+      .map((spec) => spec.trim());
+    query.specialization = { $in: specializations };
+  }
+
+  if (location) query["location.city"] = { $regex: location, $options: "i" };
+
+  if (minRating) query.rating = { $gte: Number(minRating) };
+
+  const doctors = await Doctor.find(query)
+    .select(
+      "-licenseNumber -licenseDocument -idProof -withdrawalBalance -adminRemarks -applicationNotes"
+    )
+    .skip(skip)
+    .limit(Number(limit))
+    .sort({ rating: -1, experience: -1 });
+
+  const totalDoctors = await Doctor.countDocuments(query);
+  const totalPages = Math.ceil(totalDoctors / limit);
+
+  res.json({
+    success: true,
+    data: {
+      doctors,
+    },
+    pagination: {
+      totalDoctors,
+      totalPages,
+      currentPage: Number(page),
+      limit: Number(limit),
+    },
+  });
+};
+
+export const getApprovedDoctorById = async (req, res) => {
+  
+  if (!req.params.doctorId)
+    throw ServerError.badRequest("doctor id is not provided");
+
+  const query = {
+    _id: req.params.doctorId,
+    approvalStatus: "approved"
+  }
+
+  const doctor = await Doctor.findOne(query).select(
+    "-licenseNumber -licenseDocument -idProof -withdrawalBalance -adminRemarks -applicationNotes"
+  );
+
+  if (!doctor) throw ServerError.notFound("Doctor doesn't exist");
+
+
+  res.json({
+    success: true,
+    data: {
+      doctor
     }
-
-    if(appointment.status === "cancelled" || appointment.status === "completed")
-      throw ServerError.badRequest(`You Cannot cancel an already ${appointment.status} appointment`);
-
-    if(['doctor request'].includes(cancellationReason))
-      throw ServerError.badRequest("Cancellation reason is not allowed")
-
-    appointment.status = 'cancelled';
-    appointment.cancellation = {
-      reason: cancellationReason || 'patient request',
-      cancelledBy: patient._id,
-      cancelledByRole: 'Patient',
-      cancelledAt: new Date().toISOString()
-    }
-
-    await appointment.save();
-
-    const doctor = await Doctor.findById(appointment.doctor);
-
-    if(doctor) {
-      doctor.totalAppointments -= 1;
-      await doctor.save();
-    }
-
-    res.json({
-      success: true, 
-      message: "Appointment successfully cancelled",
-      data: {
-        appointment,
-      }
-    })
-}
+  })
+};

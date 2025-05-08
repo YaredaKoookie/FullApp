@@ -1,7 +1,8 @@
 import { Schema, model } from "mongoose";
 
 // Enums
-const APPOINTMENT_STATUS = ["pending", "confirmed", "completed", "cancelled", "declined"];
+const APPOINTMENT_STATUS = ["decline", "pending", "confirmed", "completed", "cancelled", "no-show", "rescheduled"];
+const PAYMENT_STATUS = ["pending", "paid", "failed", "refunded"];
 const APPOINTMENT_TYPE = ["consultation", "follow-up", "emergency", "therapy", "check-up"];
 const CANCELLATION_REASONS = [
   "patient request",

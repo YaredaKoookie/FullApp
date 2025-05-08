@@ -1,6 +1,6 @@
-const { body } = require('express-validator');
+import { body, param } from 'express-validator';
 
-exports.validateDoctorProfile = [
+export const validateDoctorProfile = [
   body('fullName')
     .notEmpty().withMessage('Full name is required')
     .isLength({ min: 2, max: 100 }).withMessage('Full name must be between 2 and 100 characters'),
@@ -51,3 +51,27 @@ exports.validateDoctorProfile = [
     .optional()
     .isLength({ max: 1000 }).withMessage('Application notes must be at most 1000 characters'),
 ];
+
+
+export const validateGetDoctor = [
+  param("page")
+  .optional()
+  .isNumeric()
+  .withMessage("page should be a number"),
+  param("limit")
+  .optional()
+  .isNumeric()
+  .withMessage("limit should be a number"),
+  param("skip")
+  .optional()
+  .isNumeric()
+  .withMessage("skip should be a number"),
+  param("minRating")
+  .optional()
+  .isNumeric()
+  .withMessage("minRating should be a number"),
+  param("location")
+  .optional()
+  .isString()
+  .withMessage("location can be only string")
+]

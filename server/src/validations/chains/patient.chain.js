@@ -1,4 +1,4 @@
-import { body, validationResult, oneOf } from "express-validator";
+import { body, validationResult, oneOf, optional } from "express-validator";
 
 // Patient Validation Middleware
 export const validatePatientCreation = [
@@ -169,117 +169,61 @@ export const validatePatientCreation = [
     .withMessage("Each medical history entry must be a valid MongoDB ObjectId"),
 ];
 
-// export const validatePatientUpdate = [
-//   // Only these fields are allowed to be updated
-//   oneOf(
-//     [
-//       body().custom(body => {
-//         const allowedFields = [
-//           'name',
-//           'profileImage',
-//           'phone',
-//           'notificationPreferences',
-//           'bloodType',
-//           'emergencyContact',
-//           'insurance',
-//           'preferredLanguage',
-//           'maritalStatus',
-//           'location'
-//         ];
-//         const invalidFields = Object.keys(body).filter(
-//           field => !allowedFields.includes(field)
-//         );
-        
-//         if (invalidFields.length > 0) {
-//           throw new Error(`Invalid fields: ${invalidFields.join(', ')}`);
-//         }
-//         return true;
-//       })
-//     ],
-//     {
-//       message: 'Only specific fields can be updated'
-//     }
-//   ),
+export const validatePatientUpdate = [
+  // Only these fields are allowed to be updated
+  oneOf([
+    body().custom((body) => {
+      const allowedFields = [
+        'name', 'profileImage', 'phone', 'notificationPreferences', 'bloodType', 
+        'emergencyContact', 'insurance', 'preferredLanguage', 'maritalStatus', 'location'
+      ];
+      const invalidFields = Object.keys(body).filter(field => !allowedFields.includes(field));
+      if (invalidFields.length > 0) {
+        throw new Error(`Invalid fields: ${invalidFields.join(', ')}`);
+      }
+      return true;
+    })
+  ], {
+    message: 'Only specific fields can be updated'
+  }),
 
-//   // Individual field validations (only validate if field exists in request)
-//   optional('name')
-//     .trim()
-//     .isLength({ min: 2, max: 100 })
-//     .withMessage('Name must be between 2-100 characters'),
+  // Individual field validations (only validate if field exists in request)
+  body('name').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Name must be between 2-100 characters'),
 
-//   optional('profileImage')
-//     .isString()
-//     .withMessage('Profile image must be a string URL'),
+  body('profileImage').optional().isString().withMessage('Profile image must be a string URL'),
 
-//   optional('phone')
-//     .matches(/^\+?[1-9]\d{1,14}$/)
-//     .withMessage('Invalid phone number format (E.164 recommended)'),
+  body('phone').optional().matches(/^\+?[1-9]\d{1,14}$/).withMessage('Invalid phone number format (E.164 recommended)'),
 
-//   optional('notificationPreferences.systemNotification')
-//     .isBoolean()
-//     .withMessage('System notification preference must be true/false'),
+  body('notificationPreferences.systemNotification').optional().isBoolean().withMessage('System notification preference must be true/false'),
 
-//   optional('notificationPreferences.emailNotification')
-//     .isBoolean()
-//     .withMessage('Email notification preference must be true/false'),
+  body('notificationPreferences.emailNotification').optional().isBoolean().withMessage('Email notification preference must be true/false'),
 
-//   optional('notificationPreferences.smsNotification')
-//     .isBoolean()
-//     .withMessage('SMS notification preference must be true/false'),
+  body('notificationPreferences.smsNotification').optional().isBoolean().withMessage('SMS notification preference must be true/false'),
 
-//   optional('bloodType')
-//     .isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', ''])
-//     .withMessage('Invalid blood type'),
+  body('bloodType').optional().isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', '']).withMessage('Invalid blood type'),
 
-//   optional('emergencyContact').isArray().withMessage('Emergency contacts must be an array'),
-//   optional('emergencyContact.*.name')
-//     .trim()
-//     .notEmpty()
-//     .withMessage('Emergency contact name is required'),
-//   optional('emergencyContact.*.phone')
-//     .matches(/^\+?[1-9]\d{1,14}$/)
-//     .withMessage('Invalid emergency contact phone format'),
-//   optional('emergencyContact.*.email')
-//     .isEmail()
-//     .withMessage('Invalid emergency contact email'),
+  body('emergencyContact').optional().isArray().withMessage('Emergency contacts must be an array'),
+  body('emergencyContact.*.name').optional().trim().notEmpty().withMessage('Emergency contact name is required'),
+  body('emergencyContact.*.phone').optional().matches(/^\+?[1-9]\d{1,14}$/).withMessage('Invalid emergency contact phone format'),
+  body('emergencyContact.*.email').optional().isEmail().withMessage('Invalid emergency contact email'),
 
-//   optional('insurance').isArray().withMessage('Insurance must be an array'),
-//   optional('insurance.*.provider')
-//     .trim()
-//     .notEmpty()
-//     .withMessage('Insurance provider is required'),
-//   optional('insurance.*.policyNumber')
-//     .trim()
-//     .notEmpty()
-//     .withMessage('Policy number is required'),
+  body('insurance').optional().isArray().withMessage('Insurance must be an array'),
+  body('insurance.*.provider').optional().trim().notEmpty().withMessage('Insurance provider is required'),
+  body('insurance.*.policyNumber').optional().trim().notEmpty().withMessage('Policy number is required'),
 
-//   optional('preferredLanguage')
-//     .trim()
-//     .isLength({ min: 2 })
-//     .withMessage('Preferred language must be at least 2 characters'),
+  body('preferredLanguage').optional().trim().isLength({ min: 2 }).withMessage('Preferred language must be at least 2 characters'),
 
-//   optional('maritalStatus')
-//     .isIn(['single', 'married', 'divorced', 'widowed', 'separated', 'other', ''])
-//     .withMessage('Invalid marital status'),
+  body('maritalStatus').optional().isIn(['single', 'married', 'divorced', 'widowed', 'separated', 'other', '']).withMessage('Invalid marital status'),
 
-//   // Location validation
-//   optional('location.country')
-//     .trim()
-//     .notEmpty()
-//     .withMessage('Country is required'),
-//   optional('location.city')
-//     .trim()
-//     .notEmpty()
-//     .withMessage('City is required'),
-//   optional('location.coordinates.coordinates')
-//     .isArray({ min: 2, max: 2 })
-//     .withMessage('Coordinates must be [longitude, latitude]')
-//     .custom((coords) => {
-//       const [lng, lat] = coords;
-//       return (
-//         lng >= -180 && lng <= 180 &&
-//         lat >= -90 && lat <= 90
-//       );
-//     })
-//     .withMessage('Invalid coordinates: longitude [-180,180], latitude [-90,90]')
-// ];
+  // Location validation
+  body('location.country').optional().trim().notEmpty().withMessage('Country is required'),
+  body('location.city').optional().trim().notEmpty().withMessage('City is required'),
+  body('location.coordinates.coordinates').optional().isArray({ min: 2, max: 2 }).withMessage('Coordinates must be [longitude, latitude]')
+    .custom((coords) => {
+      const [lng, lat] = coords;
+      return (
+        lng >= -180 && lng <= 180 &&
+        lat >= -90 && lat <= 90
+      );
+    }).withMessage('Invalid coordinates: longitude [-180,180], latitude [-90,90]')
+];
