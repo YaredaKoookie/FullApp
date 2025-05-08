@@ -28,25 +28,6 @@ exports.validateDoctorProfile = [
     .optional()
     .isFloat({ min: 0 }).withMessage('Consultation fee must be a positive number'),
 
-  body('weeklyAvailability')
-    .optional()
-    .custom(value => {
-      if (typeof value !== 'object' || Array.isArray(value)) {
-        throw new Error('Weekly availability must be an object');
-      }
-      for (let day in value) {
-        if (!Array.isArray(value[day])) {
-          throw new Error(`Availability for ${day} must be an array`);
-        }
-        value[day].forEach(slot => {
-          if (!slot.start || !slot.end) {
-            throw new Error(`Each slot for ${day} must have start and end`);
-          }
-        });
-      }
-      return true;
-    }),
-
   body('location.city').optional().isLength({ max: 50 }),
   body('location.state').optional().isLength({ max: 50 }),
   body('location.country').optional().isLength({ max: 50 }),

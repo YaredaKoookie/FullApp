@@ -30,12 +30,12 @@ export const doctorEditProfileValidation = [
     .isFloat({ min: 0 })
     .withMessage("Consultation fee must be a non-negative number"),
 
-  body("weeklyAvailability")
-    .optional()
-    .isArray()
-    .withMessage(
-      "Weekly availability must be an object (e.g., { Monday: [{start, end}] })"
-    ),
+  // body("weeklyAvailability")
+  //   .optional()
+  //   .isArray()
+  //   .withMessage(
+  //     "Weekly availability must be an object (e.g., { Monday: [{start, end}] })"
+  //   ),
 
   body("applicationNotes")
     .optional()

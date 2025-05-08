@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 
 // Create AuthContext
 const AuthContext = createContext();
@@ -6,26 +6,38 @@ const AuthContext = createContext();
 // AuthProvider component
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [isUserFetching, setIsUserFetching] = useState(false);
-    console.log(setIsUserFetching)
-    const login = (accessToken, user) => {
-      setUser(user);
-      localStorage.setItem("token", accessToken);
-    }
+    const [isUserFetching, setIsUserFetching] = useState(true);
+
+    // Automatically load user from localStorage
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+        const storedUser = localStorage.getItem("user");
+
+        if (token && storedUser) {
+            setUser(JSON.parse(storedUser));
+        }
+        setIsUserFetching(false);
+    }, []);
+
+    const login = (accessToken, userData) => {
+        localStorage.setItem("token", accessToken);
+        localStorage.setItem("user", JSON.stringify(userData));
+        setUser(userData);
+    };
 
     const logout = () => {
-        setUser(null);
         localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        setUser(null);
     };
 
     const value = {
-        user, 
-        isUserFetching, 
-        login, 
+        user,
+        isUserFetching,
+        login,
         logout,
         isAuthenticated: !!user,
-    }
-
+    };
 
     return (
         <AuthContext.Provider value={value}>
@@ -35,6 +47,4 @@ export const AuthProvider = ({ children }) => {
 };
 
 // Custom hook to use AuthContext
-export const useAuth = () => {
-    return useContext(AuthContext);
-};
+export const useAuth = () => useContext(AuthContext);

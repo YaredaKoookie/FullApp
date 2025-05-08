@@ -1,6 +1,6 @@
 import Doctor from "./../models/doctors/doctor.model";
 import User from "../models/user.model";
-import Appointment from '../models/appointment/appointment.model';
+import Appointment from "../models/appointment/appointment.model";
 
 export const completeProfile = async (req, res) => {
   try {
@@ -226,9 +226,11 @@ export const deleteAccount = async (req, res) => {
 
 export const getAppointments = async (req, res) => {
   try {
-    const doctorId = req.user.userId;
+    const userId = req.user.sub;
 
-    const appointments = await Appointment.find({ doctorId })
+    const doctor = await Doctor.findOne({ userId });
+
+    const appointments = await Appointment.find({ doctor: doctor._id })
       .populate("patient", "fullName email profilePicture")
       .sort({ date: -1, "slot.start": 1 });
 
@@ -247,12 +249,14 @@ export const getAppointments = async (req, res) => {
 
 export const approveAppointment = async (req, res) => {
   try {
-    const doctorId = req.user.userId;
+    const userId = req.user.sub;
     const appointmentId = req.params.id;
+
+    const doctor = await Doctor.findOne({ userId });
 
     const appointment = await Appointment.findOne({
       _id: appointmentId,
-      doctorId,
+      doctor: doctor._id,
     });
 
     if (!appointment) {
@@ -261,13 +265,13 @@ export const approveAppointment = async (req, res) => {
         .json({ message: "Appointment not found or unauthorized" });
     }
 
-    if (appointment.status.enum !== "pending") {
+    if (appointment.status !== "pending") {
       return res
         .status(400)
         .json({ message: "Only pending appointments can be approved" });
     }
 
-    appointment.status = "approved";
+    appointment.status = "confirmed";
     await appointment.save();
 
     return res.status(200).json({
@@ -285,13 +289,13 @@ export const approveAppointment = async (req, res) => {
 
 export const declineAppointment = async (req, res) => {
   try {
-    // const doctorId = req.user.userId;
-    const { sub: userId } = req.user;
+    const userId = req.user.sub;
     const appointmentId = req.params.id;
+    const doctor = await Doctor.findOne({ userId });
 
     const appointment = await Appointment.findOne({
       _id: appointmentId,
-      doctorId,
+      doctor: doctor._id,
     });
 
     if (!appointment) {
@@ -306,7 +310,7 @@ export const declineAppointment = async (req, res) => {
         .json({ message: "Only pending appointments can be declined" });
     }
 
-    appointment.status = "declined";
+    appointment.status = "cancelled";
     await appointment.save();
 
     return res.status(200).json({
@@ -324,13 +328,14 @@ export const declineAppointment = async (req, res) => {
 
 export const markComplete = async (req, res) => {
   try {
-    // const doctorId = req.user.userId;
-    const { sub: userId } = req.user;
+    const userId = req.user.sub;
+    const doctor = await Doctor.findOne({ userId });
+
     const appointmentId = req.params.id;
 
     const appointment = await Appointment.findOne({
       _id: appointmentId,
-      doctorId,
+      doctor: doctor._id,
     });
 
     if (!appointment) {
@@ -339,7 +344,7 @@ export const markComplete = async (req, res) => {
         .json({ message: "Appointment not found or unauthorized" });
     }
 
-    if (appointment.status !== "approved") {
+    if (appointment.status !== "confirmed") {
       return res.status(400).json({
         message: "Only approved appointments can be marked as complete",
       });
@@ -363,15 +368,16 @@ export const markComplete = async (req, res) => {
 
 export const cancelAppointment = async (req, res) => {
   try {
-    // const doctorId = req.user.userId;
-    const { sub: userId } = req.user;
+    const userId = req.user.sub;
+    const doctor = await Doctor.findOne({ userId });
+
     const appointmentId = req.params.id;
     const { cancellationReason } = req.body; // Optionally pass a reason for cancellation
 
     // Find the appointment
     const appointment = await Appointment.findOne({
       _id: appointmentId,
-      doctorId,
+      doctor: doctor._id,
     });
 
     if (!appointment) {
@@ -404,76 +410,140 @@ export const cancelAppointment = async (req, res) => {
     });
   }
 };
+function hasOverlappingSlots(slots) {
+  for (let i = 0; i < slots.length - 1; i++) {
+    for (let j = i + 1; j < slots.length; j++) {
+      if (
+        (slots[i].start < slots[j].end && slots[i].end > slots[j].start) ||
+        (slots[j].start < slots[i].end && slots[j].end > slots[i].start)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
-// const setAvailability = async (req, res) => {
-//   try {
-//     const doctorId = req.user.userId;
-//     const { availableDays, availableTimeSlots } = req.body; // Days and time slots from request
+export const setAvailability = async (req, res) => {
+  try {
+    const doctorId = req.user.sub // from auth middleware
+    const { weeklyAvailability } = req.body;
 
-//     // Validate input (e.g., ensure availableDays and availableTimeSlots are provided)
-//     if (!availableDays || !availableTimeSlots) {
-//       return res
-//         .status(400)
-//         .json({ message: "Both available days and time slots are required" });
-//     }
+    console.log("Doctor ID:", doctorId);
+    console.log("Body received:", req.body);
+    console.log("weeklyAvailability:", weeklyAvailability);
 
-//     // Find the doctor profile
-//     const doctor = await Doctor.findOne({ userId: doctorId });
+    // Basic validations
+    if (!Array.isArray(weeklyAvailability)) {
+      return res
+        .status(400)
+        .json({ error: "Invalid weeklyAvailability format." });
+    }
 
-//     if (!doctor) {
-//       return res.status(404).json({ message: "Doctor not found" });
-//     }
+    const validDays = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ];
+    const seenDays = new Set();
 
-//     // Update the doctor's availability
-//     doctor.weeklyAvailability = availableDays;
-//     doctor.availableTimeSlots = availableTimeSlots;
+    for (let entry of weeklyAvailability) {
+      const { day, slots } = entry;
 
-//     await doctor.save();
+      if (!validDays.includes(day)) {
+        return res.status(400).json({ error: `Invalid day: ${day}` });
+      }
 
-//     return res.status(200).json({
-//       message: "Doctor availability updated successfully",
-//       doctor: {
-//         availableDays: doctor.weeklyAvailability,
-//         availableTimeSlots: doctor.availableTimeSlots,
-//       },
-//     });
-//   } catch (err) {
-//     console.error("Error setting doctor availability:", err);
-//     return res.status(500).json({
-//       message: "An error occurred while setting availability",
-//       error: err.message,
-//     });
-//   }
-// };
+      if (seenDays.has(day)) {
+        return res
+          .status(400)
+          .json({ error: `Duplicate availability for ${day}.` });
+      }
+      seenDays.add(day);
 
-// const getAvailability = async (req, res) => {
-//   try {
-//     const doctorId = req.user.userId;
+      if (!Array.isArray(slots) || slots.length === 0) {
+        return res
+          .status(400)
+          .json({ error: `Slots missing or invalid for ${day}.` });
+      }
 
-//     // Find the doctor's profile
-//     const doctor = await Doctor.findOne({ userId: doctorId }).select(
-//       "weeklyAvailability availableTimeSlots"
-//     );
+      // Validate slot times
+      for (let slot of slots) {
+        if (!slot.start || !slot.end) {
+          return res
+            .status(400)
+            .json({ error: `Slot missing start or end time for ${day}.` });
+        }
+        if (new Date(slot.start) >= new Date(slot.end)) {
+          return res.status(400).json({
+            error: `Start time must be before end time for a slot on ${day}.`,
+          });
+        }
+      }
 
-//     if (!doctor) {
-//       return res.status(404).json({ message: "Doctor not found" });
-//     }
+      // Check for overlaps
+      if (hasOverlappingSlots(slots)) {
+        return res
+          .status(400)
+          .json({ error: `Overlapping time slots found on ${day}.` });
+      }
+    }
 
-//     return res.status(200).json({
-//       message: "Doctor availability fetched successfully",
-//       availability: {
-//         availableDays: doctor.weeklyAvailability,
-//         availableTimeSlots: doctor.availableTimeSlots,
-//       },
-//     });
-//   } catch (err) {
-//     console.error("Error fetching doctor availability:", err);
-//     return res.status(500).json({
-//       message: "An error occurred while fetching availability",
-//       error: err.message,
-//     });
-//   }
-// };
+    // Update availability
+    const doctor = await Doctor.findOneAndUpdate(
+      { userId: doctorId },
+      { weeklyAvailability },
+      { new: true }
+    );
+
+    if (!doctor) {
+      return res.status(404).json({ error: "Doctor not found." });
+    }
+
+    return res.status(200).json({
+      message: "Availability updated successfully.",
+      availability: doctor.weeklyAvailability,
+    });
+  } catch (error) {
+    console.error("Error updating availability:", error);
+    return res
+      .status(500)
+      .json({ error: "Server error while updating availability." });
+  }
+};
+
+export const getAvailability = async (req, res) => {
+  try {
+    const doctorId = req.user.sub;
+
+    // Find the doctor's profile
+    const doctor = await Doctor.findOne({ userId: doctorId }).select(
+      "weeklyAvailability availableTimeSlots"
+    );
+
+    if (!doctor) {
+      return res.status(404).json({ message: "Doctor not found" });
+    }
+
+    return res.status(200).json({
+      message: "Doctor availability fetched successfully",
+      availability: {
+        availableDays: doctor.weeklyAvailability,
+        availableTimeSlots: doctor.availableTimeSlots,
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching doctor availability:", err);
+    return res.status(500).json({
+      message: "An error occurred while fetching availability",
+      error: err.message,
+    });
+  }
+};
 
 // const getChats = async (req, res) => {
 //   try {
@@ -626,9 +696,9 @@ export const cancelAppointment = async (req, res) => {
 //   }
 // };
 
-// const addNotes = async (req, res) => {
+// export const addNotes = async (req, res) => {
 //   try {
-//     const doctorId = req.user.userId;
+//     const doctorId = req.user.sub;
 //     const appointmentId = req.params.id;
 //     const { notes } = req.body; // The notes the doctor wants to add
 
@@ -646,11 +716,9 @@ export const cancelAppointment = async (req, res) => {
 
 //     // Ensure that the doctor is the one associated with the appointment
 //     if (appointment.doctorId.toString() !== doctorId) {
-//       return res
-//         .status(403)
-//         .json({
-//           message: "You are not authorized to add notes to this appointment",
-//         });
+//       return res.status(403).json({
+//         message: "You are not authorized to add notes to this appointment",
+//       });
 //     }
 
 //     // Add the notes to the appointment record

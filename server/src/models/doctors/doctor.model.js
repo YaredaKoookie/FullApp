@@ -8,7 +8,7 @@ const doctorSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-    fullName: String,
+    fullName: {type : String , required: true ,index : "text"},
     specialization: {
       type: String,
       required: true,

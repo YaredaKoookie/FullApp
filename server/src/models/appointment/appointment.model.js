@@ -1,8 +1,7 @@
 import { Schema, model } from "mongoose";
 
 // Enums
-const APPOINTMENT_STATUS = ["pending", "confirmed", "completed", "cancelled", "no-show", "rescheduled"];
-const PAYMENT_STATUS = ["pending", "paid", "failed", "refunded"];
+const APPOINTMENT_STATUS = ["pending", "confirmed", "completed", "cancelled", "declined"];
 const APPOINTMENT_TYPE = ["consultation", "follow-up", "emergency", "therapy", "check-up"];
 const CANCELLATION_REASONS = [
   "patient request",
@@ -12,44 +11,6 @@ const CANCELLATION_REASONS = [
   "emergency",
 ];
 
-// Payment Schema
-const paymentSchema = new Schema(
-  {
-    method: {
-      type: String,
-      enum: ["cash", "card", "insurance", "online"],
-      required: true,
-    },
-    amount: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    currency: {
-      type: String,
-      default: "USD",
-    },
-    status: {
-      type: String,
-      enum: PAYMENT_STATUS,
-      default: "pending",
-    },
-    transactionId: {
-      type: String,
-      default: null,
-    },
-    refundStats: {
-      type: String, 
-      enum: ["none", "requested", "processed"],
-      default: "none"
-    },
-    paidAt: {
-      type: Date,
-      default: null,
-    },
-  },
-  { _id: false }
-);
 
 // Time Slot Schema
 const timeSlotSchema = new Schema(
@@ -127,7 +88,7 @@ const appointmentSchema = new Schema(
       index: true,
     },
     payment: {
-      type: paymentSchema,
+      type: Schema.Types.ObjectId,
       default: null,
     },
     cancellation: {
@@ -154,11 +115,6 @@ const appointmentSchema = new Schema(
     rescheduleHistory: {
       type: [rescheduleSchema],
       default: [],
-    },
-    notes: {
-      type: String,
-      trim: true,
-      default: "",
     },
     videoCallToken: {
       type: String, 

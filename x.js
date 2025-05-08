@@ -31,13 +31,19 @@ router.put('/doctor/appointments/:id/approve', auth, isDoctor, doctorController.
 router.put('/doctor/appointments/:id/decline', auth, isDoctor, doctorController.declineAppointment);
 router.put('/doctor/appointments/:id/mark-complete', auth, isDoctor, doctorController.markComplete);
 router.put('/doctor/appointments/:id/cancel', auth, isDoctor, doctorController.cancelAppointment); 
+
 router.post('/doctor/availability', auth, isDoctor, doctorController.setAvailability); 
 router.get('/doctor/availability', auth, isDoctor, doctorController.getAvailability); 
+
+
 router.get('/doctor/chats', auth, isDoctor, chatController.getChats);
 router.post('/doctor/withdrawal/request', auth, isDoctor, doctorController.requestWithdrawal);
 router.get('/doctor/earnings', auth, isDoctor, doctorController.getEarnings);
 router.get('/doctor/transactions', auth, isDoctor, doctorController.getTransactionHistory); 
 router.post('/doctor/appointment/:id/notes', auth, isDoctor, doctorController.addNotes); 
+
+
+
 
 // PATIENT PROTECTED
 router.get('/patient/doctors', auth, isPatient, doctorController.getAllApprovedDoctors);
@@ -62,6 +68,10 @@ router.post('/payment/:appointmentId/initiate', auth, isPatient, paymentControll
 router.get('/payment/status/:appointmentId', auth, isPatient, paymentController.getPaymentStatus);
 router.post('/payment/:appointmentId/refund', auth, isAdmin, paymentController.processRefund); // NEW
 
+
+
+
+
 // ADMIN ROUTES
 router.get('/admin/doctors', auth, isAdmin, adminController.getAllDoctors);
 router.put('/admin/doctors/:id/approve', auth, isAdmin, adminController.approveDoctor);
@@ -72,6 +82,7 @@ router.get('/admin/appointments', auth, isAdmin, adminController.getAllAppointme
 router.put('/admin/appointments/:id/mark-finished', auth, isAdmin, adminController.markAppointmentFinished);
 router.get('/admin/withdrawals', auth, isAdmin, adminController.getAllWithdrawals);
 router.put('/admin/withdrawals/:id/approve', auth, isAdmin, adminController.approveWithdrawal);
+
 
 // ✅ Admin Stats
 router.get('/admin/stats/users', auth, isAdmin, adminController.getUserStats); // NEW
