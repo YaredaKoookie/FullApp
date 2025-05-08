@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 
 // Enums
 const APPOINTMENT_STATUS = [
+  "decline",
   "pending",
   "confirmed",
   "completed",

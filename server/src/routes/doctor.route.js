@@ -1,5 +1,5 @@
 import {isDoctor} from '../middlewares/auth.middleware';
-import {doctorController} from '../controllers';
+import {doctorController, reviewController} from '../controllers';
 
 import {Router} from "express"
 import { validate } from '../validations';
@@ -40,9 +40,6 @@ router.put('/appointments/:id/cancel', isDoctor, doctorController.cancelAppointm
 
 
 
-
-
-
-
+router.get("/doctor/:doctorId/reviews/", reviewController.getReviews);
 
 export default router
