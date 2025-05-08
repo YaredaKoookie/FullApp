@@ -41,9 +41,6 @@ router.get('/availability', isDoctor, doctorController.getAvailability);
 
 
 
-<<<<<<< HEAD
-=======
 router.get("/doctor/:doctorId/reviews/", reviewController.getReviews);
->>>>>>> 053f1eab8befc622760fbc70a475ed4e78ea7721
 
 export default router
