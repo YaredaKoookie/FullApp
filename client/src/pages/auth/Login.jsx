@@ -1,12 +1,17 @@
-import { Field, Input, Card, Button, Stack, Text } from "@chakra-ui/react";
+import {
+  Field,
+  Input,
+  Card,
+  Button,
+  Stack,
+  Text,
+  Link,
+} from "@chakra-ui/react";
 import { PasswordInput } from "@/components/ui/password-input";
 import { useForm } from "react-hook-form";
-import { useMutation } from "@tanstack/react-query";
-import apiClient from "@/api/apiClient";
-import { toast } from "react-toastify";
-import { useAuth } from "@/context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
 import GoogleLoginBtn from "./GoogleLoginBtn";
+import useLogin from "@/hooks/useLogin";
 
 const Login = () => {
   const {
@@ -15,29 +20,29 @@ const Login = () => {
     formState: { errors },
   } = useForm();
 
-  const { login } = useAuth();
-  const navigate = useNavigate();
+  const loginMutation = useLogin();
 
-  const loginMutation = useMutation({
-    mutationFn: (data) => apiClient.post("/auth/login", data),
-  });
-
-  // direct login
   const onSubmit = async (data) => {
-    try {
-      const result = await loginMutation.mutateAsync(data);
-      const { accessToken, user } = result.data;
-      login(accessToken, user);
-      toast.success("Successfully Logged In");
-      navigate("/");
-    } catch(error) {
-      toast.error(error?.response?.data?.message || error.message);
-    }
+    await loginMutation.mutateAsync(data);
   };
+
+
   return (
-    <Stack minHeight={"100vh"} flexDirection="row" alignItems="center" justifyContent={"center"}>
-      <Card.Root sm={{minWidth: 240}} md={{minWidth: 540}} onSubmit={handleSubmit(onSubmit)} as="form">
-        <Card.Header>Login</Card.Header>
+    <Stack
+      minHeight={"100vh"}
+      flexDirection="row"
+      alignItems="center"
+      justifyContent={"center"}
+    >
+      <Card.Root
+        sm={{ minWidth: 240 }}
+        md={{ minWidth: 540 }}
+        onSubmit={handleSubmit(onSubmit)}
+        as="form"
+      >
+        <Card.Header>
+          <Card.Title>Login</Card.Title>
+        </Card.Header>
         <Card.Body>
           <Field.Root mb={3} invalid={errors.email}>
             <Field.Label>Email</Field.Label>
@@ -81,10 +86,16 @@ const Login = () => {
           <Text color={"#aaa"}>or</Text>
           <div style={{ height: 2, background: "#efefef", flexGrow: 1 }}></div>
         </Stack>
-        <Card.Footer>
-          <Stack width="100%">
+        <Card.Footer flexDirection={"column"}>
+          <Stack width="100%" mb={4}>
             <GoogleLoginBtn />
           </Stack>
+          <Text color="gray.500" fontSize="sm">
+            No account yet?{" "}
+            <Link variant="underline" as={RouterLink} to="/auth/select-role">
+              Register
+            </Link>
+          </Text>
         </Card.Footer>
       </Card.Root>
     </Stack>

@@ -1,4 +1,6 @@
+import Loading from '@/components/Loading';
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import useGetUser from '@/hooks/useGetUser';
 
 // Create AuthContext
 const AuthContext = createContext();
@@ -6,38 +8,34 @@ const AuthContext = createContext();
 // AuthProvider component
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [isUserFetching, setIsUserFetching] = useState(true);
+    const {data: response, isLoading} = useGetUser();
 
-    // Automatically load user from localStorage
     useEffect(() => {
-        const token = localStorage.getItem("token");
-        const storedUser = localStorage.getItem("user");
-
-        if (token && storedUser) {
-            setUser(JSON.parse(storedUser));
+        if(response?.data?.user){
+            setUser(response.data.user);
         }
-        setIsUserFetching(false);
-    }, []);
+    }, [response]);
 
     const login = (accessToken, userData) => {
         localStorage.setItem("token", accessToken);
-        localStorage.setItem("user", JSON.stringify(userData));
         setUser(userData);
     };
 
     const logout = () => {
         localStorage.removeItem("token");
-        localStorage.removeItem("user");
         setUser(null);
     };
 
     const value = {
         user,
-        isUserFetching,
+        isLoading,
         login,
         logout,
         isAuthenticated: !!user,
     };
+
+    if(isLoading)
+        return <Loading />
 
     return (
         <AuthContext.Provider value={value}>

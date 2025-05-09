@@ -11,6 +11,10 @@ const ProtectedRoute = ({children}) => {
   if(!user)
     return <Navigate to="/auth/login" replace />
 
+  if(!user.isProfileCompleted){
+    return <Navigate to="/patient/complete-profile" replace />
+  }
+
   return children || <Outlet />
 }
 

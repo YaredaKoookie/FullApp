@@ -5,6 +5,7 @@ import {
   Card,
   Button,
   Text,
+  Link,
   Fieldset,
 } from "@chakra-ui/react";
 import {
@@ -12,10 +13,9 @@ import {
   PasswordStrengthMeter,
 } from "@/components/ui/password-input";
 import { useForm } from "react-hook-form";
-import apiClient from "@/api/apiClient";
-import { toast } from "react-toastify";
-import { useMutation } from "@tanstack/react-query";
 import GoogleLoginBtn from "./GoogleLoginBtn";
+import {Link as RouterLink} from "react-router-dom";
+import useRegister from "@/hooks/useRegister";
 
 const checkPasswordStrength = (password) => {
   let strengthValue = 0;
@@ -54,18 +54,12 @@ const Register = ({ role }) => {
     formState: { errors },
   } = useForm();
 
-  const registerMutation = useMutation({
-    mutationFn: async (data) => await apiClient.post("/auth/register", data),
-  });
+  const registerMutation = useRegister();
 
   const loginWithPassword = async (formData) => {
-    try {
       await registerMutation.mutateAsync({ ...formData, role });
-      toast.success("Email verification has been sent");
-    } catch {
-      toast.error(registerMutation.error.message);
-    }
   };
+  
   return (
     <Card.Root
       onSubmit={handleSubmit(loginWithPassword)}
@@ -139,10 +133,16 @@ const Register = ({ role }) => {
         <Text color={"#aaa"}>or</Text>
         <div style={{ height: 2, background: "#efefef", flexGrow: 1 }}></div>
       </Stack>
-      <Card.Footer>
-        <Stack width="100%">
+      <Card.Footer flexDir="column">
+        <Stack width="100%" mb={2}>
           <GoogleLoginBtn role={role} />
         </Stack>
+        <Text color="gray.500" fontSize="sm">
+         Already have an account?{" "}
+          <Link variant="underline" as={RouterLink} to="/auth/login">
+            Login
+          </Link>
+        </Text>
       </Card.Footer>
     </Card.Root>
   );

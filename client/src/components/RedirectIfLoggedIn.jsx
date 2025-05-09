@@ -2,16 +2,16 @@ import { useAuth } from '@/context/AuthContext'
 import { Navigate, Outlet } from 'react-router-dom';
 import Loading from './Loading';
 
-const ProtectedRoute = ({children}) => {
+const RedirectIfLoggedIn = ({children}) => {
   const {user, isLoading} = useAuth();
 
   if(isLoading)
     return <Loading />
 
-  if(!user)
-    return <Navigate to="/auth/login" replace />
+  if(user)
+    return <Navigate to="/" replace />
 
   return children || <Outlet />
 }
 
-export default ProtectedRoute
+export default RedirectIfLoggedIn

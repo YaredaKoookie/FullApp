@@ -10,7 +10,7 @@ const RegistrationTab = () => {
 
 
   if (!role || (role !== "doctor" && role !== "patient")) {
-    return <Navigate to="/select-role" replace />;
+    return <Navigate to="/auth/select-role" replace />;
   }
 
 
@@ -19,8 +19,8 @@ const RegistrationTab = () => {
       <Card.Root md={{minWidth: 540}} sm={{minWidth: 320}}>
         <Tabs.Root variant="enclosed" fitted defaultValue="full-register">
           <Tabs.List>
-            <Tabs.Trigger value="full-register">Full Register</Tabs.Trigger>
-            <Tabs.Trigger value="email-register">Email Regsiter</Tabs.Trigger>
+            <Tabs.Trigger value="full-register">Register</Tabs.Trigger>
+            <Tabs.Trigger value="email-register">Continue With Email</Tabs.Trigger>
           </Tabs.List>
           <Card.Body sm={{p:1}} lg={{p: 5}} >
             <Tabs.Content value="full-register">

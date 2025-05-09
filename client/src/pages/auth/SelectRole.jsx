@@ -21,7 +21,7 @@ const SelectRole = () => {
 
   const handleProceed = () => {
     if (!selectedRole) return; // Do nothing if no role is selected
-    navigate(`/register?role=${selectedRole}`);
+    navigate(`/auth/register?role=${selectedRole}`);
   };
 
   return (
