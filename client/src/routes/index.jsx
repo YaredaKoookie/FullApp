@@ -11,6 +11,7 @@ import Login from "@/pages/auth/Login";
 import RegistrationTab from "@/pages/auth/RegistrationTab";
 import SelectRole from "@/pages/auth/SelectRole";
 import DoctorLayout from "@/pages/doctor/DoctorLayout";
+import PatientDashboard from "@/pages/patient/PatientDashboard";
 import PatientLayout from "@/pages/patient/PatientLayout";
 import Home from "@/pages/public/Home";
 import {
@@ -30,20 +31,22 @@ const router = createBrowserRouter(
       <Route
         path="doctor"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute role="doctor">
             <DoctorLayout />
           </ProtectedRoute>
         }
       ></Route>
 
-      <Route
-        path="patient"
-        element={
-          <ProtectedRoute>
-            <PatientLayout />
-          </ProtectedRoute>
-        }
-      ></Route>
+      <Route path="/patient" element={<PatientLayout />}>
+        <Route
+          path="dashboard"
+          element={
+            <ProtectedRoute>
+              <PatientDashboard />
+            </ProtectedRoute>
+          }
+        />
+      </Route>
 
       <Route path="auth" element={<RedirectIfLoggedIn />}>
         <Route index element={<Navigate to="/auth/login" replace />} />

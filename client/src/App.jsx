@@ -12,11 +12,10 @@ const App = () => {
     onSuccess: () => logoutUser()
  })
 
- console.log(user);
-
   return (
      <div className="h-screen">
       <Navbar />
+      {user && <button onClick={logoutMutation.mutate}>{logoutMutation.isPending ? "Loading..." : "Logout"}</button>}
       <Outlet />
      </div>    
   );
