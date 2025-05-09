@@ -1,6 +1,6 @@
-import { Box, Button, Heading, Highlight, Stack, Text } from "@chakra-ui/react";
 import React from "react";
 import { Link, useRouteError } from "react-router-dom";
+import { AlertTriangle } from 'lucide-react';
 
 const ErrorBoundary = () => {
   const error = useRouteError();
@@ -14,25 +14,35 @@ const ErrorBoundary = () => {
   }
 
   return (
-    <Stack
-      fontFamily={"Quicksand"}
-      alignItems="center"
-      justifyContent="center"
-      minH={"100vh"}
-    >
-      <Box maxW={"xl"} shadow="lg" p={12} maxH={500} overflow={"auto"} borderRadius={6}>
-        <Heading color="red.300" mb={8} fontSize={38} textTransform={"capitalize"}>
-          {title || "Something Went Wrong"}
-        </Heading>
-        <Text  mb={8}>
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 font-sans">
+      <div className="w-full max-w-xl overflow-auto rounded-lg bg-white p-12 shadow-lg">
+        <div className="mb-8 flex flex-col items-center">
+          <AlertTriangle className="h-16 w-16 text-red-400" />
+          <h1 className="mt-4 text-3xl font-bold text-red-500 capitalize">
+            {title || "Something Went Wrong"}
+          </h1>
+        </div>
+
+        <p className="mb-8 text-center text-gray-600">
           {message}. Click the button below to go back to the home page.
-        </Text>
-        {import.meta.env.DEV  && <Text p={3}>{error?.stack || error?.error?.stack}</Text>}
-        <Button as={Link} to="/" mt={8} variant="solid">
-          Back to Home Page
-        </Button>
-      </Box>
-    </Stack>
+        </p>
+
+        {import.meta.env.DEV && (
+          <pre className="mb-8 overflow-auto rounded bg-gray-100 p-4 text-sm text-gray-800">
+            {error?.stack || error?.error?.stack}
+          </pre>
+        )}
+
+        <div className="flex justify-center">
+          <Link
+            to="/"
+            className="rounded-md bg-blue-600 px-4 py-2 text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            Back to Home Page
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 };
 

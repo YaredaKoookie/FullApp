@@ -1,15 +1,6 @@
-import React, { useState } from "react";
-import { Heart, Stethoscope } from "lucide-react"; // Correct Lucide icons
-import {
-  Box,
-  Button,
-  Center,
-  Flex,
-  Heading,
-  Stack,
-  Text,
-} from "@chakra-ui/react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from 'react';
+import { Heart, Stethoscope } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const SelectRole = () => {
   const [selectedRole, setSelectedRole] = useState(null);
@@ -20,88 +11,56 @@ const SelectRole = () => {
   };
 
   const handleProceed = () => {
-    if (!selectedRole) return; // Do nothing if no role is selected
+    if (!selectedRole) return;
     navigate(`/auth/register?role=${selectedRole}`);
   };
 
   return (
-    <Stack minHeight="100vh" flexDir="column" alignItems={"center"} justifyContent={"center"}> 
-      <Box w="full" maxW="md" p={6} rounded="lg" shadow="lg">
-        <Heading as="h1" size="lg" textAlign="center" mb={6}>
-          Select Your Role
-        </Heading>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="w-full max-w-md bg-white shadow-lg rounded-lg p-6">
+        <h1 className="text-2xl font-bold text-center mb-6">Select Your Role</h1>
 
-        <Flex justify="space-around" mb={6}>
+        <div className="flex justify-around mb-6 gap-1">
           {/* Doctor Card */}
-          <Stack
-            w="40"
-            h="40"
-            d="flex"
-            flexDir="column"
-            alignItems="center"
-            justifyContent="center"
-            p={4}
-            borderWidth="1px"
-            rounded="lg"
-            shadow="lg"
-            cursor="pointer"
-            transition="all 0.3s ease-in-out"
-            transform={selectedRole === "doctor" ? "scale(1.05)" : "scale(1)"}
-            bg={selectedRole === "doctor" ? "blue.100" : "transparent"}
-            borderColor={selectedRole === "doctor" ? "blue.500" : "gray.300"}
-            onClick={() => handleSelectRole("doctor")}
+          <div
+            className={`flex flex-col items-center justify-center p-12 border rounded-lg shadow-lg cursor-pointer transition-transform duration-300 ${
+              selectedRole === 'doctor' ? 'bg-blue-100 border-blue-500 scale-105' : 'bg-transparent border-gray-300'
+            }`}
+            onClick={() => handleSelectRole('doctor')}
           >
-            <Stethoscope className="text-4xl" color="blue" />
-            <Text fontSize="lg" fontWeight="semibold" mt={2}>
-              Doctor
-            </Text>
-          </Stack>
+            <Stethoscope className="text-blue-500 w-10 h-10" />
+            <span className="mt-2 font-semibold text-sm">Doctor</span>
+          </div>
 
           {/* Patient Card */}
-          <Stack
-            w="40"
-            h="40"
-            d="flex"
-            flexDir="column"
-            alignItems="center"
-            justifyContent="center"
-            p={4}
-            borderWidth="1px"
-            rounded="lg"
-            shadow="lg"
-            cursor="pointer"
-            transition="all 0.3s ease-in-out"
-            transform={selectedRole === "patient" ? "scale(1.05)" : "scale(1)"}
-            bg={selectedRole === "patient" ? "green.100" : "transparent"}
-            borderColor={selectedRole === "patient" ? "green.500" : "gray.300"}
-            onClick={() => handleSelectRole("patient")}
+          <div
+            className={`flex flex-col items-center justify-center p-12 border rounded-lg shadow-lg cursor-pointer transition-transform duration-300 ${
+              selectedRole === 'patient' ? 'bg-green-100 border-green-500 scale-105' : 'bg-transparent border-gray-300'
+            }`}
+            onClick={() => handleSelectRole('patient')}
           >
-            <Heart className="text-4xl" color="green" />
-            <Text fontSize="lg" fontWeight="semibold" mt={2}>
-              Patient
-            </Text>
-          </Stack>
-        </Flex>
+            <Heart className="text-green-500 w-10 h-10" />
+            <span className="mt-2 font-semibold text-sm">Patient</span>
+          </div>
+        </div>
 
-        <Button
-          w="full"
-          py={3}
-          colorScheme="blue"
+        <button
+          className={`w-full py-3 bg-neutral-900 text-white rounded-lg hover:bg-neutral-900 transition ${
+            !selectedRole && 'opacity-50 cursor-not-allowed'
+          }`}
           onClick={handleProceed}
           disabled={!selectedRole}
         >
           Proceed to Registration
-        </Button>
+        </button>
 
-        {/* Information Text */}
-        <Center mt={4}>
-          <Text textAlign="center">
-            Choose your role to get started. You will be able to switch your
-            role later if needed.
-          </Text>
-        </Center>
-      </Box>
-    </Stack>
+        <div className="mt-4 text-center">
+          <p className="text-gray-500">
+            Choose your role to get started. You will be able to switch your role later if needed.
+          </p>
+        </div>
+      </div>
+    </div>
   );
 };
 

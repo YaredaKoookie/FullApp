@@ -1,25 +1,17 @@
-import { logout } from '@/lib/api';
-import { useAuth } from '@/context/AuthContext'
-import { Button } from '@chakra-ui/react';
-import { useMutation } from '@tanstack/react-query';
+import { Outlet } from "react-router-dom";
+import PatientSideBar from "./PatientSideBar";
 
 const PatientLayout = () => {
-  const {user, logout: logoutUser} =  useAuth();
-  const logoutMutation = useMutation({
-     mutationFn: logout,
-     onSuccess: () => logoutUser()
-  })
-
   return (
-    <div>
-        <h1>Email: {user.name}</h1>
-        <Button 
-        loading={logoutMutation.isPending}
-        loadingText={"Please wait..."}
-        onClick={logoutMutation.mutate}
-        >Logout</Button>
+    <div className="flex">
+      <aside className="fixed top-0 bottom-0 w-[320px]">
+        <PatientSideBar />
+      </aside>
+      <section className="ml-[320px] w-[calc(100%-320px)] h-screen overflow-auto">
+        <Outlet />
+      </section>
     </div>
-  )
-}
+  );
+};
 
-export default PatientLayout
+export default PatientLayout;
