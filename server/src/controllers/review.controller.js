@@ -5,45 +5,52 @@ import Appointment from "../models/appointment/appointment.model.js";
 import Review from "../models/review.model.js";
 import { isValidObjectId } from "mongoose";
 
+async function updateDoctorRating(doctorId) {
+  const stats = await Review.aggregate([
+    { $match: { doctor: doctorId, status: "approved" } },
+    {
+      $group: {
+        _id: null,
+        rating: { $avg: "$rating" },
+        totalReviews: { $sum: 1 },
+      },
+    },
+  ]);
 
-async function updateDoctorRating (doctorId) {
-    const stats = await Review.aggregate([
-        {$match: {doctor: doctorId, status: "approved"}},
-        {
-            $group: {
-                _id: null,
-                rating: { $avg: "$rating" },
-                totalReviews: { $sum: 1 }
-            }
+  const updateData =
+    stats.length > 0
+      ? {
+          rating: parseFloat(stats[0].averageRating.toFixed(1)),
+          totalReviews: stats[0].totalReviews,
         }
-    ]);
+      : { rating: 0, totalReviews: 0 };
 
-    const updateData = stats.length > 0 ? {
-        rating: parseFloat(stats[0].averageRating.toFixed(1)), 
-        totalReviews: stats[0].totalReviews
-    } : {rating: 0, totalReviews: 0}
-
-    await Doctor.findByIdAndUpdate(doctorId, updateData);
+  await Doctor.findByIdAndUpdate(doctorId, updateData);
 }
 
 export const createReview = async (req, res) => {
-  const { doctorId, rating, reviewText, tags, appointmentId, anonymous } = req.body;
+  const { doctorId, rating, reviewText, tags, appointmentId, anonymous } =
+    req.body;
 
   console.log(req.user.sub);
-  const patient = await Patient.findOne({ user: req.user.sub }).select("_id").lean();
+  const patient = await Patient.findOne({ user: req.user.sub })
+    .select("_id")
+    .lean();
 
   if (!patient) throw ServerError.notFound("Patient not found");
 
   const appointment = await Appointment.findOne({
     _id: appointmentId,
-    patient: patient._id, 
-    doctor: doctorId
+    patient: patient._id,
+    doctor: doctorId,
   });
 
   if (!appointment) throw ServerError.notFound("Appointment not found");
 
   if (appointment.status !== "completed")
-    throw ServerError.notFound("Reviews are allowed only for completed appointments");
+    throw ServerError.notFound(
+      "Reviews are allowed only for completed appointments"
+    );
 
   let review = await Review.findOne({ appointment: appointment._id });
 
@@ -59,7 +66,6 @@ export const createReview = async (req, res) => {
     tags,
   });
 
- 
   updateDoctorRating(doctorId);
 
   res.json({
@@ -73,10 +79,10 @@ export const getReviews = async (req, res) => {
   const { page = 1, limit = 10, minRating } = req.query;
   const skip = (page - 1) * limit;
 
-  if(!doctorId || isValidObjectId(!doctorId))
+  if (!doctorId || isValidObjectId(!doctorId))
     throw ServerError.badRequest("Invalid doctor id");
 
-  const query = {doctor: doctorId};
+  const query = { doctor: doctorId };
   if (minRating) query.rating = { $gt: Number(minRating) };
 
   const reviews = await Review.find(query)
@@ -101,68 +107,72 @@ export const getReviews = async (req, res) => {
 };
 
 export const updateReview = async (req, res) => {
-      const { reviewId } = req.params;
-      const { rating, reviewText, anonymous, tags } = req.body;
-      const userId = req.user.sub;
-      console.log("body", req.body)
-      if (!reviewId || !isValidObjectId(reviewId)) {
-        return res.status(400).json({ success: false, message: "Invalid review ID" });
-      }
-  
-      const patient = await Patient.findOne({ user: userId }).select("_id").lean();
+  const { reviewId } = req.params;
+  const { rating, reviewText, anonymous, tags } = req.body;
+  const userId = req.user.sub;
+  console.log("body", req.body);
+  if (!reviewId || !isValidObjectId(reviewId)) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid review ID" });
+  }
 
-      if (!patient) {
-        return res.status(403).json({ success: false, message: "Patient not found" });
-      }
-  
-      const review = await Review.findOneAndUpdate(
-        { _id: reviewId, patient: patient._id },
-        { 
-          rating, 
-          reviewText, 
-          anonymous,
-          tags,
-          edited: true,
-        },
-        { new: true }
-      ).populate('doctor', 'name specialty -_id');
-  
-      if (!review) {
-        return res.status(404).json({ success: false, message: "Review not found" });
-      }
-  
-      // Update doctor rating if rating changed
-      if (rating !== review.rating) {
-        await updateDoctorRating(review.doctor._id);
-      }
-  
-      res.json({ success: true, data: {review} });
-  };
+  const patient = await Patient.findOne({ user: userId }).select("_id").lean();
+
+  if (!patient) {
+    return res
+      .status(403)
+      .json({ success: false, message: "Patient not found" });
+  }
+
+  const review = await Review.findOneAndUpdate(
+    { _id: reviewId, patient: patient._id },
+    {
+      rating,
+      reviewText,
+      anonymous,
+      tags,
+      edited: true,
+    },
+    { new: true }
+  ).populate("doctor", "name specialty -_id");
+
+  if (!review) {
+    return res
+      .status(404)
+      .json({ success: false, message: "Review not found" });
+  }
+
+  // Update doctor rating if rating changed
+  if (rating !== review.rating) {
+    await updateDoctorRating(review.doctor._id);
+  }
+
+  res.json({ success: true, data: { review } });
+};
 
 export const deleteReview = async (req, res) => {
-    const {reviewId} = req.params;
-    const userId = req.user.sub;
+  const { reviewId } = req.params;
+  const userId = req.user.sub;
 
-    const patient = await Patient.findOne({user: userId}).select("_id").lean();
+  const patient = await Patient.findOne({ user: userId }).select("_id").lean();
 
-    if(!patient)
-        throw ServerError.notFound("Patient not found");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    const deleteReview = await Review.findOneAndDelete({
-       _id: reviewId,
-       patient: patient._id
-    })
+  const deleteReview = await Review.findOneAndDelete({
+    _id: reviewId,
+    patient: patient._id,
+  });
 
-    if(!deleteReview)
-        throw ServerError.notFound("Review not found");
+  if (!deleteReview) throw ServerError.notFound("Review not found");
 
-    await updateDoctorRating(deleteReview.doctor)
+  await updateDoctorRating(deleteReview.doctor);
 
-    res.json({
-        success: true,
-        message: "review deleted successfully",
-        data: []
-    })
-}
+  res.json({
+    success: true,
+    message: "review deleted successfully",
+    data: [],
+  });
+};
 
 // #### PUBLIC END

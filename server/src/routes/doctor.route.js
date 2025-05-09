@@ -28,8 +28,6 @@ router.get('/availability', isDoctor, doctorController.getAvailability);
 
 
 
-
-
 // router.get('/chats', isDoctor, chatController.getChats);
 // router.post('/withdrawal/request', isDoctor, doctorController.requestWithdrawal);
 // router.get('/earnings', isDoctor, doctorController.getEarnings);
@@ -37,8 +35,10 @@ router.get('/availability', isDoctor, doctorController.getAvailability);
 // router.post('/appointment/:id/notes', isDoctor, doctorController.addNotes); 
 
 
-
-
+// optional 
+// doctor must add prescription optional features add by the doctor the the patient can see his prescription 
+// add note when the patient make appointment he can add note about his clinical status
+// mkdir a side 
 
 
 router.get("/doctor/:doctorId/reviews/", reviewController.getReviews);
