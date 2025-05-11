@@ -51,3 +51,12 @@ export const isPatient = [
     next(ServerError.forbidden("Access Denied"));
   }
 ]
+
+export const isProfileCompleted = [
+  (req, res, next) => {
+    if(!req.user.isProfileCompleted)
+      throw ServerError.forbidden("Access Denied! you need to complete your profile")
+
+    next();
+  }
+]

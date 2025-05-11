@@ -23,11 +23,12 @@ import {
 import { Dialog, Transition, Listbox } from '@headlessui/react'
 import { toast } from 'react-toastify'
 import { useNavigate } from 'react-router-dom'
+import apiClient from '@/lib/apiClient'
 
 const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const appointmentDurations = [15, 30, 45, 60]
 const serviceAreasOptions = ['In-person', 'Telehealth', 'Home visits']
-const genderOptions = ['Male', 'Female', 'Other', 'Prefer not to say']
+const genderOptions = ['male', 'female', 'other', 'Prefer not to say']
 
 const DoctorProfileCompletion = () => {
   const navigate = useNavigate();
@@ -55,7 +56,7 @@ const DoctorProfileCompletion = () => {
 
   const submitProfile = useMutation({
     mutationFn: async (data) => {
-      const response = await axios.post('http://localhost:3000/doctors/profile/complete', data)
+      const response = await apiClient.post('http://localhost:3000/doctors/profile/complete', data)
       return response.data
     },
     onSuccess: () => {
@@ -69,6 +70,7 @@ const DoctorProfileCompletion = () => {
 
   const onSubmit = (data) => {
     submitProfile.mutate(data)
+    console.log(data);
   }
 
   // Handle document upload

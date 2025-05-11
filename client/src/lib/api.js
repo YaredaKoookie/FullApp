@@ -39,3 +39,11 @@ export const emailVerify = async (token) => {
 export const refreshToken = async () => {
     return await apiClient.post("/auth/refresh");
 }
+
+export const getAppointments = async () => {
+    return await apiClient.get("/patient/appointments");
+}
+
+export const getApprovedDoctors = async () => {
+    return await apiClient.get("/patient/doctors");
+}

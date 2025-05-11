@@ -11,9 +11,13 @@ import Login from "@/pages/auth/Login";
 import RegistrationTab from "@/pages/auth/RegistrationTab";
 import SelectRole from "@/pages/auth/SelectRole";
 import DoctorLayout from "@/pages/doctor/DoctorLayout";
-import DoctorProfileCompletion from "@/pages/doctor/DoctorProfileCompletion";
+import AppointmentDetails from "@/pages/patient/AppointmentDetails";
+import Appointments from "@/pages/patient/Appointments";
 import PatientDashboard from "@/pages/patient/PatientDashboard";
+import PatientDoctors from "@/pages/patient/PatientDoctors";
 import PatientLayout from "@/pages/patient/PatientLayout";
+import PatientProfileComplete from "@/pages/patient/PatientProfileComplete";
+import PatientProfile from "@/pages/patient/Profile";
 import Home from "@/pages/public/Home";
 import {
   createBrowserRouter,
@@ -42,10 +46,51 @@ const router = createBrowserRouter(
 
       <Route path="/patient" element={<PatientLayout />}>
         <Route
+          index
           path="dashboard"
           element={
             <ProtectedRoute>
               <PatientDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="appointments"
+          element={
+            <ProtectedRoute>
+              <Appointments />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="doctors"
+          element={
+            <ProtectedRoute>
+              <PatientDoctors />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="profile"
+          element={
+            <ProtectedRoute>
+              <PatientProfile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="profile-complete"
+          element={
+            <ProtectedRoute>
+              <PatientProfileComplete />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="appointments/:id"
+          element={
+            <ProtectedRoute>
+              <AppointmentDetails />
             </ProtectedRoute>
           }
         />

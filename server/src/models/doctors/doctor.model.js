@@ -57,7 +57,7 @@ const doctorSchema = new Schema(
       coordinates: {
         type: [Number],
         index: "2dsphere",
-        required: true,
+        required: false,
       },
       street1: String,
       street2: String,

@@ -3,8 +3,10 @@ import User from "../models/user.model.js";
 import ServerError from "../utils/ServerError.js";
 import Doctor from "../models/doctors/doctor.model.js";
 import Appointment from "../models/appointment/appointment.model.js";
-import Review from "../models/review.model.js";
-
+import path from "path";
+import fs from "fs";
+import sharp from "sharp";
+import logger from "../utils/logger.util.js";
 /**
  * @desc Create a new patient profile linked to an existing user.
  * @route POST /api/patients/profiles
@@ -12,17 +14,18 @@ import Review from "../models/review.model.js";
  */
 export const createPatientProfile = async (req, res) => {
   const {
-    name,
+    firstName,
+    middleName,
+    lastName,
     gender,
     phone,
-    dob,
+    dateOfBirth,
     location,
     emergencyContact,
     insurance,
     preferredLanguage,
     martialStatus,
     bloodType,
-    profileImage,
     notificationPreference,
   } = req.body;
 
@@ -38,27 +41,41 @@ export const createPatientProfile = async (req, res) => {
   const existingPatientProfile = await Patient.findOne({ user: userId });
 
   if (existingPatientProfile) {
-    throw ServerError.conflict(
-      `Patient profile already exists for user ID ${userId}.`
-    );
+    throw ServerError.conflict(`Patient profile already exists.`);
   }
 
   // Basic date validation (more robust validation can be added)
-  const parsedDob = new Date(dob);
-
+  const parsedDob = new Date(dateOfBirth);
+  console.log(parsedDob);
   if (isNaN(parsedDob.getTime()) || parsedDob >= new Date()) {
     throw ServerError.badRequest("Invalid date of birth.");
   }
 
-  console.log(req.user, user);
+  let profileImage = null;
+
+  if (req.file) {
+    const fileId = crypto.randomUUID().toString("hex");
+    const filePath = "/uploads/patients";
+    const fileName = `${fileId}.webp`;
+    const uploadPath = path.join("public", filePath, fileName);
+
+    await sharp(req.file.buffer)
+      .resize(500, 500)
+      .webp({ quality: 80 })
+      .toFile(uploadPath);
+
+    profileImage = `${filePath}/${fileName}`;
+  }
 
   // Create the patient profile
   const patientProfile = await Patient.create({
     user: userId,
-    name,
+    firstName,
+    middleName,
+    lastName,
     gender,
     phone,
-    dob: parsedDob,
+    dateOfBirth: parsedDob,
     location: {
       locationType: location.locationType,
       country: location.country,
@@ -85,9 +102,11 @@ export const createPatientProfile = async (req, res) => {
     user.isProfileCompleted = true;
     await user.save();
 
+    await patientProfile.populate("user", "email isProfileCompleted");
+
     res.status(201).json({
       ...patientProfile.toObject(),
-      dob: patientProfile.dob.toISOString().split("T")[0],
+      dateOfBirth: patientProfile.dateOfBirth.toISOString().split("T")[0],
     });
   } else {
     res.status(500);
@@ -123,6 +142,28 @@ export const updateProfile = async (req, res) => {
 
   if (!patient) throw ServerError.notFound("Profile not found");
 
+  let oldImagePath = null;
+  let newImagePath = null;
+
+  if (req.file) {
+    if (patient.profileImage) {
+      oldImagePath = path.join("public", patient.profileImage);
+    }
+
+    const fileId = crypto.randomUUID().toString("hex");
+    const filePath = "/uploads/patients";
+    const fileName = `${fileId}.webp`;
+    const uploadPath = path.join("public", filePath, fileName);
+
+    await sharp(req.file.buffer)
+      .resize(500, 500)
+      .webp({ quality: 80 })
+      .toFile(uploadPath);
+
+    newImagePath = `${filePath}/${fileName}`;
+    req.body.profileImage = newImagePath;
+  }
+
   // Only update specific fields from req.body to prevent unwanted changes
   const updatedPatient = await Patient.findByIdAndUpdate(
     patient._id, // Find by the patient's id
@@ -133,12 +174,77 @@ export const updateProfile = async (req, res) => {
     }
   );
 
+  console.log("oldImagePath", oldImagePath);
+
+  if (oldImagePath) {
+    fs.unlink(oldImagePath, (err) => {
+      if (err) {
+        logger.error("Unable to delete old image:", err);
+      }
+    });
+  }
+
   // Return the updated patient profile
   res.json({
     success: true,
     message: "Profile updated",
     data: {
       patient: updatedPatient,
+    },
+  });
+};
+
+export const uploadPatientProfileImage = async (req, res, next) => {
+  const { sub, role } = req.user.role;
+
+  const patient = await Patient.findOne({ userId: sub });
+
+  if (!patient) throw new ServerError.notFound("patient profile not found");
+
+  if (!req.file) throw new ServerError.badRequest("No file provided to upload");
+
+  let oldImagePath = null;
+  let newImagePath = null;
+
+  if (patient.profileImage) {
+    oldImagePath = path.join("public", patient.profileImage);
+  }
+
+  const fileId = crypto.randomUUID().toString("hex");
+  const filePath = "/uploads/patients";
+  const fileName = `${fileId}.webp`;
+  const uploadPath = path.join("public", filePath, fileName);
+
+  await sharp(req.file.buffer)
+    .resize(500, 500)
+    .webp({ quality: 80 })
+    .toFile(uploadPath);
+
+  newImagePath = `${filePath}/${fileName}`;
+  req.body.profileImage = newImagePath;
+
+  const updatePatient = await Patient.findByIdAndUpdate(
+    patient._id, // Find by the patient's id
+    { profileImage: newImagePath }, // Fields to update
+    {
+      new: true, // Return the updated document
+      runValidators: true, // Apply validation rules
+    }
+  );
+
+  if (oldImagePath) {
+    fs.unlink(oldImagePath, (err) => {
+      if (err) {
+        logger.error("Unable to delete old image:", err);
+      }
+    });
+}
+
+  res.json({
+    success: true,
+    message: "Profile image have been changed successfully",
+    data: {
+      profileImage: updatePatient.profileImage,
     },
   });
 };
@@ -221,7 +327,7 @@ export const bookAppointment = async (req, res) => {
   // Create new appointment
   const newAppointment = new Appointment({
     patient: patientId,
-    doctor: doctorId,
+    doctor: doctor._id,
     appointmentType,
     reason,
     slot: {
@@ -253,8 +359,10 @@ export const getPatientAppointments = async (req, res) => {
   if (status) query.status = status;
 
   const appointments = await Appointment.find(query)
-    .populate("doctor", "fullName specialization")
+    .populate("doctor", "firstName lastName specialization")
     .sort({ createdAt: -1 });
+
+  console.log("appointments", appointments);
 
   res.json({
     success: true,
@@ -321,7 +429,7 @@ export const cancelAppointment = async (req, res) => {
 export const getApprovedDoctors = async (req, res) => {
   const {
     page = 1,
-    limit = 1,
+    limit = 20,
     specialization,
     location,
     minRating,
@@ -340,6 +448,7 @@ export const getApprovedDoctors = async (req, res) => {
   if (location) query["location.city"] = { $regex: location, $options: "i" };
 
   if (minRating) query.rating = { $gte: Number(minRating) };
+  console.log(query);
 
   const doctors = await Doctor.find(query)
     .select(
@@ -367,14 +476,13 @@ export const getApprovedDoctors = async (req, res) => {
 };
 
 export const getApprovedDoctorById = async (req, res) => {
-  
   if (!req.params.doctorId)
     throw ServerError.badRequest("doctor id is not provided");
 
   const query = {
     _id: req.params.doctorId,
-    approvalStatus: "approved"
-  }
+    approvalStatus: "approved",
+  };
 
   const doctor = await Doctor.findOne(query).select(
     "-licenseNumber -licenseDocument -idProof -withdrawalBalance -adminRemarks -applicationNotes"
@@ -382,11 +490,10 @@ export const getApprovedDoctorById = async (req, res) => {
 
   if (!doctor) throw ServerError.notFound("Doctor doesn't exist");
 
-
   res.json({
     success: true,
     data: {
-      doctor
-    }
-  })
+      doctor,
+    },
+  });
 };

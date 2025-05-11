@@ -18,7 +18,7 @@ export const completeProfileValidation = [
 
   body("specialization").notEmpty().withMessage("Specialization is required"),
 
-  body("specialties").isArray({ min: 1 }).withMessage("At least one specialty is required"),
+  // body("specialties").isArray({ min: 1 }).withMessage("At least one specialty is required"),
   body("specialties.*.name").notEmpty().withMessage("Specialty name is required"),
 
   body("qualifications").isArray({ min: 1 }).withMessage("At least one qualification is required"),
@@ -37,12 +37,12 @@ export const completeProfileValidation = [
     .withMessage("Valid board certification document URL is required"),
   body("educationDocument").isURL().withMessage("Valid education document URL is required"),
 
-  body("languages").isArray().withMessage("Languages must be an array of strings"),
+  // body("languages").isArray().withMessage("Languages must be an array of strings"),
 
   body("hospitalName").optional().isString(),
-  body("hospitalAddress.coordinates")
-    .isArray({ min: 2, max: 2 })
-    .withMessage("Coordinates must be an array of [longitude, latitude]"),
+  // body("hospitalAddress.coordinates")
+  //   .isArray({ min: 2, max: 2 })
+  //   .withMessage("Coordinates must be an array of [longitude, latitude]"),
   body("hospitalAddress.city").optional().isString(),
   body("hospitalAddress.state").optional().isString(),
   body("hospitalAddress.postalCode").optional().isString(),
