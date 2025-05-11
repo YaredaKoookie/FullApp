@@ -3,65 +3,101 @@ import User from "../models/user.model";
 import Appointment from "../models/appointment/appointment.model";
 
 export const completeProfile = async (req, res) => {
-  try {
-    const { sub: userId } = req.user;
+  const { sub: userId } = req.user;
+  let doctor = await Doctor.findOne({ userId });
 
-    let doctor = await Doctor.findOne({ userId });
-    const user = await User.findById(userId);
+  const user = await User.findById(userId);
 
-    console.log("user", userId, user);
-    console.log("user", doctor);
-    if (!doctor) {
-      doctor = new Doctor({ userId });
-    }
-    const {
-      fullName,
+  console.log("user", userId,user);
+  console.log("user", doctor);
+  const {
+    firstName,
+    middleName,
+    lastName,
+    gender,
+    dateOfBirth,
+    profilePhoto,
+    specialization,
+    specialties,
+    qualifications,
+    yearsOfExperience,
+    boardCertificationsDocument,
+    educationDocument,
+    languages,
+    hospitalName,
+    hospitalAddress,
+    phoneNumber,
+    consultationFee,
+    serviceAreas,
+    workingHours,
+    appointmentDuration,
+    location,
+    applicationNotes,
+    bio,
+    nationalId,
+    licenseInfo,
+  } = req.body;
+
+  // CASE 1: Already completed and verified or pending
+  if (user.isProfileCompleted && doctor?.verificationStatus !== "rejected") {
+    res.status(400);
+    throw new Error("Profile already submitted and under review or verified");
+  }
+  if (!doctor) {
+    doctor = await Doctor.create({
+      userId,
+      firstName,
+      middleName,
+      lastName,
+      gender,
+      dateOfBirth,
+      profilePhoto,
       specialization,
+      specialties,
       qualifications,
-      experience,
-      bio,
+      yearsOfExperience,
+      boardCertificationsDocument,
+      educationDocument,
+      languages,
       hospitalName,
+      hospitalAddress,
+      phoneNumber,
       consultationFee,
-      weeklyAvailability,
-      licenseNumber,
-      licenseDocument,
-      idProof,
+      serviceAreas,
+      workingHours,
+      appointmentDuration,
+      location,
       applicationNotes,
-    } = req.body;
+      bio,
+      nationalId,
+      licenseInfo,
+      verificationStatus: "pending",
+    });
 
-    doctor.fullName = fullName;
-    doctor.specialization = specialization;
-    doctor.qualifications = qualifications;
-    doctor.experience = experience;
-    doctor.bio = bio;
-    doctor.hospitalName = hospitalName;
-    doctor.consultationFee = consultationFee;
-    doctor.weeklyAvailability = weeklyAvailability;
-    doctor.licenseNumber = licenseNumber;
-    doctor.licenseDocument = licenseDocument;
-    doctor.idProof = idProof;
-    doctor.applicationNotes = applicationNotes;
-    if (doctor)
-      if (doctor.approvalStatus === "pending") {
-        doctor.approvalStatus = "pending";
-      }
-
-    await doctor.save();
     user.isProfileCompleted = true;
     await user.save();
-
-    return res.status(200).json({
-      message: "Profile Completed Successfully Wait for approval",
-      doctor,
-    });
-  } catch (err) {
-    console.error("Error completing profile: ", err);
-    return res.status(500).json({
-      message: "An error occurred while completing your profile.",
-      error: err.message,
+    return res.status(201).json({
+      message: "Profile submitted successfully. Awaiting admin review.",
+      doctor: doctor,
     });
   }
+  if (doctor.verificationStatus === "rejected") {
+    Object.assign(doctor, req.body);
+    doctor.verificationStatus = "pending";
+    await doctor.save();
+    doctor.autoDeleteAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await doctor.save();
+    return res.status(200).json({
+      message: "Profile resubmitted for admin review.",
+      doctor: doctor,
+    });
+  }
+  res.status(400);
+  throw new Error("Profile update not allowed");
 };
+
+
+
 
 export const getProfile = async (req, res) => {
   try {
@@ -85,6 +121,7 @@ export const getProfile = async (req, res) => {
     });
   }
 };
+
 
 export const getAllApprovedDoctors = async (req, res) => {
   try {
@@ -426,7 +463,7 @@ function hasOverlappingSlots(slots) {
 
 export const setAvailability = async (req, res) => {
   try {
-    const doctorId = req.user.sub // from auth middleware
+    const doctorId = req.user.sub; // from auth middleware
     const { weeklyAvailability } = req.body;
 
     console.log("Doctor ID:", doctorId);

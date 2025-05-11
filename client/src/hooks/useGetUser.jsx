@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 
 const useGetUser = () => {    
     return useQuery({
-      queryFn: getUser,
+      queryFn: () => getUser(localStorage.getItem("token")),
       queryKey: ['user', 'me'],
       retry: false,
     })

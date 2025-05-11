@@ -1,17 +1,33 @@
-import { useAuth } from '@/context/AuthContext'
-import { Navigate, Outlet } from 'react-router-dom';
-import Loading from './Loading';
+// components/protected-route.tsx
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
+import LoadingSpinner  from '@/components/Loading';
 
-const ProtectedRoute = ({children}) => {
-  const {user, isLoading} = useAuth();
 
-  if(isLoading)
-    return <Loading />
+const ProtectedRoute = ({ 
+  role, 
+  redirectPath = '/auth/login',
+  children
+}) => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
 
-  if(!user)
-    return <Navigate to="/auth/login" replace />
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
 
-  return children || <Outlet />
-}
+  // If not authenticated, redirect to login with return location
+  if (!isAuthenticated) {
+    return <Navigate to={redirectPath} state={{ from: location }} replace />;
+  }
 
-export default ProtectedRoute
+  // If roles are specified but user doesn't have required role
+  if (role && role !== user.role) {
+    return <Navigate to="/" replace />;
+  }
+
+  // If authenticated and has required role (if specified)
+  return children || <Outlet />;
+};
+
+export default ProtectedRoute;

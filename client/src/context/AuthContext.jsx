@@ -1,48 +1,59 @@
-import Loading from '@/components/Loading';
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import useGetUser from '@/hooks/useGetUser';
 
-// Create AuthContext
+
 const AuthContext = createContext();
 
-// AuthProvider component
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const {data: response, isLoading} = useGetUser();
+  const queryClient = useQueryClient();
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const { data: response, isError, isSuccess } = useGetUser();
 
-    useEffect(() => {
-        if(response?.data?.user){
-            setUser(response.data.user);
-        }
-    }, [response]);
+  useEffect(() => {
+    if (response?.data?.user) {
+      const {user} = response.data;
+      setUser(user);
+      setIsLoading(false);
+    } else if (isError) {
+      setUser(null);
+      setIsLoading(false);
+    }
+  }, [response, isSuccess, isError]);
 
-    const login = (accessToken, userData) => {
+  const login = (accessToken, userData) => {
+    if(accessToken){
         localStorage.setItem("token", accessToken);
-        setUser(userData);
-    };
+    }
+    setUser(userData);
+  };
 
-    const logout = () => {
-        localStorage.removeItem("token");
-        setUser(null);
-    };
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('token');
+    queryClient.resetQueries();
+  };
 
-    const value = {
+  return (
+    <AuthContext.Provider
+      value={{
         user,
+        isAuthenticated: !!user,
         isLoading,
         login,
         logout,
-        isAuthenticated: !!user,
-    };
-
-    if(isLoading)
-        return <Loading />
-
-    return (
-        <AuthContext.Provider value={value}>
-            {children}
-        </AuthContext.Provider>
-    );
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
-// Custom hook to use AuthContext
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};

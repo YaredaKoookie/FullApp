@@ -3,7 +3,7 @@ import {doctorController, reviewController} from '../controllers';
 
 import {Router} from "express"
 import { validate } from '../validations';
-import { validateDoctorProfile } from '../validations/chains/doctor.chain';
+import { completeProfileValidation } from '../validations/chains/doctor.chain';
 import { doctorEditProfileValidation } from '../validations/chains/editdoctor.chain';
 
 const router = Router();
@@ -12,8 +12,11 @@ const router = Router();
 router.get('/all_doctors', doctorController.getAllApprovedDoctors);
 router.get('/doctor/:id', doctorController.getDoctorById);
 
-router.put('/profile/complete', isDoctor,  validate(validateDoctorProfile), doctorController.completeProfile);
+
+router.post('/profile/complete', isDoctor,  validate(completeProfileValidation), doctorController.completeProfile);
 router.get('/profile/me', isDoctor, doctorController.getProfile);
+router.post('/upload', isDoctor, doctorController.getProfile);
+
 
 // DOCTOR PROTECTED
 router.put('/profile/edit', isDoctor, validate(doctorEditProfileValidation), doctorController.editProfile);

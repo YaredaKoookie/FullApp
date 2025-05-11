@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import useMagicLinkCallback from '@/hooks/useMagicLinkCallback';
 import LoadingSpinner from '@/components/Loading';
-import { Button } from '@chakra-ui/react';
 
 const MagicLinkVerify = () => {
     const location = useLocation();
@@ -74,10 +73,10 @@ const MagicLinkVerify = () => {
                     </p>
                 </div>
                 <div className="flex gap-4">
-                    <Button onClick={handleRetry}>Try Again</Button>
-                    <Button variant="outline" onClick={handleGoToLogin}>
+                    <button onClick={handleRetry}>Try Again</button>
+                    <button variant="outline" onClick={handleGoToLogin}>
                         Go to Login
-                    </Button>
+                    </button>
                 </div>
             </div>
         );

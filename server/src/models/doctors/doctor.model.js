@@ -1,133 +1,166 @@
-const mongoose = require("mongoose");
+import { Schema, model } from "mongoose";
 
-const doctorSchema = new mongoose.Schema(
+const doctorSchema = new Schema(
   {
     userId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
       unique: true,
     },
-    fullName: {type : String , required: true ,index : "text"},
-    specialization: {
+    firstName: { type: String, required: true, index: "text" },
+    middleName: { type: String, required: true, index: "text" },
+    lastName: { type: String, required: true, index: "text" },
+    gender: {
       type: String,
+      enum: ["male", "female", "other"],
       required: true,
     },
-    qualifications: {
-      type: [String], // e.g. ['MBBS', 'MD']
-      default: [],
+    dateOfBirth: { type: Date, required: true },
+    profilePhoto: { type: String, required: true },
+
+    nationalId: {
+      frontImage: { type: String, required: true },
+      backImage: { type: String, required: true },
     },
-    experience: {
-      type: Number, // in years
+
+    licenseInfo: {
+      frontImage: { type: String, required: true },
+      backImage: { type: String, required: true },
+    },
+
+    specialization: { type: String, required: true },
+    specialties: [
+      {
+        name: { type: String, required: true, index: true },
+        category: { type: String },
+      },
+    ],
+    qualifications: [
+      {
+        degree: String,
+        institution: String,
+        year: Number,
+      },
+    ],
+    yearsOfExperience: { type: Number, required: true },
+    boardCertificationsDocument: { type: String, required: true },
+    educationDocument: { type: String, required: true },
+    languages: { type: [String], default: [] },
+    hospitalName: { type: String },
+    hospitalAddress: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number],
+        index: "2dsphere",
+        required: true,
+      },
+      street1: String,
+      street2: String,
+      city: String,
+      state: String,
+      postalCode: String,
+      country: String,
+    },
+    phoneNumber: {
+      type: String,
+      validate: {
+        validator: (v) => /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]*$/.test(v),
+        message: "Invalid phone number format",
+      },
+    },
+    consultationFee: { type: Number, default: 0 },
+    serviceAreas: { type: [String], default: [] },
+    workingHours: [
+      {
+        day: {
+          type: String,
+          enum: [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+          ],
+          required: true,
+        },
+        startTime: { type: String, required: true },
+        endTime: { type: String, required: true },
+        breaks: [
+          {
+            startTime: String,
+            endTime: String,
+          },
+        ],
+      },
+    ],
+
+    appointmentDuration: { type: Number, default: 30 },
+    totalReviews: { type: Number, default: 0 },
+    rating: {
+      type: Number,
       default: 0,
+      min: 0,
+      max: 5,
     },
+    totalAppointments: { type: Number, default: 0 },
+    totalEarnings: { type: Number, default: 0 },
+    withdrawalBalance: { type: Number, default: 0 },
+
+    location: {
+      city: { type: String },
+      state: { type: String },
+      country: { type: String },
+    },
+    applicationNotes: {
+      type: String,
+      maxlength: 1000,
+    },
+
+    approvedAt: Date,
+    autoDeleteAt: {
+  type: Date,
+  default: null,
+  index: { expires: 0 }  // TTL index to auto-delete after the date
+},
+    verificationStatus: {
+      type: String,
+      enum: ["pending", "verified", "rejected"],
+      default: "pending",
+    },
+    isActive: { type: Boolean, default: true },
     bio: {
       type: String,
       maxlength: 1000,
     },
-    hospitalName: {
-      type: String,
-    },
-    consultationFee: {
-      type: Number,
-      default: 0,
-    },
-    weeklyAvailability: [
-      {
-        day: {
-          type: String,
-          enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-          required: true,
-        },
-        slots: {
-          type: [
-            {
-              start: { type: Date, required: true },
-              end: { type: Date, required: true },
-            },
-          ],
-          validate: {
-            validator: function (slots) {
-              for (let i = 0; i < slots.length - 1; i++) {
-                for (let j = i + 1; j < slots.length; j++) {
-                  if (
-                    (slots[i].start < slots[j].end && slots[i].end > slots[j].start) ||
-                    (slots[j].start < slots[i].end && slots[j].end > slots[i].start)
-                  ) {
-                    return false;
-                  }
-                }
-              }
-              return true;
-            },
-            message: "Time slots cannot overlap.",
-          },
-        },
-      },
-    ],
-    totalReviews: {
-      type: Number,
-      default: 0,
-    },
-    rating: {
-      type: Number,
-      default: 0,
-    },
-    totalEarnings: {
-      type: Number,
-      default: 0,
-    },
-    totalAppointments: {
-      type: Number,
-      default: 0,
-    },
-    withdrawalBalance: {
-      type: Number,
-      default: 0,
-    },
-    location: {
-      city: String,
-      state: String,
-      country: String,
-    },
-    profilePicture: {
-      type: String, // URL to image
-    },
-    licenseNumber: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    licenseDocument: {
-      type: String, // URL to uploaded license or medical certification
-      required: true,
-    },
-    idProof: {
-      type: String, // URL to uploaded ID (e.g., national ID/passport)
-    },
-    yearsVerified: {
-      type: Boolean,
-      default: false,
-    },
-    applicationNotes: {
-      type: String, // Optional field where doctor writes why they’re applying
-      maxlength: 1000,
-    },
-    adminRemarks: {
-      type: String, // Admin feedback before/after approval
-    },
-    approvalStatus: {
-      type: String,
-      enum: ["pending", "approved", "rejected"],
-      default: "pending",
-    },
-    approvedAt: {
-      type: Date,
-    },
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
   }
 );
 
-module.exports = mongoose.model("Doctor", doctorSchema);
+doctorSchema.virtual("fullName").get(function () {
+  return [this.firstName, this.middleName, this.lastName]
+    .filter(Boolean)
+    .join(" ");
+});
+
+doctorSchema.virtual("formattedAddress").get(function () {
+  const addr = this.hospitalAddress;
+  const parts = [
+    addr?.street1,
+    addr?.street2,
+    addr?.city && `${addr.city}, ${addr.state} ${addr.postalCode}`,
+    addr?.country,
+  ].filter(Boolean);
+  return parts.join(", ");
+});
+doctorSchema.index({ autoDeleteAt: 1 }, { expireAfterSeconds: 0 });
+export default model("Doctor", doctorSchema);
