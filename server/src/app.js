@@ -4,6 +4,7 @@ import { errorHandler, requestLogger, clientInfo } from "./middlewares";
 import cookie from "cookie-parser";
 import routes from "./routes";
 import { env } from "./config";
+import path from "path"
 
 const app = express();
 
@@ -14,6 +15,9 @@ app.use(
     extended: true,
   })
 );
+
+
+app.use(express.static(path.resolve(__dirname, "../public")));
 app.use(cookie());
 
 // custom middleware

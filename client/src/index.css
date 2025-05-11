@@ -1,1 +1,12 @@
 @import 'tailwindcss';
+
+
+@layer base {
+    *, *::after, *::before {
+        font-family: 'Quicksand';
+    }
+
+    button {
+        cursor: pointer;
+    }
+}

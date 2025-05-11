@@ -22,6 +22,9 @@ class ServerError extends Error {
   static internal(message, details) {
     return new ServerError(500, message, details);
   }
+  static conflict(message, details) {
+    return new ServerError(409, message, details)
+  }
 }
 
 export default ServerError;

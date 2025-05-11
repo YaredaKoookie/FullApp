@@ -12,6 +12,8 @@ const ProtectedRoute = ({
   const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
+  console.log("user", user);
+
   if (isLoading) {
     return <LoadingSpinner />;
   }

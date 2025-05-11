@@ -1,9 +1,18 @@
 import { Schema, model } from "mongoose";
 
 // Enums
-const APPOINTMENT_STATUS = ["decline", "pending", "confirmed", "completed", "cancelled", "no-show", "rescheduled"];
+const APPOINTMENT_STATUS = [
+  "decline",
+  "pending",
+  "confirmed",
+  "completed",
+  "cancelled",
+  "no-show",
+  "rescheduled",
+];
 const PAYMENT_STATUS = ["pending", "paid", "failed", "refunded"];
-const APPOINTMENT_TYPE = ["consultation", "follow-up", "emergency", "therapy", "check-up"];
+// const APPOINTMENT_TYPE = ["consultation", "follow-up", "emergency", "therapy", "check-up"];
+const APPOINTMENT_TYPE = ["in-person", "virtual"];
 const CANCELLATION_REASONS = [
   "patient request",
   "doctor request",
@@ -11,7 +20,6 @@ const CANCELLATION_REASONS = [
   "system issue",
   "emergency",
 ];
-
 
 // Time Slot Schema
 const timeSlotSchema = new Schema(
@@ -44,6 +52,16 @@ const rescheduleSchema = new Schema(
       trim: true,
       default: "",
     },
+    rescheduledBy: {
+      type: Schema.Types.ObjectId,
+      refPath: "rescheduledByRole",
+      required: true,
+    },
+    rescheduledByRole: {
+      type: String,
+      enum: ["Patient", "Doctor", "Admin"],
+      required: true,
+    },
     rescheduledAt: {
       type: Date,
       default: Date.now,
@@ -71,7 +89,6 @@ const appointmentSchema = new Schema(
       type: String,
       enum: APPOINTMENT_TYPE,
       required: true,
-      default: "consultation",
     },
     reason: {
       type: String,
@@ -91,6 +108,10 @@ const appointmentSchema = new Schema(
     payment: {
       type: Schema.Types.ObjectId,
       default: null,
+    },
+    note: {
+      type: String,
+      default: "",
     },
     cancellation: {
       reason: {
@@ -117,14 +138,19 @@ const appointmentSchema = new Schema(
       type: [rescheduleSchema],
       default: [],
     },
-    videoCallToken: {
-      type: String, 
-      default: "",
+    virtualDetails: {
+      type: {
+        videoCallToken: {
+          type: String,
+          default: "",
+        },
+        chatToken: {
+          type: String,
+          default: "",
+        },
+      },
+      default: {}
     },
-    chatToken: {
-      type: String, 
-      default: ""
-    }
   },
   {
     timestamps: true,

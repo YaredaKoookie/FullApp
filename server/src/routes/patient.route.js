@@ -3,15 +3,21 @@ import {validate} from "../validations"
 import { appointmentChains, doctorChains, patientChains } from "../validations/chains";
 import { patientController, reviewController } from "../controllers";
 import { validateCreateReview, validateUpdateReview } from "../validations/chains/review.chain";
+import { isProfileCompleted } from "../middlewares/auth.middleware";
+import { uploadImage } from "../config/multer.config";
 
 const router = Router();
 
 
 router.post(
     "/profile",
+    uploadImage.single("profileImage"),
     validate(patientChains.validatePatientCreation),
     patientController.createPatientProfile
 )
+
+router.use(isProfileCompleted);
+
 
 router.get(
     "/me",
@@ -19,7 +25,14 @@ router.get(
 )
 
 router.put(
+    "/profileImage",
+    uploadImage.single("profileImage"),
+    patientController.uploadPatientProfileImage
+)
+
+router.put(
     "/edit",
+    uploadImage.single("profileImage"),
     validate(patientChains.validatePatientUpdate),
     patientController.updateProfile,
 )

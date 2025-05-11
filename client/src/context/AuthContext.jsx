@@ -9,8 +9,8 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const { data: response, isError, isSuccess } = useGetUser();
+  const { data: response, isError, isSuccess, isLoading: isUserLoading } = useGetUser();
+  const [isLoading, setIsLoading] = useState(isUserLoading);
 
   useEffect(() => {
     if (response?.data?.user) {
@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('accessToken');
+    localStorage.removeItem('token');
     queryClient.clear();
   };
 

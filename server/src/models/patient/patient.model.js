@@ -135,11 +135,9 @@ const patientSchema = new Schema(
       required: true,
       unique: true,
     },
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+    firstName: { type: String, required: true, index: "text" },
+    middleName: { type: String, required: true, index: "text" },
+    lastName: { type: String, required: true, index: "text" },
     profileImage: {
       type: String,
       default: null,
@@ -167,7 +165,7 @@ const patientSchema = new Schema(
       enum: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", ""],
       default: "",
     },
-    dob: {
+    dateOfBirth: {
       type: Date,
       required: true,
       validate: {
@@ -178,7 +176,6 @@ const patientSchema = new Schema(
     emergencyContact: {
       type: [emergencyContactSchema],
       required: [],
-
     },
     insurance: {
       type: [insuranceSchema],

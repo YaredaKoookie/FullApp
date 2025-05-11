@@ -1,13 +1,18 @@
-import { body, validationResult, oneOf, optional } from "express-validator";
+import {
+  body,
+  validationResult,
+  oneOf,
+  optional,
+  check,
+} from "express-validator";
 
 // Patient Validation Middleware
 export const validatePatientCreation = [
-  body("name")
-    .trim()
-    .notEmpty()
-    .withMessage("Name is required")
-    .isLength({ max: 100 })
-    .withMessage("Name must not exceed 100 characters"),
+  body("firstName").trim().notEmpty().withMessage("First name is required"),
+
+  body("middleName").trim().notEmpty().withMessage("Middle name is required"),
+
+  body("lastName").trim().notEmpty().withMessage("Last name is required"),
 
   // 3. Profile Image
   body("profileImage")
@@ -29,10 +34,22 @@ export const validatePatientCreation = [
     .withMessage("Invalid phone number format"),
 
   // 6. Notification Preferences
-  body("notificationPreferences").optional().isObject().withMessage("Notification preferences must be an object"),
-  body("notificationPreferences.systemNotification").optional().isBoolean().withMessage("Must be a boolean"),
-  body("notificationPreferences.emailNotification").optional().isBoolean().withMessage("Must be a boolean"),
-  body("notificationPreferences.smsNotification").optional().isBoolean().withMessage("Must be a boolean"),
+  body("notificationPreferences")
+    .optional()
+    .isObject()
+    .withMessage("Notification preferences must be an object"),
+  body("notificationPreferences.systemNotification")
+    .optional()
+    .isBoolean()
+    .withMessage("Must be a boolean"),
+  body("notificationPreferences.emailNotification")
+    .optional()
+    .isBoolean()
+    .withMessage("Must be a boolean"),
+  body("notificationPreferences.smsNotification")
+    .optional()
+    .isBoolean()
+    .withMessage("Must be a boolean"),
 
   // 7. Blood Type
   body("bloodType")
@@ -41,7 +58,7 @@ export const validatePatientCreation = [
     .withMessage("Invalid blood type"),
 
   // 8. Date of Birth
-  body("dob")
+  body("dateOfBirth")
     .notEmpty()
     .withMessage("Date of birth is required")
     .isISO8601()
@@ -143,12 +160,8 @@ export const validatePatientCreation = [
     .optional()
     .isIn(["home", "work", "other"])
     .withMessage("Location type must be 'home', 'work', or 'other'"),
-  body("location.country")
-    .notEmpty()
-    .withMessage("Country is required"),
-  body("location.city")
-    .notEmpty()
-    .withMessage("City is required"),
+  body("location.country").notEmpty().withMessage("Country is required"),
+  body("location.city").notEmpty().withMessage("City is required"),
   body("location.coordinates.coordinates")
     .isArray({ min: 2, max: 2 })
     .withMessage("Coordinates must be an array of [longitude, latitude]"),
@@ -168,62 +181,207 @@ export const validatePatientCreation = [
     .isMongoId()
     .withMessage("Each medical history entry must be a valid MongoDB ObjectId"),
 ];
-
 export const validatePatientUpdate = [
-  // Only these fields are allowed to be updated
-  oneOf([
-    body().custom((body) => {
-      const allowedFields = [
-        'name', 'profileImage', 'phone', 'notificationPreferences', 'bloodType', 
-        'emergencyContact', 'insurance', 'preferredLanguage', 'maritalStatus', 'location'
-      ];
-      const invalidFields = Object.keys(body).filter(field => !allowedFields.includes(field));
-      if (invalidFields.length > 0) {
-        throw new Error(`Invalid fields: ${invalidFields.join(', ')}`);
-      }
+  // Allowed fields validation (modified to handle file uploads)
+  // body().custom((body, { req }) => {
+  //   const allowedFields = [
+  //     "firstName",
+  //     "middleName",
+  //     "lastName",
+  //     "phone",
+  //     "notificationPreferences",
+  //     "bloodType",
+  //     "emergencyContact",
+  //     "insurance",
+  //     "preferredLanguage",
+  //     "maritalStatus",
+  //     "location",
+  //   ];
+  //   body = req.body;
+
+  //   console.log(body)
+  //   // Automatically allow profileImage if a file was uploaded
+  //   if (req.file) {
+  //     allowedFields.push("profileImage");
+  //   }
+
+  //   const invalidFields = Object.keys(body).filter(
+  //     (field) => !allowedFields.includes(field)
+  //   );
+
+  //   if (invalidFields.length > 0) {
+  //     throw new Error(`Invalid fields: ${invalidFields.join(", ")}`);
+  //   }
+  //   return true;
+  // }),
+  body().custom((body, { req }) => {
+   const allowedTopLevelFields = [
+      "firstName",
+      "middleName", 
+      "lastName",
+      "phone",
+      "notificationPreferences",
+      "bloodType",
+      "emergencyContact",
+      "insurance",
+      "preferredLanguage",
+      "maritalStatus",
+      "location"
+    ];
+
+    // Skip validation if only uploading a file
+    if (req.file && (!body || Object.keys(body).length === 0)) {
       return true;
-    })
-  ], {
-    message: 'Only specific fields can be updated'
+    }
+
+    // Check top-level fields
+    const invalidFields = Object.keys(body).filter(field => {
+      // Handle nested fields in form-data (e.g., "notificationPreferences.emailNotification")
+      const topLevelField = field.split('.')[0];
+      return !allowedTopLevelFields.includes(topLevelField);
+    });
+
+    if (invalidFields.length > 0) {
+      throw new Error(`Invalid fields: ${invalidFields.join(", ")}`);
+    }
+    return true;
   }),
 
-  // Individual field validations (only validate if field exists in request)
-  body('name').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Name must be between 2-100 characters'),
 
-  body('profileImage').optional().isString().withMessage('Profile image must be a string URL'),
 
-  body('phone').optional().matches(/^\+?[1-9]\d{1,14}$/).withMessage('Invalid phone number format (E.164 recommended)'),
+  // Individual field validations
+  body("firstName")
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage("First Name must be between 2-100 characters"),
+  body("middleName")
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage("Middle Name must be between 2-100 characters"),
+  body("lastName")
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage("Last Name must be between 2-100 characters"),
 
-  body('notificationPreferences.systemNotification').optional().isBoolean().withMessage('System notification preference must be true/false'),
+  // File validation (checks the actual uploaded file)
+  check("file")
+    .optional()
+    .custom((_, { req }) => {
+      if (req.file) {
+        const allowedMimeTypes = [
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp",
+        ];
+        if (!allowedMimeTypes.includes(req.file.mimetype)) {
+          throw new Error("Only JPEG, PNG, GIF, or WEBP images are allowed");
+        }
+        if (req.file.size > 5 * 1024 * 1024) {
+          throw new Error("Image must be less than 5MB");
+        }
+      }
+      return true;
+    }),
 
-  body('notificationPreferences.emailNotification').optional().isBoolean().withMessage('Email notification preference must be true/false'),
+  body("phone")
+    .optional()
+    .matches(/^\+?[1-9]\d{1,14}$/)
+    .withMessage("Invalid phone number format (E.164 recommended)"),
 
-  body('notificationPreferences.smsNotification').optional().isBoolean().withMessage('SMS notification preference must be true/false'),
+  body("notificationPreferences.systemNotification")
+    .optional()
+    .isBoolean()
+    .withMessage("System notification preference must be true/false"),
+  body("notificationPreferences.emailNotification")
+    .optional()
+    .isBoolean()
+    .withMessage("Email notification preference must be true/false"),
+  body("notificationPreferences.smsNotification")
+    .optional()
+    .isBoolean()
+    .withMessage("SMS notification preference must be true/false"),
 
-  body('bloodType').optional().isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', '']).withMessage('Invalid blood type'),
+  body("bloodType")
+    .optional()
+    .isIn(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", ""])
+    .withMessage("Invalid blood type"),
 
-  body('emergencyContact').optional().isArray().withMessage('Emergency contacts must be an array'),
-  body('emergencyContact.*.name').optional().trim().notEmpty().withMessage('Emergency contact name is required'),
-  body('emergencyContact.*.phone').optional().matches(/^\+?[1-9]\d{1,14}$/).withMessage('Invalid emergency contact phone format'),
-  body('emergencyContact.*.email').optional().isEmail().withMessage('Invalid emergency contact email'),
+  body("emergencyContact")
+    .optional()
+    .isArray()
+    .withMessage("Emergency contacts must be an array"),
+  body("emergencyContact.*.name")
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage("Emergency contact name is required"),
+  body("emergencyContact.*.phone")
+    .optional()
+    .matches(/^\+?[1-9]\d{1,14}$/)
+    .withMessage("Invalid emergency contact phone format"),
+  body("emergencyContact.*.email")
+    .optional()
+    .isEmail()
+    .withMessage("Invalid emergency contact email"),
 
-  body('insurance').optional().isArray().withMessage('Insurance must be an array'),
-  body('insurance.*.provider').optional().trim().notEmpty().withMessage('Insurance provider is required'),
-  body('insurance.*.policyNumber').optional().trim().notEmpty().withMessage('Policy number is required'),
+  body("insurance")
+    .optional()
+    .isArray()
+    .withMessage("Insurance must be an array"),
+  body("insurance.*.provider")
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage("Insurance provider is required"),
+  body("insurance.*.policyNumber")
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage("Policy number is required"),
 
-  body('preferredLanguage').optional().trim().isLength({ min: 2 }).withMessage('Preferred language must be at least 2 characters'),
+  body("preferredLanguage")
+    .optional()
+    .trim()
+    .isLength({ min: 2 })
+    .withMessage("Preferred language must be at least 2 characters"),
 
-  body('maritalStatus').optional().isIn(['single', 'married', 'divorced', 'widowed', 'separated', 'other', '']).withMessage('Invalid marital status'),
+  body("maritalStatus")
+    .optional()
+    .isIn([
+      "single",
+      "married",
+      "divorced",
+      "widowed",
+      "separated",
+      "other",
+      "",
+    ])
+    .withMessage("Invalid marital status"),
 
   // Location validation
-  body('location.country').optional().trim().notEmpty().withMessage('Country is required'),
-  body('location.city').optional().trim().notEmpty().withMessage('City is required'),
-  body('location.coordinates.coordinates').optional().isArray({ min: 2, max: 2 }).withMessage('Coordinates must be [longitude, latitude]')
+  body("location.country")
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage("Country is required"),
+  body("location.city")
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage("City is required"),
+  body("location.coordinates.coordinates")
+    .optional()
+    .isArray({ min: 2, max: 2 })
+    .withMessage("Coordinates must be [longitude, latitude]")
     .custom((coords) => {
       const [lng, lat] = coords;
-      return (
-        lng >= -180 && lng <= 180 &&
-        lat >= -90 && lat <= 90
-      );
-    }).withMessage('Invalid coordinates: longitude [-180,180], latitude [-90,90]')
+      return lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90;
+    })
+    .withMessage(
+      "Invalid coordinates: longitude [-180,180], latitude [-90,90]"
+    ),
 ];

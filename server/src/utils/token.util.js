@@ -7,6 +7,7 @@ export const generateAccessToken = (user) => {
     {
       sub: user._id,
       role: user.role,
+      isProfileCompleted: user.isProfileCompleted
     },
     env.JWT_ACCESS_SECRET,
     {
