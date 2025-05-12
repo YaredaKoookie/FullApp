@@ -1,4 +1,4 @@
-import {isDoctor} from '../middlewares/auth.middleware';
+import {isDoctor } from '../middlewares/auth.middleware';
 import {doctorController, reviewController} from '../controllers';
 
 import {Router} from "express"
@@ -12,12 +12,84 @@ const router = Router();
 router.get('/all_doctors', doctorController.getAllApprovedDoctors);
 router.get('/doctor/:id', doctorController.getDoctorById);
 
-
+// complete the doctor profile page
 router.post('/profile/complete', isDoctor,  validate(completeProfileValidation), doctorController.completeProfile);
-router.get('/profile/me', isDoctor, doctorController.getProfile);
-router.post('/upload', isDoctor, doctorController.getProfile);
+// router.post('/upload', isDoctor, doctorController.getProfile);
+router.get("/profile/me", isDoctor, doctorController.getCurrentDoctor);
+
+// schedule time
+// router.get('/:id/getSchedule', isDoctor, doctorController.getSchedule);
+// router.put('/:id/setSchedule', isDoctor, doctorController.setSchedule);
+
+////////////////////////////
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//////////////////////////
 // DOCTOR PROTECTED
 router.put('/profile/edit', isDoctor, validate(doctorEditProfileValidation), doctorController.editProfile);
 router.delete('/delete-account', isDoctor, doctorController.deleteAccount);

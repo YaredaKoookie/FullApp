@@ -1,6 +1,8 @@
 import Doctor from "./../models/doctors/doctor.model";
 import User from "../models/user.model";
 import Appointment from "../models/appointment/appointment.model";
+import Schedule from "../models/schedule/Schedule.model";
+import { ServerError } from "../utils";
 
 export const completeProfile = async (req, res) => {
   const { sub: userId } = req.user;
@@ -8,7 +10,7 @@ export const completeProfile = async (req, res) => {
 
   const user = await User.findById(userId);
 
-  console.log("user", userId,user);
+  console.log("user", userId, user);
   console.log("user", doctor);
   const {
     firstName,
@@ -96,32 +98,111 @@ export const completeProfile = async (req, res) => {
   throw new Error("Profile update not allowed");
 };
 
-
-
-
-export const getProfile = async (req, res) => {
+// GET /doctor/profile - Get doctor profile
+export const getCurrentDoctor = async (req, res) => {
   try {
-    const { sub: userId } = req.user;
+    // The authenticated doctor's ID should be in req.user._id (or wherever your auth middleware puts it)
+    const doctor = await Doctor.findOne({userId: req.user.sub})
+      .select("-password") // Exclude sensitive fields
+      .lean();
 
-    const doctor = await Doctor.findOne({ userId }).populate("userId");
-
+      console.log(req.user);
     if (!doctor) {
-      return res.status(404).json({ message: "Doctor profile not found" });
+      return res.status(404).json({ message: "Doctor not found" });
     }
 
-    return res.status(200).json({
-      message: "Doctor profile retrieved successfully",
-      user: doctor,
+
+    res.json({
+      doctorId: doctor._id,
+      name: doctor.name,
+      email: doctor.email,
+      specialization: doctor.specialization,
+      // Include any other relevant fields
     });
-  } catch (err) {
-    console.error("Error fetching doctor profile:", err);
-    return res.status(500).json({
-      message: "An error occurred while retrieving your profile",
-      error: err.message,
-    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
+// GET /doctor/schedule - Get existing schedule
+// export const getSchedule = async (req, res) => {  
+//   try {
+//     const { sub: doctorId } = req.user;
+//     const schedule = await Schedule.findOne({ doctorId });
+    
+//     res.json({ 
+//       success: true, 
+//       data: schedule || { workingHours: [], availableSlots: [] } 
+//     });
+//   } catch (error) {
+//     res.status(500).json({ 
+//       success: false, 
+//       message: "Error fetching schedule", 
+//       error: error.message 
+//     });
+//   }
+// };
+
+// POST /doctor/schedule - Save schedule
+// export const setSchedule = async (req, res) => {  // Fixed parameter order
+  
+//   console.log("setSchedule body", req.body);
+//   console.log("setSchedule user", req.user);
+
+//   try {
+//     const {sub : userId} = req.user;
+//     const doctor = await Doctor.findOne({userId});
+
+//     console.log("doctor", doctor);
+
+//     if(!doctor)
+//       throw ServerError.notFound("Doctor not found");
+
+//     // Verify ownership
+//     if (req.params.id !== doctor.id) {
+//       return res.status(403).json({ 
+//         success: false, 
+//         message: "Unauthorized - You can only update your own schedule" 
+//       });
+//     }
+
+//     // First-time creation handling
+//     const existingSchedule = await Schedule.findOne({ doctorId : doctor.id });
+
+//     if (!existingSchedule) {
+//       // Validate required fields for first-time setup
+//       if (!req.body?.workingHours || !req.body?.appointmentDuration) {
+//         return res.status(400).json({
+//           success: false,
+//           message: "Initial setup requires workingHours and appointmentDuration",
+//         });
+//       }
+//       const newSchedule = await Schedule.create({
+//         doctorId : doctor.id,
+//         workingHours: req.body.workingHours,
+//         appointmentDuration: req.body.appointmentDuration,
+//         availableSlots: req.body.availableSlots || [],
+//       });
+
+//       return res.status(201).json({ success: true, data: newSchedule });
+//     }
+
+//     // Existing schedule - update
+//     const updated = await Schedule.findOneAndUpdate(
+//       { doctorId : doctor.id },
+//       { $set: req.body },
+//       { new: true }
+//     );
+
+//     res.json({ success: true, data: updated });
+//   } catch (error) {
+//     res.status(500).json({ 
+//       success: false, 
+//       message: "Error saving schedule", 
+//       error: error.message 
+//     });
+//   }
+// };
 
 export const getAllApprovedDoctors = async (req, res) => {
   try {

@@ -18,7 +18,6 @@ export const completeProfileValidation = [
 
   body("specialization").notEmpty().withMessage("Specialization is required"),
 
-  // body("specialties").isArray({ min: 1 }).withMessage("At least one specialty is required"),
   body("specialties.*.name").notEmpty().withMessage("Specialty name is required"),
 
   body("qualifications").isArray({ min: 1 }).withMessage("At least one qualification is required"),
@@ -37,12 +36,8 @@ export const completeProfileValidation = [
     .withMessage("Valid board certification document URL is required"),
   body("educationDocument").isURL().withMessage("Valid education document URL is required"),
 
-  // body("languages").isArray().withMessage("Languages must be an array of strings"),
 
   body("hospitalName").optional().isString(),
-  // body("hospitalAddress.coordinates")
-  //   .isArray({ min: 2, max: 2 })
-  //   .withMessage("Coordinates must be an array of [longitude, latitude]"),
   body("hospitalAddress.city").optional().isString(),
   body("hospitalAddress.state").optional().isString(),
   body("hospitalAddress.postalCode").optional().isString(),
@@ -54,25 +49,6 @@ export const completeProfileValidation = [
 
   body("consultationFee").isNumeric().withMessage("Consultation fee must be a number"),
   body("serviceAreas").isArray().withMessage("Service areas must be an array"),
-
-  body("workingHours").isArray().withMessage("Working hours must be an array"),
-  body("workingHours.*.day")
-    .isIn([
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-      "Sunday",
-    ])
-    .withMessage("Invalid day of the week"),
-  body("workingHours.*.startTime").notEmpty().withMessage("Start time is required"),
-  body("workingHours.*.endTime").notEmpty().withMessage("End time is required"),
-
-  body("appointmentDuration")
-    .isInt({ min: 10 })
-    .withMessage("Appointment duration must be at least 10 minutes"),
 
   body("location.city").optional().isString(),
   body("location.state").optional().isString(),

@@ -1,6 +1,8 @@
 import jwt from "jsonwebtoken";
 import { ServerError } from "../utils";
 import { env } from "../config";
+import Doctor from "../models/doctors/doctor.model";
+import User from "../models/user.model";
 
 export const verifyJWT = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -17,14 +19,15 @@ export const verifyJWT = (req, res, next) => {
   }
 };
 
+
 export const verifyRefreshToken = (req, res, next) => {
   const token = req.cookies?.refreshToken;
-  
+
   console.log("token", token);
   if (!token) {
     throw ServerError.unauthorized("Unauthorized: No refresh token provided");
   }
-  
+
   try {
     const decoded = jwt.verify(token, env.JWT_REFRESH_SECRET);
     req.user = decoded;
@@ -37,26 +40,28 @@ export const verifyRefreshToken = (req, res, next) => {
 };
 
 export const isDoctor = [
-  verifyJWT, 
+  verifyJWT,
   (req, res, next) => {
-    if(req.user.role === "doctor") return next();
+    if (req.user.role === "doctor") return next();
     next(ServerError.forbidden("Access Denied"));
-  }
-]
+  },
+];
 
 export const isPatient = [
-  verifyJWT, 
+  verifyJWT,
   (req, res, next) => {
-    if(req.user.role === "patient") return next();
+    if (req.user.role === "patient") return next();
     next(ServerError.forbidden("Access Denied"));
-  }
-]
+  },
+];
 
 export const isProfileCompleted = [
   (req, res, next) => {
-    if(!req.user.isProfileCompleted)
-      throw ServerError.forbidden("Access Denied! you need to complete your profile")
+    if (!req.user.isProfileCompleted)
+      throw ServerError.forbidden(
+        "Access Denied! you need to complete your profile"
+      );
 
     next();
-  }
-]
+  },
+];

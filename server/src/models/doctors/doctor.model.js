@@ -75,33 +75,33 @@ const doctorSchema = new Schema(
     },
     consultationFee: { type: Number, default: 0 },
     serviceAreas: { type: [String], default: [] },
-    workingHours: [
-      {
-        day: {
-          type: String,
-          enum: [
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-            "Sunday",
-          ],
-          required: true,
-        },
-        startTime: { type: String, required: true },
-        endTime: { type: String, required: true },
-        breaks: [
-          {
-            startTime: String,
-            endTime: String,
-          },
-        ],
-      },
-    ],
+    // workingHours: [
+    //   {
+    //     day: {
+    //       type: String,
+    //       enum: [
+    //         "Monday",
+    //         "Tuesday",
+    //         "Wednesday",
+    //         "Thursday",
+    //         "Friday",
+    //         "Saturday",
+    //         "Sunday",
+    //       ],
+    //       required: true,
+    //     },
+    //     startTime: { type: String, required: true },
+    //     endTime: { type: String, required: true },
+    //     breaks: [
+    //       {
+    //         startTime: String,
+    //         endTime: String,
+    //       },
+    //     ],
+    //   },
+    // ],
 
-    appointmentDuration: { type: Number, default: 30 },
+    // appointmentDuration: { type: Number, default: 30 },
     totalReviews: { type: Number, default: 0 },
     rating: {
       type: Number,
@@ -109,7 +109,7 @@ const doctorSchema = new Schema(
       min: 0,
       max: 5,
     },
-    totalAppointments: { type: Number, default: 0 },
+    // totalAppointments: { type: Number, default: 0 },
     totalEarnings: { type: Number, default: 0 },
     withdrawalBalance: { type: Number, default: 0 },
 
@@ -163,4 +163,16 @@ doctorSchema.virtual("formattedAddress").get(function () {
   return parts.join(", ");
 });
 doctorSchema.index({ autoDeleteAt: 1 }, { expireAfterSeconds: 0 });
+doctorSchema.virtual('schedule', {
+  ref: 'Schedule',
+  localField: '_id',
+  foreignField: 'doctorId',
+  justOne: true
+})
+doctorSchema.pre('save', function(next) {
+  this.isProfileComplete = this.specialty && 
+                         this.qualifications?.length > 0 && 
+                         this.licenseNumber;
+  next();
+});
 export default model("Doctor", doctorSchema);

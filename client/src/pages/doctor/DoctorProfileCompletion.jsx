@@ -61,7 +61,7 @@ const DoctorProfileCompletion = () => {
     },
     onSuccess: () => {
       toast.success('Profile submitted successfully!')
-      navigate('/dashboard')
+      navigate('doctor/dashboard')
     },
     onError: (error) => {
       toast.error(error.response?.data?.message || 'Failed to submit profile')
@@ -415,118 +415,6 @@ const DoctorProfileCompletion = () => {
             </div>
           </div>
         </section>
-
-        {/* Working Hours Section */}
-        <section className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4 flex items-center">
-            <Clock className="mr-2 h-5 w-5" /> Working Hours
-          </h2>
-          
-          <div className="space-y-4">
-            {(watch('workingHours') || []).map((day, index) => (
-              <div key={index} className="border p-4 rounded-lg">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Day*</label>
-                    <select
-                      {...register(`workingHours.${index}.day`, { required: 'Day is required' })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    >
-                      {daysOfWeek.map(day => (
-                        <option key={day} value={day}>{day}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Start Time*</label>
-                    <input
-                      type="time"
-                      {...register(`workingHours.${index}.startTime`, { required: 'Start time is required' })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">End Time*</label>
-                    <input
-                      type="time"
-                      {...register(`workingHours.${index}.endTime`, { required: 'End time is required' })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    />
-                  </div>
-                  <div className="flex items-end justify-end">
-                    <button
-                      type="button"
-                      onClick={() => removeWorkingDay(index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-                  </div>
-                </div>
-                
-                {/* Breaks */}
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700">Breaks</label>
-                  <div className="space-y-2 mt-2">
-                    {(day.breaks || []).map((brk, breakIndex) => (
-                      <div key={breakIndex} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500">Start Time</label>
-                          <input
-                            type="time"
-                            {...register(`workingHours.${index}.breaks.${breakIndex}.startTime`)}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500">End Time</label>
-                          <input
-                            type="time"
-                            {...register(`workingHours.${index}.breaks.${breakIndex}.endTime`)}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                          />
-                        </div>
-                        <div className="flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = [...watch('workingHours')]
-                              updated[index].breaks?.splice(breakIndex, 1)
-                              setValue('workingHours', updated)
-                            }}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const updated = [...watch('workingHours')]
-                        if (!updated[index].breaks) updated[index].breaks = []
-                        updated[index].breaks?.push({ startTime: '12:00', endTime: '13:00' })
-                        setValue('workingHours', updated)
-                      }}
-                      className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                    >
-                      <Plus className="mr-1 h-3 w-3" /> Add Break
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={addWorkingDay}
-              className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <Plus className="mr-1 h-3 w-3" /> Add Working Day
-            </button>
-          </div>
-        </section>
-
         {/* Documents Section */}
         <section className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-4 flex items-center">

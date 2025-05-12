@@ -9,8 +9,10 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
+  
   const { data: response, isError, isSuccess, isLoading: isUserLoading } = useGetUser();
   const [isLoading, setIsLoading] = useState(isUserLoading);
+
 
   useEffect(() => {
     if (response?.data?.user) {

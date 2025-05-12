@@ -27,7 +27,7 @@ const useGoogleSignIn = () => {
         user.role === "patient"
           ? "/patient/dashboard"
           : user.role === "doctor"
-          ? "/doctor/dashboard"
+          ? "/profileCompletion"
           : "/";
       navigate(redirectTo);
     },

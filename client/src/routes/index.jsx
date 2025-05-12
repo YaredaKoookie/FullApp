@@ -4,6 +4,8 @@ import GoogleCallback from "@/components/callbacks/GoogleCallback";
 import MagicLinkVerify from "@/components/callbacks/MagicLinkVerify";
 import PasswordReset from "@/components/callbacks/PasswordReset";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import {DoctorProtectedRoute,DoctorProfileRoute} from "@/components/doctorProtectedRoute";
+
 import RedirectIfLoggedIn from "@/components/RedirectIfLoggedIn";
 import ErrorBoundary from "@/ErrorBoundary";
 import NotFound from "@/NotFound";
@@ -11,6 +13,7 @@ import Login from "@/pages/auth/Login";
 import RegistrationTab from "@/pages/auth/RegistrationTab";
 import SelectRole from "@/pages/auth/SelectRole";
 import DoctorLayout from "@/pages/doctor/DoctorLayout";
+import DoctorProfileCompletion from "@/pages/doctor/DoctorProfileCompletion";
 import AppointmentDetails from "@/pages/patient/AppointmentDetails";
 import Appointments from "@/pages/patient/Appointments";
 import PatientDashboard from "@/pages/patient/PatientDashboard";
@@ -25,8 +28,8 @@ import {
   Navigate,
   Route,
 } from "react-router-dom";
-
-
+import DoctorScheduling from "@/pages/doctor/DoctorScheduling";
+import DoctorDashboard from "@/pages/doctor/DoctorDashboard";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -34,7 +37,21 @@ const router = createBrowserRouter(
       <Route path="/" element={<App />}>
         <Route index element={<Home />} />
       </Route>
-      <Route path="/profileCompletion" element={<DoctorProfileCompletion />}/ >
+
+      <Route element={<DoctorProfileRoute />}>
+        <Route
+          path="/doctor/complete-profile"
+          element={<DoctorProfileCompletion />}
+        />
+      </Route>
+
+      {/* Doctor routes - only accessible if profile IS completed */}
+      <Route element={<DoctorLayout><DoctorProtectedRoute /></DoctorLayout>}>
+        <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
+        {/* <Route path="/doctor/appointments" element={<DoctorAppointments />} /> */}
+        <Route path="/doctor/schedule" element={<DoctorScheduling />} />
+        {/* Add other doctor routes here */}
+      </Route>
       <Route
         path="doctor"
         element={
@@ -43,6 +60,8 @@ const router = createBrowserRouter(
           </ProtectedRoute>
         }
       ></Route>
+
+      {/* this is my space */}
 
       <Route path="/patient" element={<PatientLayout />}>
         <Route

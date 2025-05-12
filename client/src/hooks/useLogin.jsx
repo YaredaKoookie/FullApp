@@ -23,12 +23,12 @@ const useLogin = () => {
       
       login(accessToken, user);
       toast.success("You have Successfully logged in")
-      
+      console.log("profileCompletion")
       const redirectTo =
         user.role === "patient"
           ? "/patient/dashboard"
           : user.role === "doctor"
-          ? "/doctor/dashboard"
+          ? "/profileCompletion"
           : "/";
       navigate(redirectTo);
     },

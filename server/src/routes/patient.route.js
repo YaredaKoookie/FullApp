@@ -3,7 +3,7 @@ import {validate} from "../validations"
 import { appointmentChains, doctorChains, patientChains } from "../validations/chains";
 import { patientController, reviewController } from "../controllers";
 import { validateCreateReview, validateUpdateReview } from "../validations/chains/review.chain";
-import { isProfileCompleted } from "../middlewares/auth.middleware";
+import { isPatient, isProfileCompleted } from "../middlewares/auth.middleware";
 import { uploadImage } from "../config/multer.config";
 
 const router = Router();
@@ -69,6 +69,8 @@ router.delete("/reviews/:reviewId", reviewController.deleteReview);
 // router.get('/patient/chats', auth, isPatient, chatController.getChats);
 // router.post('/patient/upload-record', auth, isPatient, patientController.uploadMedicalRecord); // NEW
 // router.get('/patient/transactions', auth, isPatient, patientController.getTransactionHistory); // NEW
+
+
 
 
 export default router;
