@@ -27,6 +27,7 @@ const env = cleanEnv(process.env, {
   GOOGLE_CLIENT_SECRET: str(),
   GOOGLE_CALLBACK_URL: url(),
   SERVER_URL: url(),
+  CHAPA_SECRET_KEY: str(),
   NODE_ENV: str({
     choices: ["production", "development"],
     default: "development",

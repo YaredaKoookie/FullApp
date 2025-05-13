@@ -25,6 +25,7 @@ import {
   updateScheduleValidation,
 } from "../validations/chains/scheduleValidation.js";
 import { param, validationResult } from "express-validator";
+import { isPatient } from "../middlewares/auth.middleware.js";
 const router = express.Router();
 
 // Generate slots for a doctor (automated based on workingHours)
@@ -90,6 +91,7 @@ router.get(
 
 router.put(
   '/doctors/:doctorId/slots/:slotId/book',
+  isPatient,
   bookAppointmentSlot
 );
 
