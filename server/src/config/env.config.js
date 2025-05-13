@@ -28,6 +28,7 @@ const env = cleanEnv(process.env, {
   GOOGLE_CALLBACK_URL: url(),
   SERVER_URL: url(),
   CHAPA_SECRET_KEY: str(),
+  CHAPA_WEBHOOK_SECRET_KEY: str(),
   NODE_ENV: str({
     choices: ["production", "development"],
     default: "development",

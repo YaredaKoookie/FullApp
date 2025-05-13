@@ -5,7 +5,8 @@ export const PAYMENT_STATUS = {
     PENDING: "pending",
     PAID: "paid",
     FAILED: "failed",
-    REFUNDED: "refunded"
+    REFUNDED: "refunded",
+    PARTIALLY_REFUNDED: "partially_refunded"
 }
 
 export const REFUND_STATUS = {
@@ -15,6 +16,7 @@ export const REFUND_STATUS = {
 }
 
 const refundSchema = new mongoose.Schema({
+    refundId: {type: String, required: true},
     amount: {type: Number, required: true},
     reason: {type: String, required: true},
     status: {type: String, enum: Object.values(REFUND_STATUS), default: REFUND_STATUS.PENDING},
