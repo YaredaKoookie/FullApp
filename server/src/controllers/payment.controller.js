@@ -1,205 +1,351 @@
-import axios from 'axios';
-import Appointment from '../models/appointment/appointment.model';
-import Payment from '../models/OtherModels/Payment.models';
-import Patient from '../models/patient/patient.model';
+import Appointment, {
+  APPOINTMENT_STATUS,
+} from "../models/appointment/appointment.model";
 
-export  const initiatePayment = async (req, res) => {
+import Payment, {
+  PAYMENT_STATUS,
+  REFUND_STATUS,
+} from "../models/appointment/payment.model";
+
+import Patient from "../models/patient/patient.model";
+import { logger, ServerError } from "../utils";
+import { chapa, env } from "../config";
+import mongoose from "mongoose";
+import Doctor from "../models/doctors/doctor.model";
+import { refundChapaPayment } from "../config/chapa.config";
+import { generateUniqueToken } from "../utils/token.util";
+
+export const initiatePayment = async (req, res) => {
+  const appointmentId = req.params?.appointmentId;
+  const currency = req.body?.currency || "ETB";
+
+  if (!["ETB", "USD"].includes(currency))
+    throw ServerError.badRequest(
+      "Only ETB or USD are allowed as a currency to pay"
+    );
+
+  if (!appointmentId)
+    throw ServerError.badRequest("appointment id is required");
+
+  const patient = await Patient.findOne({ userId: req.user.sub })
+    .select("_id user")
+    .populate("user", "email");
+
+  if (patient) throw ServerError.notFound("Patient not found");
+
+  const appointment = await Appointment.findById(appointmentId);
+
+  if (!appointment) throw ServerError.notFound("Appointment not found");
+
+  if (!appointment.doctor)
+    throw ServerError.notFound("Doctor for this appointment cannot be found");
+
+  if (appointment.patient.toString() !== patient._id.toString())
+    throw ServerError.badRequest(
+      "Payment is allowed only for the owner of the appointment"
+    );
+
+  if (appointment.status !== APPOINTMENT_STATUS.ACCEPTED)
+    throw ServerError.badRequest(
+      "Payment is allowed only for doctor accepted appointments"
+    );
+
+  let payment = await Payment.findOne({ appointment: appointment._id });
+
+  if (payment)
+    throw ServerError.badRequest(
+      "Payment has already been initiated for this appointment"
+    );
+
+  payment = new Payment({
+    patient: patient._id,
+    appointment: appointment._id,
+    doctor: appointment.doctor,
+    amount: appointment.fee,
+    currency,
+    status: PAYMENT_STATUS.PENDING,
+  });
+
+  appointment.status = APPOINTMENT_STATUS.PAYMENT_PENDING;
+
+  await appointment.save();
+  await payment.save();
+
+  res.json({
+    success: true,
+    data: {
+      payment,
+    },
+  });
+};
+
+export const initializeChapaPayment = async (req, res) => {
+  const { paymentId } = req.params;
+
+  const patient = await Patient.findOne({ user: req.user.sub });
+
+  if (patient) throw ServerError.notFound("Patient not found");
+
+  const payment = await Payment.findOne({
+    _id: paymentId,
+    patient: patient._id,
+  });
+
+  if (!payment) throw ServerError.notFound("Payment not found or initiated");
+
+  if (payment.status !== PAYMENT_STATUS.PENDING)
+    throw ServerError.badRequest("Payment is not in pending state");
+
+  const tx_ref = chapa.genTxRef({
+    prefix: `appointment_${payment._id}_${Date.now()}`,
+  });
+
+  const response = await chapa.initialize({
+    first_name: patient.firstName,
+    last_name: patient.lastName,
+    email: patient.user.email,
+    currency: payment.currency || "ETB",
+    amount: payment.amount,
+    tx_ref,
+    callback_url: `${env.SERVER_URL}/payment/chapa/callback`,
+    return_url: `${env.FRONTEND_URL}/patient/payment/callback`,
+    customization: {
+      title: "Appointment Payment",
+      description: "Payment for medical appointment",
+    },
+  });
+
+  if (response.status !== "success")
+    throw ServerError.internal("Failed to initialize payment");
+
+  payment.transactionId = response.data.tx_ref;
+  await payment.save();
+
+  res.status(201).json({
+    success: true,
+    message: "Payment initialized successfully",
+    data: {
+      payment_url: response.data.checkout_url,
+    },
+  });
+};
+
+export const verifyChapaCallback = async (req, res, next) => {
+  const { tx_ref, status, ref_id } = req.body;
+
+  if (!tx_ref || !status || !ref_id)
+    throw ServerError.badRequest("Invalid chapa payload");
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const userId = req.user.sub;
-    const patient = await Patient.findById(userId);
-    const { appointmentId } = req.params;
-    
-    // 1. Validate appointment
-    const appointment = await Appointment.findById(appointmentId)
-      .populate('doctor', 'consultationFee');
-    if (!appointment || appointment.patient.toString() !== patient) {
-      return res.status(404).json({ message: 'Appointment not found or access denied' });
-    }
-    if (appointment.status !== 'confirmed') {
-      return res.status(400).json({ message: 'Appointment not approved yet' });
+    const [name, paymentId] = tx_ref.split("_");
+    const payment = await Payment.findById(paymentId).session(session);
+
+    if (!payment) throw ServerError.notFound("Payment record not found");
+
+    if (payment.status !== PAYMENT_STATUS.PENDING) {
+      await session.abortTransaction();
+      return res.json(404).json({ message: "Payment is not in pending state" });
     }
 
-    // 2. Prepare Telebirr payment request
-    const amount = appointment.doctor.consultationFee;    // your unit price
-    const callbackUrl = `${process.env.APP_URL}/payment/telebirr/callback`;
-    const telebirrPayload = {
-      merchantId: process.env.TELEBIRR_MERCHANT_ID,
-      orderId:    appointmentId,                          // unique per transaction
-      amount:     amount,
-      currency:   'ETB',
-      callback:   callbackUrl,
-      description: `Payment for appointment ${appointmentId}`
+    const response = await chapa.verify({ tx_ref });
+
+    if (!response || !response.status)
+      throw ServerError("Invalid chapa verification response");
+
+    const { status, data, message } = response;
+
+    payment.transactionId = data.tx_ref || tx_ref;
+    payment.referenceId = data.reference || ref_id;
+    payment.paymentMethod = data.method;
+    payment.currency = data.currency;
+    payment.paymentDate = data.created_at || new Date();
+
+    if (status === "success") {
+      payment.status = PAYMENT_STATUS.PAID;
+
+      const appointment = await Appointment.findById(
+        payment.appointment
+      ).session(session);
+
+      if (!appointment) {
+        await session.abortTransaction();
+        throw ServerError.notFound("Appointment record is not found");
+      }
+
+      appointment.status = APPOINTMENT_STATUS.CONFIRMED;
+      appointment.confirmedAt = new Date();
+      await appointment.save({ session });
+    } else {
+      payment.status = PAYMENT_STATUS.FAILED;
+      payment.failureReason = req.body.message || "payment_failed";
+    }
+
+    await payment.save({ session });
+    await session.commitTransaction();
+
+    res.json({
+      success: true,
+      message: "Payment status updated successfully",
+    });
+  } catch (error) {
+    logger.error("Payment verification failed", error);
+    next(error);
+  }
+};
+
+export const processRefund = async (req, res, next) => {
+  const { tx_ref, amount, reason } = req.body;
+
+  if (!tx_ref || !amount || !!reason)
+    throw ServerError.badRequest(
+      "transaction ref, amount and reason are required"
+    );
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const payment = await Payment.findOne({ transactionId: tx_ref }).session(
+      session
+    );
+
+    if (!payment) throw ServerError.notFound("Payment record not found");
+
+    let userProfile = null;
+
+    if (req.user.role === "patient")
+      userProfile = await Patient.findOne({ user: req.user.sub }).session(
+        session
+      );
+    else if (req.user.role === "doctor")
+      userProfile = await Doctor.findOne({ userId: req.user.sub }).session(
+        session
+      );
+
+    if (!userProfile) throw ServerError.notFound("user not found");
+
+    const { PAID, PARTIALLY_REFUNDED } = PAYMENT_STATUS;
+
+    if (![PAID, PARTIALLY_REFUNDED].includes(payment.status))
+      throw ServerError.badRequest(
+        "Only paid and partially refunded transactions can be refunded"
+      );
+
+    const appointment = await Appointment.findById(payment.appointment).session(
+      session
+    );
+
+    if (!appointment)
+      throw ServerError.notFound("Associated appointment not found");
+
+    const { CANCELLED, NO_SHOW, RESCHEDULED } = APPOINTMENT_STATUS;
+
+    if (![CANCELLED, NO_SHOW, RESCHEDULED].includes(appointment.status))
+      throw ServerError.badRequest(
+        `Refund is not allowed for ${appointment.status} appointment`
+      );
+
+    const hasPendingRefund = payment.refunds.some(
+      (refund) => refund.status === REFUND_STATUS.PENDING
+    );
+
+    if (hasPendingRefund)
+      throw ServerError.badRequest(
+        "A refund is already pending for this payment. please wait until it is processed"
+      );
+
+    const totalRefunded = payment.refunds.reduce((sum, refund) => {
+      return refund.status !== REFUND_STATUS.FAILED ? sum + refund.amount : acc;
+    }, 0);
+
+    if (totalRefunded + amount > payment.amount) {
+      throw ServerError.badRequest(
+        `Refund amount exceeds the original payment amount.`
+      );
+    }
+
+    let refundId = generateUniqueToken();
+
+    const meta = { refundId };
+    const refundResponse = await refundChapaPayment(tx_ref, amount, reason, meta);
+
+    const { status, data } = refundResponse;
+
+    if(status !== 'success')
+      throw ServerError.internal("Refund initialization failed");
+
+    refundId = data.meta.refundId;
+
+    if(!refundId)
+      throw ServerError.notFound("refund id is not found");
+
+
+    const refundEntry = {
+      amount,
+      refundId,
+      reason,
+      status: REFUND_STATUS.PENDING,
     };
 
-    // 3. Call Telebirr API
-    const telebirrResponse = await axios.post(
-      'https://api.telebirr.et/merchant/v1/pay', 
-      telebirrPayload,
-      { headers: { 'Authorization': `Bearer ${process.env.TELEBIRR_API_KEY}` } }
-    );
+    payment.refunds.push(refundEntry);
 
-    if (telebirrResponse.data.status !== 'OK') {
-      throw new Error('Telebirr initiation failed');
-    }
+    await payment.save({ session });
+    await session.commitTransaction();
 
-    // 4. Create a pending transaction
-    const transaction = await Payment.create({
-      user:        patient,
-      type:        'payment',
-      amount,
-      status:      'pending',
-      reference:   telebirrResponse.data.paymentReference
+    res.json({
+      success: true,
+      message: "Refund processed successfully",
     });
-
-    // 5. Return the Telebirr payment URL (customer scans or is redirected)
-    return res.status(200).json({
-      message:      'Telebirr payment initiated',
-      paymentUrl:   telebirrResponse.data.paymentUrl,
-      transactionId: transaction._id
-    });
-  } catch (err) {
-    console.error('Error initiating Telebirr payment:', err);
-    return res.status(500).json({
-      message: 'Failed to initiate payment',
-      error: err.message
-    });
+  } catch (error) {
+    await session.abortTransaction();
+    next(error);
+  } finally {
+    session.endSession();
   }
 };
 
+export const handleChapaRefundWebhook = async (req, res, next) => {
+  const { tx_ref, status, amount, meta } = req.body;
 
-export const getPaymentStatus = async (req, res) => {
-  try {
-    const userId = req.user.sub;
-    const patient = await Patient.findById(userId);  
-    const { appointmentId } = req.params;
+  console.log("chapa webhook body", req.body);
 
-    // 1. Validate appointment ownership
-    const appointment = await Appointment.findById(appointmentId).populate('doctor', 'consultationFee');
-    if (!appointment || appointment.patient.toString() !== patient) {
-      return res.status(404).json({ message: 'Appointment not found or access denied' });
-    }
+  if (!tx_ref || !status || !amount)
+    throw ServerError.badRequest("Invalid webhook payload");
 
-    // 2. Find the pending or latest transaction for this appointment
-    const transaction = await Payment.findOne({
-      user: patient,
-      type: 'payment',
-      reference: appointmentId  // assuming you stored appointmentId in reference or metadata
-    }).sort({ createdAt: -1 });
 
-    if (!transaction) {
-      return res.status(404).json({ message: 'No payment record found for this appointment' });
-    }
+  const payment = await Payment.findOne({ referenceId: tx_ref });
 
-    // 3. If still pending, optionally refresh status from provider
-    if (transaction.status === 'pending' && process.env.TELEBIRR_API_KEY) {
-      // Example Telebirr status check
-      const resp = await axios.get(
-        `https://api.telebirr.et/merchant/v1/status/${transaction.reference}`,
-        { headers: { 'Authorization': `Bearer ${process.env.TELEBIRR_API_KEY}` } }
-      );
-      const providerStatus = resp.data.status; // e.g. 'PAID' or 'FAILED'
 
-      // Map provider statuses to your internal ones
-      const statusMap = {
-        PAID:     'success',
-        FAILED:   'failed',
-        PENDING:  'pending'
-      };
+  if (!payment) throw ServerError.notFound("404", "Payment not found");
+  
 
-      transaction.status = statusMap[providerStatus] || transaction.status;
-      await transaction.save();
+  const refund = payment.refunds.find(r => r.refundId === meta?.refundId);
 
-      // Mark appointment paid if success
-      if (transaction.status === 'success') {
-        appointment.isPaid = true;
-        await appointment.save();
-      }
-    }
+  if(!refund)
+    throw ServerError.badRequest("refund not found");
 
-    // 4. Respond with current status
-    return res.status(200).json({
-      message: 'Payment status retrieved successfully',
-      payment: {
-        amount:       transaction.amount,
-        status:       transaction.status,
-        transactionId: transaction._id,
-        reference:     transaction.reference,
-        createdAt:     transaction.createdAt
-      }
-    });
-  } catch (err) {
-    console.error('Error fetching payment status:', err);
-    return res.status(500).json({
-      message: 'An error occurred while fetching payment status',
-      error: err.message
-    });
-  }
-};
+  if(refund.status !== REFUND_STATUS.PENDING)
+    throw ServerError.badRequest("Refund already processed "+meta?.refundId)
 
-export const processRefund = async (req, res) => {
-  try {
-    const { appointmentId } = req.params;
-    const adminId = req.user.userId;
+  refund.status = status === 'success' ? REFUND_STATUS.PROCESSED : REFUND_STATUS.FAILED;
+  refund.processedAt = status === 'success' ? new Date() : null;
 
-    // 1. Fetch appointment & ensure it was paid
-    const appointment = await Appointment.findById(appointmentId);
-    if (!appointment || !appointment.isPaid) {
-      return res.status(400).json({ message: 'Appointment is not paid or does not exist' });
-    }
+  const totalRefunded = payment.refunds.reduce((sum, refund) => {
+    return refund.status === REFUND_STATUS.PROCESSED ? (sum + refund.amount) : sum
+  }, 0)
 
-    // 2. Find the original payment transaction
-    const originalTxn = await Payment.findOne({
-      reference: appointmentId,
-      type:      'payment',
-      status:    'success'
-    });
-    if (!originalTxn) {
-      return res.status(404).json({ message: 'Original payment transaction not found' });
-    }
+  if(totalRefunded === payment.amount) payment.status = PAYMENT_STATUS.REFUNDED;
+  if(totalRefunded > payment.amount) payment.status = PAYMENT_STATUS.PARTIALLY_REFUNDED;
 
-    // 3. Call the provider’s refund API
-    //    Example: Telebirr refund endpoint
-    const refundResp = await axios.post(
-      'https://api.telebirr.et/merchant/v1/refund',
-      {
-        merchantId: process.env.TELEBIRR_MERCHANT_ID,
-        paymentReference: originalTxn.reference,
-        amount: originalTxn.amount,
-        reason: req.body.reason || 'Admin-initiated refund'
-      },
-      { headers: { Authorization: `Bearer ${process.env.TELEBIRR_API_KEY}` } }
-    );
-    if (refundResp.data.status !== 'OK') {
-      throw new Error('Provider refund failed');
-    }
+  await payment.save();
 
-    // 4. Record the refund transaction
-    const refundTxn = await Payment.create({
-      user:      appointment.patient,
-      type:      'refund',
-      amount:    originalTxn.amount,
-      status:    'success',
-      reference: refundResp.data.refundReference,
-      metadata:  { adminId }
-    });
 
-    // 5. Update appointment & original txn
-    appointment.isPaid     = false;
-    appointment.refundStatus = 'processed';
-    await appointment.save();
-
-    originalTxn.status = 'refunded';
-    await originalTxn.save();
-
-    return res.status(200).json({
-      message: 'Refund processed successfully',
-      refundTransaction: refundTxn
-    });
-  } catch (err) {
-    console.error('Error processing refund:', err);
-    return res.status(500).json({
-      message: 'An error occurred while processing the refund',
-      error: err.message
-    });
-  }
+  return res.json({
+    success: true,
+    message: "refund updated",
+    data: { payment },
+  });
 };

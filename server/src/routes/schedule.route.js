@@ -25,6 +25,7 @@ import {
   updateScheduleValidation,
 } from "../validations/chains/scheduleValidation.js";
 import { param, validationResult } from "express-validator";
+import { isPatient } from "../middlewares/auth.middleware.js";
 const router = express.Router();
 import {isDoctor,isPatient } from '../middlewares/auth.middleware';
 

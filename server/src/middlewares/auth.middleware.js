@@ -20,7 +20,6 @@ export const verifyJWT = (req, res, next) => {
   }
 };
 
-
 export const verifyRefreshToken = (req, res, next) => {
   const token = req.cookies?.refreshToken;
 
@@ -56,13 +55,11 @@ export const isPatient = [
   },
 ];
 
-export const isProfileCompleted = [
-  (req, res, next) => {
-    if (!req.user.isProfileCompleted)
-      throw ServerError.forbidden(
-        "Access Denied! you need to complete your profile"
-      );
+export const isProfileCompleted = (req, res, next) => {
+  if (!req.user.isProfileCompleted)
+    throw ServerError.forbidden(
+      "Access Denied! you need to complete your profile"
+    );
 
-    next();
-  },
-];
+  next();
+};

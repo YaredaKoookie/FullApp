@@ -2,6 +2,18 @@ import { Schema, model } from "mongoose";
 
 // Enums
 
+// const APPOINTMENT_STATUS = [
+//   "pending", // if doctor requests for appointment
+//   "accepted", // if doctor accepted the appointment
+//   "payment_pending", // if the patient tries to pay
+//   "confirmed", // if payment is done
+//   "completed", // if the appointment is done
+//   "cancelled", // if the appointment is cancelled by the doctor or patient
+//   "no-show", // if the patient does not show-up on appointment day
+//   "expired", //  if payment timeout
+//   "rescheduled", // if the patient or doctor reschedules the appointment
+// ];
+
 export const APPOINTMENT_STATUS = {
   PENDING: "pending",
   ACCEPTED: "accepted",
@@ -11,13 +23,13 @@ export const APPOINTMENT_STATUS = {
   CANCELLED: "cancelled",
   NO_SHOW: "no-show",
   EXPIRED: "expired",
-  RESCHEDULED: "rescheduled"
-}
+  RESCHEDULED: "rescheduled",
+};
 // const APPOINTMENT_TYPES = ["consultation", "follow-up", "emergency", "therapy", "check-up"];
 export const APPOINTMENT_TYPES = {
   IN_PERSON: "in-person",
-  VIRTUAL: "virtual"
-}
+  VIRTUAL: "virtual",
+};
 
 export const CANCELLATION_REASONS = {
   PATIENT_REQUEST: "patient_request",
@@ -25,8 +37,8 @@ export const CANCELLATION_REASONS = {
   PAYMENT_DELAYED: "payment_delayed",
   NO_SHOW: "no_show",
   SYSTEM_ISSUE: "system_issue",
-  EMERGENCY: "emergency"
-}
+  EMERGENCY: "emergency",
+};
 
 // Time Slot Schema
 const timeSlotSchema = new Schema(
@@ -117,8 +129,8 @@ const appointmentSchema = new Schema(
       default: null,
     },
     fee: {
-      type: Number, 
-      required: true
+      type: Number,
+      required: true,
     },
     note: {
       type: String,
@@ -127,8 +139,7 @@ const appointmentSchema = new Schema(
     cancellation: {
       reason: {
         type: String,
-        enum: Object.values(CANCELLATION_REASONS),
-        default: null,
+        default: "",
       },
       cancelledBy: {
         type: Schema.Types.ObjectId,
@@ -151,7 +162,11 @@ const appointmentSchema = new Schema(
       max: 5,
     },
     acceptedAt: {
-      type: Date, 
+      type: Date,
+      default: null,
+    },
+    confirmedAt: {
+      type: Date,
       default: null,
     },
     virtualDetails: {
@@ -165,7 +180,7 @@ const appointmentSchema = new Schema(
           default: "",
         },
       },
-      default: {}
+      default: {},
     },
   },
   {
