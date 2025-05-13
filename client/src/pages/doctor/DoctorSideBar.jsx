@@ -1,62 +1,98 @@
-import doctorLinks from "@/constants/doctorLinks"
-import { ArrowLeftCircle, ChevronLeft } from "lucide-react";
-import React, { useState } from "react";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import doctorLinks from "@/constants/doctorLinks";
+import { ChevronLeft, HomeIcon, ArrowLeftCircle } from "lucide-react";
+import React from "react";
+import { NavLink, useLocation, Link } from "react-router-dom";
 
-
-
-const DoctorSidebar = ({isCollapsed, setIsCollapsed}) => {
+const DoctorSidebar = ({ isCollapsed, setIsCollapsed }) => {
   const location = useLocation();
 
   return (
-    <div className={`h-screen bg-gradient-to-b from-indigo-50 to-white p-6 w-full`}>
+    <div className="h-screen bg-gradient-to-b from-indigo-50 to-white p-6 w-full relative">
       {/* Header with Collapse Button */}
-      <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} mb-12 transition-all duration-300`}>
-          <h2 className={`text-2xl font-bold bg-gradient-to-r from-indigo-600 to-blue-500 bg-clip-text text-transparent transition-opacity ease-in-out ${isCollapsed ? "hidden" : ""}`}>
-            Doctor Portal
-          </h2>
-        <button 
+      <div
+        className={`flex items-center ${
+          isCollapsed ? "justify-center" : "justify-between"
+        } mb-12 transition-all duration-300`}
+      >
+        <h2
+          className={`text-2xl font-bold bg-gradient-to-r from-indigo-600 to-blue-500 bg-clip-text text-transparent transition-opacity ease-in-out ${
+            isCollapsed ? "hidden" : ""
+          }`}
+        >
+          Doctor Portal
+        </h2>
+        <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className={`p-2 rounded-full hover:bg-indigo-100 transition-colors ${isCollapsed ? 'mx-auto' : ''}`}
+          className={`p-2 rounded-full hover:bg-indigo-100 transition-colors ${
+            isCollapsed ? "mx-auto" : ""
+          }`}
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <ChevronLeft className={`w-5 h-5 text-indigo-600 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} />
+          <ChevronLeft
+            className={`w-5 h-5 text-indigo-600 transition-transform ${
+              isCollapsed ? "rotate-180" : ""
+            }`}
+          />
         </button>
       </div>
 
       {/* Navigation Links */}
       <ul className="space-y-2">
+        {/* Back to Home */}
+        <li>
+          <NavLink
+            to="/"
+            className={({ isActive }) => `
+              flex items-center 
+              ${isCollapsed ? "justify-center p-3" : "px-4 py-3"} 
+              rounded-xl 
+              transition-all 
+              duration-200 
+              group
+              ${
+                isActive
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-200 active"
+                  : "hover:bg-indigo-50 text-gray-600 hover:text-indigo-600"
+              }
+            `}
+          >
+            <ArrowLeftCircle className="w-5 h-5 text-indigo-500 group-[.active]:text-white" />
+            {!isCollapsed && (
+              <span className="ml-3 text-sm font-medium">Back to Home</span>
+            )}
+          </NavLink>
+        </li>
+
+        {/* Doctor Dashboard Links */}
         {doctorLinks.map(({ icon: LinkIcon, url, name, id }) => (
           <li key={id}>
             <NavLink
               to={url}
-              className={({isActive}) => `
+              className={({ isActive }) => `
                 flex items-center 
-                ${isCollapsed ? 'justify-center p-3' : 'px-4 py-3'} 
+                ${isCollapsed ? "justify-center p-3" : "px-4 py-3"} 
                 rounded-xl 
                 transition-all 
                 duration-200 
                 group
-                ${isActive 
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 active' 
-                  : 'hover:bg-indigo-50 text-gray-600 hover:text-indigo-600'
+                ${
+                  isActive
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-200 active"
+                    : "hover:bg-indigo-50 text-gray-600 hover:text-indigo-600"
                 }
               `}
             >
-              <span className={`
-                group-[.active]:text-white text-indigo-500
-                transition-colors
-                ${isCollapsed ? '' : 'mr-3'}
-              `}>
+              <span
+                className={`group-[.active]:text-white text-indigo-500 transition-colors ${
+                  isCollapsed ? "" : "mr-3"
+                }`}
+              >
                 <LinkIcon className="w-5 h-5" />
               </span>
               {!isCollapsed && (
                 <span className="font-medium text-sm transition-opacity">
                   {name}
                 </span>
-              )}
-              {!isCollapsed && (
-                <span className="ml-auto w-2 h-2 bg-white rounded-full"></span>
               )}
             </NavLink>
           </li>

@@ -542,126 +542,129 @@ function hasOverlappingSlots(slots) {
   return false;
 }
 
-export const setAvailability = async (req, res) => {
-  try {
-    const doctorId = req.user.sub; // from auth middleware
-    const { weeklyAvailability } = req.body;
 
-    console.log("Doctor ID:", doctorId);
-    console.log("Body received:", req.body);
-    console.log("weeklyAvailability:", weeklyAvailability);
 
-    // Basic validations
-    if (!Array.isArray(weeklyAvailability)) {
-      return res
-        .status(400)
-        .json({ error: "Invalid weeklyAvailability format." });
-    }
 
-    const validDays = [
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-      "Sunday",
-    ];
-    const seenDays = new Set();
+// export const setAvailability = async (req, res) => {
+//   try {
+//     const doctorId = req.user.sub; // from auth middleware
+//     const { weeklyAvailability } = req.body;
 
-    for (let entry of weeklyAvailability) {
-      const { day, slots } = entry;
+//     console.log("Doctor ID:", doctorId);
+//     console.log("Body received:", req.body);
+//     console.log("weeklyAvailability:", weeklyAvailability);
 
-      if (!validDays.includes(day)) {
-        return res.status(400).json({ error: `Invalid day: ${day}` });
-      }
+//     // Basic validations
+//     if (!Array.isArray(weeklyAvailability)) {
+//       return res
+//         .status(400)
+//         .json({ error: "Invalid weeklyAvailability format." });
+//     }
 
-      if (seenDays.has(day)) {
-        return res
-          .status(400)
-          .json({ error: `Duplicate availability for ${day}.` });
-      }
-      seenDays.add(day);
+//     const validDays = [
+//       "Monday",
+//       "Tuesday",
+//       "Wednesday",
+//       "Thursday",
+//       "Friday",
+//       "Saturday",
+//       "Sunday",
+//     ];
+//     const seenDays = new Set();
 
-      if (!Array.isArray(slots) || slots.length === 0) {
-        return res
-          .status(400)
-          .json({ error: `Slots missing or invalid for ${day}.` });
-      }
+//     for (let entry of weeklyAvailability) {
+//       const { day, slots } = entry;
 
-      // Validate slot times
-      for (let slot of slots) {
-        if (!slot.start || !slot.end) {
-          return res
-            .status(400)
-            .json({ error: `Slot missing start or end time for ${day}.` });
-        }
-        if (new Date(slot.start) >= new Date(slot.end)) {
-          return res.status(400).json({
-            error: `Start time must be before end time for a slot on ${day}.`,
-          });
-        }
-      }
+//       if (!validDays.includes(day)) {
+//         return res.status(400).json({ error: `Invalid day: ${day}` });
+//       }
 
-      // Check for overlaps
-      if (hasOverlappingSlots(slots)) {
-        return res
-          .status(400)
-          .json({ error: `Overlapping time slots found on ${day}.` });
-      }
-    }
+//       if (seenDays.has(day)) {
+//         return res
+//           .status(400)
+//           .json({ error: `Duplicate availability for ${day}.` });
+//       }
+//       seenDays.add(day);
 
-    // Update availability
-    const doctor = await Doctor.findOneAndUpdate(
-      { userId: doctorId },
-      { weeklyAvailability },
-      { new: true }
-    );
+//       if (!Array.isArray(slots) || slots.length === 0) {
+//         return res
+//           .status(400)
+//           .json({ error: `Slots missing or invalid for ${day}.` });
+//       }
 
-    if (!doctor) {
-      return res.status(404).json({ error: "Doctor not found." });
-    }
+//       // Validate slot times
+//       for (let slot of slots) {
+//         if (!slot.start || !slot.end) {
+//           return res
+//             .status(400)
+//             .json({ error: `Slot missing start or end time for ${day}.` });
+//         }
+//         if (new Date(slot.start) >= new Date(slot.end)) {
+//           return res.status(400).json({
+//             error: `Start time must be before end time for a slot on ${day}.`,
+//           });
+//         }
+//       }
 
-    return res.status(200).json({
-      message: "Availability updated successfully.",
-      availability: doctor.weeklyAvailability,
-    });
-  } catch (error) {
-    console.error("Error updating availability:", error);
-    return res
-      .status(500)
-      .json({ error: "Server error while updating availability." });
-  }
-};
+//       // Check for overlaps
+//       if (hasOverlappingSlots(slots)) {
+//         return res
+//           .status(400)
+//           .json({ error: `Overlapping time slots found on ${day}.` });
+//       }
+//     }
 
-export const getAvailability = async (req, res) => {
-  try {
-    const doctorId = req.user.sub;
+//     // Update availability
+//     const doctor = await Doctor.findOneAndUpdate(
+//       { userId: doctorId },
+//       { weeklyAvailability },
+//       { new: true }
+//     );
 
-    // Find the doctor's profile
-    const doctor = await Doctor.findOne({ userId: doctorId }).select(
-      "weeklyAvailability availableTimeSlots"
-    );
+//     if (!doctor) {
+//       return res.status(404).json({ error: "Doctor not found." });
+//     }
 
-    if (!doctor) {
-      return res.status(404).json({ message: "Doctor not found" });
-    }
+//     return res.status(200).json({
+//       message: "Availability updated successfully.",
+//       availability: doctor.weeklyAvailability,
+//     });
+//   } catch (error) {
+//     console.error("Error updating availability:", error);
+//     return res
+//       .status(500)
+//       .json({ error: "Server error while updating availability." });
+//   }
+// };
 
-    return res.status(200).json({
-      message: "Doctor availability fetched successfully",
-      availability: {
-        availableDays: doctor.weeklyAvailability,
-        availableTimeSlots: doctor.availableTimeSlots,
-      },
-    });
-  } catch (err) {
-    console.error("Error fetching doctor availability:", err);
-    return res.status(500).json({
-      message: "An error occurred while fetching availability",
-      error: err.message,
-    });
-  }
-};
+// export const getAvailability = async (req, res) => {
+//   try {
+//     const doctorId = req.user.sub;
+
+//     // Find the doctor's profile
+//     const doctor = await Doctor.findOne({ userId: doctorId }).select(
+//       "weeklyAvailability availableTimeSlots"
+//     );
+
+//     if (!doctor) {
+//       return res.status(404).json({ message: "Doctor not found" });
+//     }
+
+//     return res.status(200).json({
+//       message: "Doctor availability fetched successfully",
+//       availability: {
+//         availableDays: doctor.weeklyAvailability,
+//         availableTimeSlots: doctor.availableTimeSlots,
+//       },
+//     });
+//   } catch (err) {
+//     console.error("Error fetching doctor availability:", err);
+//     return res.status(500).json({
+//       message: "An error occurred while fetching availability",
+//       error: err.message,
+//     });
+//   }
+// };
 
 // const getChats = async (req, res) => {
 //   try {

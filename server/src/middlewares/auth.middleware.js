@@ -4,6 +4,7 @@ import { env } from "../config";
 import Doctor from "../models/doctors/doctor.model";
 import User from "../models/user.model";
 
+
 export const verifyJWT = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {

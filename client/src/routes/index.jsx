@@ -28,8 +28,9 @@ import {
   Navigate,
   Route,
 } from "react-router-dom";
-import DoctorScheduling from "@/pages/doctor/DoctorScheduling";
+import DoctorScheduling from "@/pages/doctor/DoctorSchedule";
 import DoctorDashboard from "@/pages/doctor/DoctorDashboard";
+import DoctorSchedule from "@/pages/doctor/DoctorSchedule";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -49,7 +50,7 @@ const router = createBrowserRouter(
       <Route element={<DoctorLayout><DoctorProtectedRoute /></DoctorLayout>}>
         <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
         {/* <Route path="/doctor/appointments" element={<DoctorAppointments />} /> */}
-        <Route path="/doctor/schedule" element={<DoctorScheduling />} />
+        <Route path="/doctor/schedule" element={<DoctorSchedule />} />
         {/* Add other doctor routes here */}
       </Route>
       <Route

@@ -29,10 +29,5 @@ export const DoctorProtectedRoute = () => {
       />
     );
   }
-
-  if (user?.role !== "doctor") {
-    return <Navigate to="/" replace />;
-  }
-
   return <Outlet />;
 };

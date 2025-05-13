@@ -78,6 +78,7 @@ router.put('/admin/doctors/:id/approve', auth, isAdmin, adminController.approveD
 router.delete('/admin/doctors/:id', auth, isAdmin, adminController.deleteDoctor);
 router.get('/admin/patients', auth, isAdmin, adminController.getAllPatients);
 router.delete('/admin/patients/:id', auth, isAdmin, adminController.deletePatient);
+
 router.get('/admin/appointments', auth, isAdmin, adminController.getAllAppointments);
 router.put('/admin/appointments/:id/mark-finished', auth, isAdmin, adminController.markAppointmentFinished);
 router.get('/admin/withdrawals', auth, isAdmin, adminController.getAllWithdrawals);

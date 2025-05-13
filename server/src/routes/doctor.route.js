@@ -17,12 +17,8 @@ router.post('/profile/complete', isDoctor,  validate(completeProfileValidation),
 // router.post('/upload', isDoctor, doctorController.getProfile);
 router.get("/profile/me", isDoctor, doctorController.getCurrentDoctor);
 
-// schedule time
-// router.get('/:id/getSchedule', isDoctor, doctorController.getSchedule);
-// router.put('/:id/setSchedule', isDoctor, doctorController.setSchedule);
 
-////////////////////////////
-
+// http://localhost:3000
 
 
 
@@ -98,8 +94,8 @@ router.put('/appointments/:id/confirm', isDoctor, doctorController.approveAppoin
 router.put('/appointments/:id/cancel', isDoctor, doctorController.declineAppointment);
 router.put('/appointments/:id/mark-complete', isDoctor, doctorController.markComplete);
 router.put('/appointments/:id/decline', isDoctor, doctorController.cancelAppointment); 
-router.post('/setAvailability', isDoctor, doctorController.setAvailability); 
-router.get('/availability', isDoctor, doctorController.getAvailability);
+// router.post('/setAvailability', isDoctor, doctorController.setAvailability); 
+// router.get('/availability', isDoctor, doctorController.getAvailability);
 
 
 

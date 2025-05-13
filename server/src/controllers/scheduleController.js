@@ -1,5 +1,5 @@
 import Schedule from "../models/schedule/Schedule.model";
-
+import Appointment, { APPOINTMENT_STATUS, APPOINTMENT_TYPES } from '../models/appointment/appointment.model'
 // Generate slots based on workingHours
 export const generateSlots = async (req, res) => {
   try {
@@ -477,15 +477,40 @@ export const getAvailableSlotsForPatients = async (req, res) => {
 
 export const bookAppointmentSlot = async (req, res) => {
   try {
-    const { doctorId, slotId } = req.params;
-    const patientId = req.user._id; // From auth middleware
+    const {sub : userId} = req.user;
 
-    // Find and update the slot
-    const updatedSchedule = await Schedule.findOneAndUpdate(
+    // 1. Verify authentication
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Patient identification missing" 
+      });
+    }
+    console.log(userId);
+
+
+    const { doctorId, slotId } = req.params;
+    const patientId = userId;
+    const {
+      appointmentType = APPOINTMENT_TYPES.IN_PERSON,
+      reason = "",
+      fee = 0 // Default to 0 if not provided
+    } = req.body;
+
+    // 2. Validate appointment type
+    if (!Object.values(APPOINTMENT_TYPES).includes(appointmentType)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid appointment type. Valid types are: ${Object.values(APPOINTMENT_TYPES).join(', ')}`
+      });
+    }
+
+    // 3. Find and update the slot
+    const schedule = await Schedule.findOneAndUpdate(
       {
         doctorId,
         "availableSlots._id": slotId,
-        "availableSlots.isBooked": false // Ensure slot is available
+        "availableSlots.isBooked": false
       },
       {
         $set: {
@@ -497,37 +522,99 @@ export const bookAppointmentSlot = async (req, res) => {
       { new: true }
     );
 
-    if (!updatedSchedule) {
+    if (!schedule) {
       return res.status(404).json({ 
+        success: false,
         message: "Slot not found or already booked" 
       });
     }
 
-    // Find the booked slot details
-    const bookedSlot = updatedSchedule.availableSlots.find(
+    // 4. Find the booked slot details
+    const bookedSlot = schedule.availableSlots.find(
       slot => slot._id.toString() === slotId
     );
 
-    // Create appointment record (you might want to do this in a separate service)
+    // 5. Create appointment record
     const appointment = await Appointment.create({
-      doctorId,
-      patientId,
-      slotId,
-      date: bookedSlot.date,
-      startTime: bookedSlot.startTime,
-      endTime: bookedSlot.endTime,
-      status: 'confirmed'
+      patient: patientId,
+      doctor: doctorId,
+      appointmentType,
+      reason,
+      fee,
+      slot: {
+        start: new Date(`${bookedSlot.date.toISOString().split('T')[0]}T${bookedSlot.startTime}:00`),
+        end: new Date(`${bookedSlot.date.toISOString().split('T')[0]}T${bookedSlot.endTime}:00`)
+      },
+      status: APPOINTMENT_STATUS.PENDING, // Starts as pending
+      ...(appointmentType === APPOINTMENT_TYPES.VIRTUAL && {
+        virtualDetails: {
+          videoCallToken: generateVideoToken(), // Implement this function
+          chatToken: generateChatToken() // Implement this function
+        }
+      })
     });
+
+    // 6. Update status based on payment requirements
+    let statusUpdate = {};
+    if (fee > 0) {
+      statusUpdate.status = APPOINTMENT_STATUS.PAYMENT_PENDING;
+      // Here you would typically integrate with a payment gateway
+    } else {
+      statusUpdate.status = APPOINTMENT_STATUS.CONFIRMED;
+      statusUpdate.acceptedAt = new Date();
+    }
+
+    const updatedAppointment = await Appointment.findByIdAndUpdate(
+      appointment._id,
+      statusUpdate,
+      { new: true }
+    ).populate('patient doctor', 'name email phone');
+
+    // 7. Send confirmation (implement this separately)
+    sendAppointmentConfirmation(updatedAppointment);
 
     res.json({
       success: true,
       message: "Appointment booked successfully",
-      appointment
+      appointment: updatedAppointment,
+      requiresPayment: fee > 0,
+      nextSteps: fee > 0 ? 
+        "Please complete payment to confirm your appointment" :
+        "Your appointment is confirmed"
     });
+
   } catch (error) {
+    console.error('Booking error:', error);
+    
+    // If we created an appointment but something failed after
+    if (error.appointmentId) {
+      await Appointment.findByIdAndUpdate(error.appointmentId, {
+        status: APPOINTMENT_STATUS.CANCELLED,
+        cancellation: {
+          reason: CANCELLATION_REASONS.SYSTEM_ISSUE,
+          cancelledAt: new Date()
+        }
+      });
+    }
+
     res.status(500).json({ 
+      success: false,
       message: "Booking failed", 
-      error: error.message 
+      error: error.message,
+      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
     });
   }
 };
+
+// Helper functions (implement these)
+function generateVideoToken() {
+  return `vid-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+function generateChatToken() {
+  return `chat-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+async function sendAppointmentConfirmation(appointment) {
+  // Implement your email/SMS notification logic here
+}

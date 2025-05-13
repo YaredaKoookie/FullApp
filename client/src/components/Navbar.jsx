@@ -1,13 +1,13 @@
-import { useState,  } from 'react';
-import { Menu, Transition } from '@headlessui/react';
-import { Home, LogIn, LogOut, Menu as MenuIcon, X } from 'lucide-react';
-import { Link, } from 'react-router-dom';
-import useLogout from '@/hooks/useLogout';
-import { useAuth } from "@/context/AuthContext"
+import { useState } from "react";
+import { Menu, Transition } from "@headlessui/react";
+import { Home, LayoutDashboardIcon, LogIn, LogOut, Menu as MenuIcon, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import useLogout from "@/hooks/useLogout";
+import { useAuth } from "@/context/AuthContext";
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const {user} = useAuth();
+  const { user } = useAuth();
   const logout = useLogout();
   // console.log(user);
   return (
@@ -46,9 +46,20 @@ const Navbar = () => {
               Home
             </Link>
             {user ? (
+              <Link
+                to="/doctor/dashboard"
+                className="text-sm font-medium text-gray-900 hover:text-indigo-600 flex items-center"
+              >
+                <LayoutDashboardIcon className="h-5 w-5 mr-1" />
+                Dashboard
+              </Link>
+            ) : (
+              ""
+            )}
+            {user ? (
               <button
                 onClick={logout.mutate}
-                disabled = {logout.isPending}
+                disabled={logout.isPending}
                 className="flex items-center text-sm font-medium text-gray-900 hover:text-indigo-600"
               >
                 <LogOut className="h-5 w-5 mr-1" />
