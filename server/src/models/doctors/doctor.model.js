@@ -17,25 +17,16 @@ const doctorSchema = new Schema(
       required: true,
     },
     dateOfBirth: { type: Date, required: true },
-    profilePhoto: { type: String, required: true },
+    profilePhoto: { type: String },
 
-    nationalId: {
-      frontImage: { type: String, required: true },
-      backImage: { type: String, required: true },
-    },
-
-    licenseInfo: {
-      frontImage: { type: String, required: true },
-      backImage: { type: String, required: true },
-    },
+    nationalIdFront: { type: String }, // removed required
+    nationalIdBack: { type: String },
+    licenseFront: { type: String },
+    licenseBack: { type: String },
+    boardCertificationsDocument: { type: String },
+    educationDocument: { type: String },
 
     specialization: { type: String, required: true },
-    specialties: [
-      {
-        name: { type: String, required: true, index: true },
-        category: { type: String },
-      },
-    ],
     qualifications: [
       {
         degree: String,
@@ -43,9 +34,11 @@ const doctorSchema = new Schema(
         year: Number,
       },
     ],
-    yearsOfExperience: { type: Number, required: true },
-    boardCertificationsDocument: { type: String, required: true },
-    educationDocument: { type: String, required: true },
+    yearsOfExperience: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
     languages: { type: [String], default: [] },
     hospitalName: { type: String },
     hospitalAddress: {
@@ -73,35 +66,12 @@ const doctorSchema = new Schema(
         message: "Invalid phone number format",
       },
     },
-    consultationFee: { type: Number, default: 0 },
+    consultationFee: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     serviceAreas: { type: [String], default: [] },
-    // workingHours: [
-    //   {
-    //     day: {
-    //       type: String,
-    //       enum: [
-    //         "Monday",
-    //         "Tuesday",
-    //         "Wednesday",
-    //         "Thursday",
-    //         "Friday",
-    //         "Saturday",
-    //         "Sunday",
-    //       ],
-    //       required: true,
-    //     },
-    //     startTime: { type: String, required: true },
-    //     endTime: { type: String, required: true },
-    //     breaks: [
-    //       {
-    //         startTime: String,
-    //         endTime: String,
-    //       },
-    //     ],
-    //   },
-    // ],
-
-    // appointmentDuration: { type: Number, default: 30 },
     totalReviews: { type: Number, default: 0 },
     rating: {
       type: Number,
@@ -109,7 +79,6 @@ const doctorSchema = new Schema(
       min: 0,
       max: 5,
     },
-    // totalAppointments: { type: Number, default: 0 },
     totalEarnings: { type: Number, default: 0 },
     withdrawalBalance: { type: Number, default: 0 },
 
@@ -122,13 +91,12 @@ const doctorSchema = new Schema(
       type: String,
       maxlength: 1000,
     },
-
     approvedAt: Date,
     autoDeleteAt: {
-  type: Date,
-  default: null,
-  index: { expires: 0 }  // TTL index to auto-delete after the date
-},
+      type: Date,
+      default: null,
+      index: { expires: 0 }, // TTL index to auto-delete after the date
+    },
     verificationStatus: {
       type: String,
       enum: ["pending", "verified", "rejected"],
@@ -163,16 +131,15 @@ doctorSchema.virtual("formattedAddress").get(function () {
   return parts.join(", ");
 });
 doctorSchema.index({ autoDeleteAt: 1 }, { expireAfterSeconds: 0 });
-doctorSchema.virtual('schedule', {
-  ref: 'Schedule',
-  localField: '_id',
-  foreignField: 'doctorId',
-  justOne: true
-})
-doctorSchema.pre('save', function(next) {
-  this.isProfileComplete = this.specialty && 
-                         this.qualifications?.length > 0 && 
-                         this.licenseNumber;
+doctorSchema.virtual("schedule", {
+  ref: "Schedule",
+  localField: "_id",
+  foreignField: "doctorId",
+  justOne: true,
+});
+doctorSchema.pre("save", function (next) {
+  this.isProfileComplete =
+    this.specialty && this.qualifications?.length > 0 && this.licenseNumber;
   next();
 });
 export default model("Doctor", doctorSchema);

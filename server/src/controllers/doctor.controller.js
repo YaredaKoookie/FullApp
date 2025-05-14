@@ -7,44 +7,60 @@ import { ServerError } from "../utils";
 export const completeProfile = async (req, res) => {
   const { sub: userId } = req.user;
   let doctor = await Doctor.findOne({ userId });
-
   const user = await User.findById(userId);
 
   console.log("user", userId, user);
-  console.log("user", doctor);
+  if (user?.isProfileCompleted && doctor?.verificationStatus !== "rejected") {
+    res.status(400);
+    throw new Error("Profile already submitted and under review or verified");
+  }
+
+  // Destructure form data from req.body
   const {
     firstName,
     middleName,
     lastName,
     gender,
     dateOfBirth,
-    profilePhoto,
     specialization,
-    specialties,
     qualifications,
     yearsOfExperience,
-    boardCertificationsDocument,
-    educationDocument,
-    languages,
     hospitalName,
-    hospitalAddress,
     phoneNumber,
     consultationFee,
+    hospitalAddress,
+    languages,
     serviceAreas,
-    workingHours,
-    appointmentDuration,
     location,
     applicationNotes,
     bio,
-    nationalId,
-    licenseInfo,
   } = req.body;
+  const files = {
+    profilePhoto: req.files?.profilePhoto?.[0],
+    nationalIdFront: req.files?.nationalIdFront?.[0],
+    nationalIdBack: req.files?.nationalIdBack?.[0],
+    licenseFront: req.files?.licenseFront?.[0],
+    licenseBack: req.files?.licenseBack?.[0],
+    boardCertificationsDocument: req.files?.boardCertificationsDocument?.[0],
+    educationDocument: req.files?.educationDocument?.[0],
+  };
+  // Validate required files
+  const requiredFiles = [
+    "nationalIdFront",
+    "nationalIdBack",
+    "licenseFront",
+    "licenseBack",
+    "boardCertificationsDocument",
+    "educationDocument",
+  ];
 
-  // CASE 1: Already completed and verified or pending
-  if (user.isProfileCompleted && doctor?.verificationStatus !== "rejected") {
-    res.status(400);
-    throw new Error("Profile already submitted and under review or verified");
+  for (const field of requiredFiles) {
+    if (!files[field]) {
+      res.status(400);
+      throw new Error(`${field} is required`);
+    }
   }
+
   if (!doctor) {
     doctor = await Doctor.create({
       userId,
@@ -53,156 +69,153 @@ export const completeProfile = async (req, res) => {
       lastName,
       gender,
       dateOfBirth,
-      profilePhoto,
       specialization,
-      specialties,
       qualifications,
       yearsOfExperience,
-      boardCertificationsDocument,
-      educationDocument,
-      languages,
       hospitalName,
-      hospitalAddress,
       phoneNumber,
       consultationFee,
+      nationalIdFront: files.nationalIdFront.path,
+      nationalIdBack: files.nationalIdBack.path,
+      licenseFront: files.licenseFront.path,
+      licenseBack: files.licenseBack.path,
+      boardCertificationsDocument: files.boardCertificationsDocument.path,
+      educationDocument: files.educationDocument.path,
+      verificationStatus: "pending",
+      languages,
+      hospitalAddress,
       serviceAreas,
-      workingHours,
-      appointmentDuration,
       location,
       applicationNotes,
       bio,
-      nationalId,
-      licenseInfo,
-      verificationStatus: "pending",
     });
 
     user.isProfileCompleted = true;
     await user.save();
+
     return res.status(201).json({
       message: "Profile submitted successfully. Awaiting admin review.",
-      doctor: doctor,
+      doctor,
     });
   }
+
   if (doctor.verificationStatus === "rejected") {
+    // CASE 3: Profile is rejected, update and resubmit
     Object.assign(doctor, req.body);
+
+    // Handle file updates
+    if (profilePhoto) doctor.profilePhoto = profilePhoto.path;
+    if (boardCertificationsDocument)
+      doctor.boardCertificationsDocument = boardCertificationsDocument.path;
+    if (educationDocument) doctor.educationDocument = educationDocument.path;
+
     doctor.verificationStatus = "pending";
     await doctor.save();
-    doctor.autoDeleteAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    doctor.autoDeleteAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // Set expiry for re-submission
     await doctor.save();
+
     return res.status(200).json({
       message: "Profile resubmitted for admin review.",
-      doctor: doctor,
+      doctor,
     });
   }
+
   res.status(400);
   throw new Error("Profile update not allowed");
 };
+
+
 
 // GET /doctor/profile - Get doctor profile
 export const getCurrentDoctor = async (req, res) => {
   try {
     // The authenticated doctor's ID should be in req.user._id (or wherever your auth middleware puts it)
-    const doctor = await Doctor.findOne({userId: req.user.sub})
+    const doctor = await Doctor.findOne({ userId: req.user.sub })
       .select("-password") // Exclude sensitive fields
       .lean();
 
-      console.log(req.user);
+    console.log(req.user);
     if (!doctor) {
       return res.status(404).json({ message: "Doctor not found" });
     }
 
-
-    res.json({
-      doctorId: doctor._id,
-      name: doctor.name,
-      email: doctor.email,
-      specialization: doctor.specialization,
-      // Include any other relevant fields
-    });
+    res.json(doctor);
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// GET /doctor/schedule - Get existing schedule
-// export const getSchedule = async (req, res) => {  
-//   try {
-//     const { sub: doctorId } = req.user;
-//     const schedule = await Schedule.findOne({ doctorId });
-    
-//     res.json({ 
-//       success: true, 
-//       data: schedule || { workingHours: [], availableSlots: [] } 
-//     });
-//   } catch (error) {
-//     res.status(500).json({ 
-//       success: false, 
-//       message: "Error fetching schedule", 
-//       error: error.message 
-//     });
-//   }
-// };
 
-// POST /doctor/schedule - Save schedule
-// export const setSchedule = async (req, res) => {  // Fixed parameter order
-  
-//   console.log("setSchedule body", req.body);
-//   console.log("setSchedule user", req.user);
+export const updateDoctorProfile = async (req, res) => {
+  try {
+    const updates = req.body;
+    const doctor = await Doctor.findByIdAndUpdate(
+      req.user.id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select('-password -__v -createdAt -updatedAt');
 
-//   try {
-//     const {sub : userId} = req.user;
-//     const doctor = await Doctor.findOne({userId});
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
 
-//     console.log("doctor", doctor);
+    res.json(doctor);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 
-//     if(!doctor)
-//       throw ServerError.notFound("Doctor not found");
+export const uploadDoctorProfileImage = async (req, res, next) => {
+  try {
+    const { sub } = req.user; // Ensure JWT provides 'sub' = userId
 
-//     // Verify ownership
-//     if (req.params.id !== doctor.id) {
-//       return res.status(403).json({ 
-//         success: false, 
-//         message: "Unauthorized - You can only update your own schedule" 
-//       });
-//     }
+    const doctor = await Doctor.findOne({ userId: sub });
+    if (!doctor) throw new ServerError.notFound("Doctor profile not found");
 
-//     // First-time creation handling
-//     const existingSchedule = await Schedule.findOne({ doctorId : doctor.id });
+    if (!req.file) throw new ServerError.badRequest("No file provided");
 
-//     if (!existingSchedule) {
-//       // Validate required fields for first-time setup
-//       if (!req.body?.workingHours || !req.body?.appointmentDuration) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "Initial setup requires workingHours and appointmentDuration",
-//         });
-//       }
-//       const newSchedule = await Schedule.create({
-//         doctorId : doctor.id,
-//         workingHours: req.body.workingHours,
-//         appointmentDuration: req.body.appointmentDuration,
-//         availableSlots: req.body.availableSlots || [],
-//       });
+    let oldImagePath = null;
 
-//       return res.status(201).json({ success: true, data: newSchedule });
-//     }
+    if (doctor.profilePhoto) {
+      oldImagePath = path.join("public", doctor.profilePhoto); // fixed 'patient' typo
+    }
 
-//     // Existing schedule - update
-//     const updated = await Schedule.findOneAndUpdate(
-//       { doctorId : doctor.id },
-//       { $set: req.body },
-//       { new: true }
-//     );
+    const fileId = crypto.randomUUID().toString("hex");
+    const filePath = "/uploads/doctors";
+    const fileName = `${fileId}.webp`;
+    const uploadPath = path.join("public", filePath, fileName);
 
-//     res.json({ success: true, data: updated });
-//   } catch (error) {
-//     res.status(500).json({ 
-//       success: false, 
-//       message: "Error saving schedule", 
-//       error: error.message 
-//     });
-//   }
-// };
+    await sharp(req.file.buffer)
+      .resize(500, 500)
+      .webp({ quality: 80 })
+      .toFile(uploadPath);
+
+    const newImagePath = `${filePath}/${fileName}`;
+
+    // Update the doctor record
+    doctor.profilePhoto = newImagePath;
+    await doctor.save();
+
+    // Delete old image if it exists
+    if (oldImagePath && fs.existsSync(oldImagePath)) {
+      fs.unlink(oldImagePath, (err) => {
+        if (err) {
+          logger.error("Unable to delete old image:", err);
+        }
+      });
+    }
+
+    res
+      .status(200)
+      .json({ message: "Profile image updated", profilePhoto: newImagePath });
+  } catch (error) {
+    next(error);
+  }
+};
+
+///////////////////////////////////
 
 export const getAllApprovedDoctors = async (req, res) => {
   try {
@@ -274,51 +287,51 @@ export const getDoctorById = async (req, res) => {
   }
 };
 
-export const editProfile = async (req, res) => {
-  try {
-    const { sub: userId } = req.user;
-    const updates = req.body;
+// export const editProfile = async (req, res) => {
+//   try {
+//     const { sub: userId } = req.user;
+//     const updates = req.body;
 
-    const allowedFields = [
-      "fullName",
-      "profilePicture",
-      "bio",
-      "hospitalName",
-      "consultationFee",
-      "weeklyAvailability",
-      "applicationNotes",
-      "location",
-    ];
+//     const allowedFields = [
+//       "fullName",
+//       "profilePicture",
+//       "bio",
+//       "hospitalName",
+//       "consultationFee",
+//       "weeklyAvailability",
+//       "applicationNotes",
+//       "location",
+//     ];
 
-    const filteredUpdates = {};
-    for (const key of allowedFields) {
-      if (updates[key] !== undefined) {
-        filteredUpdates[key] = updates[key];
-      }
-    }
+//     const filteredUpdates = {};
+//     for (const key of allowedFields) {
+//       if (updates[key] !== undefined) {
+//         filteredUpdates[key] = updates[key];
+//       }
+//     }
 
-    const doctor = await Doctor.findOneAndUpdate(
-      { userId },
-      { $set: filteredUpdates },
-      { new: true }
-    ).populate("userId", "name email");
+//     const doctor = await Doctor.findOneAndUpdate(
+//       { userId },
+//       { $set: filteredUpdates },
+//       { new: true }
+//     ).populate("userId", "name email");
 
-    if (!doctor) {
-      return res.status(404).json({ message: "Doctor profile not found" });
-    }
+//     if (!doctor) {
+//       return res.status(404).json({ message: "Doctor profile not found" });
+//     }
 
-    return res.status(200).json({
-      message: "Profile updated successfully",
-      doctor,
-    });
-  } catch (err) {
-    console.error("Error updating doctor profile:", err);
-    return res.status(500).json({
-      message: "An error occurred while updating your profile",
-      error: err.message,
-    });
-  }
-};
+//     return res.status(200).json({
+//       message: "Profile updated successfully",
+//       doctor,
+//     });
+//   } catch (err) {
+//     console.error("Error updating doctor profile:", err);
+//     return res.status(500).json({
+//       message: "An error occurred while updating your profile",
+//       error: err.message,
+//     });
+//   }
+// };
 
 export const deleteAccount = async (req, res) => {
   try {
@@ -528,6 +541,7 @@ export const cancelAppointment = async (req, res) => {
     });
   }
 };
+
 function hasOverlappingSlots(slots) {
   for (let i = 0; i < slots.length - 1; i++) {
     for (let j = i + 1; j < slots.length; j++) {
@@ -542,129 +556,7 @@ function hasOverlappingSlots(slots) {
   return false;
 }
 
-
-
-
-// export const setAvailability = async (req, res) => {
-//   try {
-//     const doctorId = req.user.sub; // from auth middleware
-//     const { weeklyAvailability } = req.body;
-
-//     console.log("Doctor ID:", doctorId);
-//     console.log("Body received:", req.body);
-//     console.log("weeklyAvailability:", weeklyAvailability);
-
-//     // Basic validations
-//     if (!Array.isArray(weeklyAvailability)) {
-//       return res
-//         .status(400)
-//         .json({ error: "Invalid weeklyAvailability format." });
-//     }
-
-//     const validDays = [
-//       "Monday",
-//       "Tuesday",
-//       "Wednesday",
-//       "Thursday",
-//       "Friday",
-//       "Saturday",
-//       "Sunday",
-//     ];
-//     const seenDays = new Set();
-
-//     for (let entry of weeklyAvailability) {
-//       const { day, slots } = entry;
-
-//       if (!validDays.includes(day)) {
-//         return res.status(400).json({ error: `Invalid day: ${day}` });
-//       }
-
-//       if (seenDays.has(day)) {
-//         return res
-//           .status(400)
-//           .json({ error: `Duplicate availability for ${day}.` });
-//       }
-//       seenDays.add(day);
-
-//       if (!Array.isArray(slots) || slots.length === 0) {
-//         return res
-//           .status(400)
-//           .json({ error: `Slots missing or invalid for ${day}.` });
-//       }
-
-//       // Validate slot times
-//       for (let slot of slots) {
-//         if (!slot.start || !slot.end) {
-//           return res
-//             .status(400)
-//             .json({ error: `Slot missing start or end time for ${day}.` });
-//         }
-//         if (new Date(slot.start) >= new Date(slot.end)) {
-//           return res.status(400).json({
-//             error: `Start time must be before end time for a slot on ${day}.`,
-//           });
-//         }
-//       }
-
-//       // Check for overlaps
-//       if (hasOverlappingSlots(slots)) {
-//         return res
-//           .status(400)
-//           .json({ error: `Overlapping time slots found on ${day}.` });
-//       }
-//     }
-
-//     // Update availability
-//     const doctor = await Doctor.findOneAndUpdate(
-//       { userId: doctorId },
-//       { weeklyAvailability },
-//       { new: true }
-//     );
-
-//     if (!doctor) {
-//       return res.status(404).json({ error: "Doctor not found." });
-//     }
-
-//     return res.status(200).json({
-//       message: "Availability updated successfully.",
-//       availability: doctor.weeklyAvailability,
-//     });
-//   } catch (error) {
-//     console.error("Error updating availability:", error);
-//     return res
-//       .status(500)
-//       .json({ error: "Server error while updating availability." });
-//   }
-// };
-
-// export const getAvailability = async (req, res) => {
-//   try {
-//     const doctorId = req.user.sub;
-
-//     // Find the doctor's profile
-//     const doctor = await Doctor.findOne({ userId: doctorId }).select(
-//       "weeklyAvailability availableTimeSlots"
-//     );
-
-//     if (!doctor) {
-//       return res.status(404).json({ message: "Doctor not found" });
-//     }
-
-//     return res.status(200).json({
-//       message: "Doctor availability fetched successfully",
-//       availability: {
-//         availableDays: doctor.weeklyAvailability,
-//         availableTimeSlots: doctor.availableTimeSlots,
-//       },
-//     });
-//   } catch (err) {
-//     console.error("Error fetching doctor availability:", err);
-//     return res.status(500).json({
-//       message: "An error occurred while fetching availability",
-//       error: err.message,
-//     });
-//   }
-// };
+////////////////////////////////////////
 
 // const getChats = async (req, res) => {
 //   try {

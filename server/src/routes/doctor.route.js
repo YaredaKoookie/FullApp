@@ -4,23 +4,35 @@ import {doctorController, reviewController} from '../controllers';
 import {Router} from "express"
 import { validate } from '../validations';
 import { completeProfileValidation } from '../validations/chains/doctor.chain';
-import { doctorEditProfileValidation } from '../validations/chains/editdoctor.chain';
+import { handleMulterErrors, uploadDoctorFiles } from '../config/MultiFile';
+import { uploadImage, uploadImages } from '../config/multer.config';
+// import { doctorEditProfileValidation } from '../validations/chains/editdoctor.chain';
 
 const router = Router();
+
+
 
 // DOCTOR PUBLIC
 router.get('/all_doctors', doctorController.getAllApprovedDoctors);
 router.get('/doctor/:id', doctorController.getDoctorById);
 
 // complete the doctor profile page
-router.post('/profile/complete', isDoctor,  validate(completeProfileValidation), doctorController.completeProfile);
-// router.post('/upload', isDoctor, doctorController.getProfile);
-router.get("/profile/me", isDoctor, doctorController.getCurrentDoctor);
+router.post('/profile/complete', isDoctor, uploadDoctorFiles.fields([
+    { name: "profilePhoto", maxCount: 1 },
+    { name: "nationalIdFront", maxCount: 1 },
+    { name: "nationalIdBack", maxCount: 1 },
+    { name: "licenseFront", maxCount: 1 },
+    { name: "licenseBack", maxCount: 1 },
+    { name: "boardCertificationsDocument", maxCount: 1 },
+    { name: "educationDocument", maxCount: 1 },
+  ]) ,handleMulterErrors, validate(completeProfileValidation), doctorController.completeProfile);
+// router.post('profile/upload',  ,isDoctor, doctorController.uploadDoctorProfileImage);
 
+router.get("/profile/me",isDoctor, doctorController.getCurrentDoctor);
+// Update doctor profile
+router.put('/profile/upload', isDoctor, uploadImage.single("profilePhoto") ,doctorController.uploadDoctorProfileImage);
 
-// http://localhost:3000
-
-
+router.put('/profile/update' , isDoctor , doctorController.updateDoctorProfile)  
 
 
 
@@ -87,7 +99,7 @@ router.get("/profile/me", isDoctor, doctorController.getCurrentDoctor);
 
 //////////////////////////
 // DOCTOR PROTECTED
-router.put('/profile/edit', isDoctor, validate(doctorEditProfileValidation), doctorController.editProfile);
+// router.put('/profile/edit', isDoctor, validate(doctorEditProfileValidation), doctorController.editProfile);
 router.delete('/delete-account', isDoctor, doctorController.deleteAccount);
 router.get('/appointments', isDoctor, doctorController.getAppointments);
 router.put('/appointments/:id/confirm', isDoctor, doctorController.approveAppointment);

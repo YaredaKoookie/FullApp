@@ -329,7 +329,18 @@ export const logout = async (req, res) => {
 
   const session = await SessionService.deleteSessionById(sessionId);
 
-  if (!session) throw ServerError.notFound("Session not found");
+  if (!session) {
+    console.warn("Session not found for sessionId:", sessionId);
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+    });
+    return res.json({
+      success: true,
+      message: "Session already logged out",
+    });
+  }
 
   res.clearCookie("refreshToken", {
     httpOnly: true,
