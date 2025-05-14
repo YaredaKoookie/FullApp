@@ -32,7 +32,7 @@ router.use(isProfileCompleted);
 
 router.get("/me", patientController.getProfile);
 
-router.put(
+router.post(
   "/profileImage",
   uploadImage.single("profileImage"),
   patientController.uploadPatientProfileImage
@@ -58,11 +58,13 @@ router.post(
   validate(validateCreateReview),
   reviewController.createReview
 );
+
 router.put(
   "/reviews/:reviewId",
   validate(validateUpdateReview),
   reviewController.updateReview
 );
+
 router.delete("/reviews/:reviewId", reviewController.deleteReview);
 
 // router.get('/patient/chats', auth, isPatient, chatController.getChats);

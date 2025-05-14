@@ -179,6 +179,9 @@ export const initializeChapaPayment = async (req, res) => {
 };
 
 export const verifyChapaCallback = async (req, res, next) => {
+    console.log("body", req.body);
+  console.log("query", req.query);
+  
   const { trx_ref, status, _: ref_id } = req.query;
 
   if (!trx_ref || !status || !ref_id)
@@ -250,6 +253,8 @@ export const verifyChapaCallback = async (req, res, next) => {
 };
 
 export const processRefund = async (req, res, next) => {
+
+
   const { tx_ref, amount, reason } = req.body;
 
   if (!tx_ref || !amount || !!reason)
