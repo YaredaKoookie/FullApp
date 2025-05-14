@@ -6,6 +6,9 @@ const verifyChapaSignature = (req, res, next) => {
   const payload = JSON.stringify(req.body);
   const signature = req.headers["Chapa-Signature"];
 
+  console.log("chapa payload", payload);
+  console.log("chapa signature", signature);
+
   if (!signature || !payload) throw ServerError.badRequest("Invalid request");
 
   const expectedSignature = crypto
