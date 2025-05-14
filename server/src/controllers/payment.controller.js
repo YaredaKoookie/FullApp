@@ -56,8 +56,9 @@ export const initiatePayment = async (req, res) => {
   if (payment){
     if(payment.status === PAYMENT_STATUS.PAID)
       throw ServerError.badRequest("Payment is already completed");
-    if(Payment.status === PAYMENT_STATUS.PENDING)
-     throw ServerError.badRequest("Payment has already has been initiated");
+
+    
+    throw ServerError.badRequest("Payment has already has been initiated");
   }
     
 
@@ -180,8 +181,8 @@ export const initializeChapaPayment = async (req, res) => {
 
 export const verifyChapaCallback = async (req, res, next) => {
     console.log("body", req.body);
-  console.log("query", req.query);
-  
+    console.log("query", req.query);
+
   const { trx_ref, status, _: ref_id } = req.query;
 
   if (!trx_ref || !status || !ref_id)
