@@ -37,12 +37,8 @@ export const validateCancelAppointment = [
   param("appointmentId").notEmpty().withMessage("Appointment id is required"),
   body("cancellationReason")
     .optional()
-    .isIn(CANCELLATION_REASONS_VALUES)
-    .withMessage(
-      `Appointment cancellation reason must be one of the following ${CANCELLATION_REASONS_VALUES.join(
-        ", "
-      )}`
-    ),
+    .isString()
+    .isLength({max: 500})
 ];
 
 // Utility: Validate ObjectId
@@ -70,32 +66,11 @@ export const validateAppointmentCreation = [
     .isLength({ max: 500 })
     .withMessage("Reason can be a maximum of 500 characters"),
   // Slot Validation
-  body("slot.start")
-    .notEmpty()
-    .withMessage("Start time is required")
-    .isISO8601()
-    .withMessage("Start time must be a valid ISO 8601 date")
-    .custom((value, { req }) => {
-      const start = new Date(value);
-      const now = new Date();
-      if (start < now) {
-        throw new Error("Start time must be in the future");
-      }
-      return true;
-    }),
-  body("slot.end")
-    .notEmpty()
-    .withMessage("End time is required")
-    .isISO8601()
-    .withMessage("End time must be a valid ISO 8601 date")
-    .custom((value, { req }) => {
-      const start = new Date(req.body.slot.start);
-      const end = new Date(value);
-      if (end <= start) {
-        throw new Error("End time must be after start time");
-      }
-      return true;
-    }),
+  body("slotId")
+  .notEmpty()
+  .withMessage("slot id is required")
+  .isMongoId()
+  .withMessage("invalid slot id format")
 ];
 
 export const validateOther = [

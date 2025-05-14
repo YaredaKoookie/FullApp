@@ -1,5 +1,5 @@
 import {isDoctor } from '../middlewares/auth.middleware';
-import {doctorController, reviewController} from '../controllers';
+import {appointmentController, doctorController, reviewController} from '../controllers';
 
 import {Router} from "express"
 import { validate } from '../validations';
@@ -16,7 +16,7 @@ router.get('/doctor/:id', doctorController.getDoctorById);
 router.post('/profile/complete', isDoctor,  validate(completeProfileValidation), doctorController.completeProfile);
 // router.post('/upload', isDoctor, doctorController.getProfile);
 router.get("/profile/me", isDoctor, doctorController.getCurrentDoctor);
-
+router.post("/:appointmentId/accept", isDoctor, appointmentController.acceptAppointment);
 
 // http://localhost:3000
 

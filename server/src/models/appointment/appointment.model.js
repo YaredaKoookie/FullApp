@@ -1,4 +1,4 @@
-import { Schema, model } from "mongoose";
+import mongoose, { Schema, model } from "mongoose";
 
 // Enums
 
@@ -43,6 +43,10 @@ export const CANCELLATION_REASONS = {
 // Time Slot Schema
 const timeSlotSchema = new Schema(
   {
+    slotId: {
+      type: Schema.Types.ObjectId, 
+      required: true,
+    },
     start: {
       type: Date,
       required: true,
@@ -122,11 +126,6 @@ const appointmentSchema = new Schema(
       enum: Object.values(APPOINTMENT_STATUS),
       default: "pending",
       index: true,
-    },
-    payment: {
-      type: Schema.Types.ObjectId,
-      ref: "Payment",
-      default: null,
     },
     fee: {
       type: Number,

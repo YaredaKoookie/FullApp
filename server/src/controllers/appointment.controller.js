@@ -11,13 +11,19 @@ import Payment, {
 } from "../models/appointment/payment.model";
 import SlotUtils from "../utils/slot.util";
 import { chapa, env } from "../config";
+import Schedule from "../models/schedule/Schedule.model";
+import { logger, slotUtils } from "../utils";
+import { refundChapaPayment } from "../config/chapa.config";
+import mongoose from "mongoose";
+import { truncates } from "bcryptjs";
+import { generateUniqueToken } from "../utils/token.util";
 
 // patient requests for an appointment
 export const requestAppointment = async (req, res) => {
   const doctorId = req.params.doctorId;
-  const { patientId, startTime, endTime, reason, appointmentType } = req.body;
+  const { reason, appointmentType, slotId } = req.body;
 
-  const doctor = await Doctor.findById(doctorId);
+  const doctor = await Doctor.findOne({ userId: doctorId });
 
   if (!doctor) throw ServerError.notFound("doctor not found");
 
@@ -25,43 +31,33 @@ export const requestAppointment = async (req, res) => {
 
   if (!patient) throw ServerError.notFound("patient not found");
 
-  //!! SLOT WILL BE CHANGED HERE
-  const start = new Date(startTime);
-  const end = new Date(endTime);
-
-  const selectedDay = start.toLocaleDateString("en-US", {
-    weekday: "long",
-  });
-
-  const dayAvailability = doctor.weeklyAvailability.find(
-    (availability) => availability.day === selectedDay
+  const { start, end } = await slotUtils.handleSlotConflict(
+    slotId,
+    doctor._id,
+    patient._id
   );
-
-  if (dayAvailability)
-    throw ServerError.badRequest(`Doctor is not available on ${selectedDay}.`);
-
-  // Check slot availability
-  const isAvailable = await SlotUtils.isSlotAvailable(doctorId, start, end);
-
-  if (!isAvailable)
-    throw ServerError.badRequest("Selected slot is not available");
-  //!! SLOT LOGIC END HERE
 
   // Create new appointment
   const newAppointment = new Appointment({
-    patient: patientId,
-    doctor: doctorId,
+    patient: patient._id,
+    doctor: doctor._id,
     appointmentType,
     reason,
     fee: doctor.consultationFee,
-    slot: {
-      start,
-      end,
-    },
+    slot: { start, end, slotId },
     status: APPOINTMENT_STATUS.PENDING,
   });
 
   await newAppointment.save();
+  await Schedule.updateOne(
+    { doctorId: doctor._id, "availableSlots._id": slotId },
+    {
+      $set: {
+        "availableSlots.$.isBooked": true,
+        "availableSlots.$.bookedAt": new Date(),
+      },
+    }
+  );
 
   // Populate patient and doctor details in the response
   const populatedAppointment = await Appointment.populate(newAppointment, [
@@ -80,7 +76,6 @@ export const requestAppointment = async (req, res) => {
     },
   });
 };
-
 // doctor accepts patient's requested appointment
 export const acceptAppointment = async (req, res) => {
   const { appointmentId } = req.params;
@@ -170,6 +165,36 @@ export const cancelAppointment = async (req, res) => {
   });
 };
 
+export const doctorCancelAppointment = async (req, res) => {
+  const { appointmentId } = req.params;
+  const { cancellationReason } = req.body;
+
+  const appointment = await Appointment.findById(appointmentId);
+
+  if (!appointment) throw ServerError.notFound("appointment not found");
+
+  const doctor = await Doctor.findOne({ userId: req.user.sub });
+
+  if (!doctor) throw ServerError.notFound("doctor not found");
+
+  if (appointment.doctor._id.toString() !== appointment.doctor.toString())
+    throw ServerError.notFound("Not the owner of this appointment");
+
+  const payment = await Payment.findOne({
+    appointment: appointment._id,
+    doctor: doctor._id,
+  });
+
+  if (appointment.status === APPOINTMENT_STATUS.CANCELLED)
+    throw ServerError.badRequest("Appointment already cancelled");
+
+  if (appointment.status === APPOINTMENT_STATUS.COMPLETED)
+    throw ServerError.badRequest("Cannot cancel completed appointment");
+
+  if (appointment.status === APPOINTMENT_STATUS.PAYMENT_PENDING && !payment)
+    throw ServerError.notFound("Payment not found for this appointment");
+};
+
 export const getDoctorAvailability = async (req, res) => {
   try {
     const { day } = req.query;
@@ -253,61 +278,115 @@ export const patientCancelAppointment = async (req, res) => {
   const { cancellationReason } = req.body;
   const appointmentId = req.params?.appointmentId;
 
-  if (appointmentId) throw ServerError.notFound("Appointment id is required");
+  if (!appointmentId) throw ServerError.notFound("Appointment id is required");
 
-  const appointment = await Appointment.findById(appointmentId);
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  if (!appointment) throw ServerError.notFound("Appointment not found");
+  try {
+    const appointment = await Appointment.findById(appointmentId).session(session);
+    if (!appointment) throw ServerError.notFound("Appointment not found");
 
-  const patient = await Patient.findOne({ user: req.user.sub });
+    const patient = await Patient.findOne({ user: req.user.sub }).session(session);
+    if (!patient) throw ServerError.notFound("Patient not found");
 
-  if (!patient) throw ServerError.notFound("Patient not found");
+    if (appointment.patient.toString() !== patient._id.toString())
+      throw ServerError.badRequest("Not allowed action");
 
-  if (appointment.patient.toString() !== patient._id.toString())
-    throw ServerError.badRequest("Not allowed action");
+    const { ACCEPTED, PENDING, PAYMENT_PENDING, CANCELLED, CONFIRMED } = APPOINTMENT_STATUS;
+    if (![ACCEPTED, PENDING, PAYMENT_PENDING, CONFIRMED].includes(appointment.status))
+      throw ServerError.badRequest("Appointment must be ACCEPTED, PENDING, CONFIRMED or PAYMENT_PENDING");
 
-  const { ACCEPTED, PENDING, PAYMENT_PENDING, CANCELLED } = APPOINTMENT_STATUS;
+    // Handle cancellation metadata
+    appointment.status = CANCELLED;
+    appointment.cancellation = {
+      reason: cancellationReason || "No reason provided",
+      cancelledBy: patient._id,
+      cancelledByRole: "Patient",
+      cancelledAt: new Date(),
+    };
 
-  if (!appointment.status.includes[(ACCEPTED, PENDING, PAYMENT_PENDING)])
-    throw ServerError.badRequest(
-      "Appointment status is should be accepted, or pending"
-    );
+    const payment = await Payment.findOne({ appointment: appointment._id }).session(session);
+    let refundAmount = 0;
 
-  const cancellation = {
-    reason: cancellationReason || "No reason provided",
-    cancelledBy: patient._id,
-    cancelledByRole: "Patient",
-    cancelledAt: new Date(),
-  };
+    if (payment) {
+      if (payment.status !== PAYMENT_STATUS.PAID) {
+        payment.status = PAYMENT_STATUS.CANCELLED;
+      } else if(payment.status === PAYMENT_STATUS.PAID) {
+        console.log("payment", payment);
+        const now = new Date();
+        const appointmentTime = new Date(appointment.slot.start);
+        const hoursBeforeAppointment = (appointmentTime - now) / (1000 * 60 * 60);
 
-  appointment.status = CANCELLED;
-  appointment.cancellation = cancellation;
+        if (hoursBeforeAppointment > 24 || appointment.status === APPOINTMENT_STATUS.PAYMENT_PENDING) {
+          refundAmount = payment.amount; // Full refund
+        } else if (hoursBeforeAppointment > 6) {
+          refundAmount = Math.ceil(payment.amount * 0.5); // 50% refund
+        }
 
-  const payment = await Payment.findById(appointment.payment);
+        if (refundAmount > 0) {
+          const hasPendingRefund = payment.refunds.some(
+            (refund) => refund.status === REFUND_STATUS.PENDING
+          );
 
-  if (payment) {
-    if (payment.status !== PAYMENT_STATUS.PAID) {
-      payment.status = PAYMENT_STATUS.FAILED;
-    } else if (payment.status === PAYMENT_STATUS.PAID) {
-      payment.refunds = {
-        amount: payment.amount,
-        reason: "appointment_cancelled_by_patient",
-        status: REFUND_STATUS.PENDING,
-      };
+          const totalRefunded = payment.refunds.reduce(
+            (sum, refund) => refund.status !== REFUND_STATUS.FAILED ? sum + refund.amount : sum,
+            0
+          );
+
+          if (!hasPendingRefund && totalRefunded + refundAmount <= payment.amount) {
+            const refundId = generateUniqueToken();
+
+            const payload = {
+              tx_ref:  payment.referenceId,
+              amount: refundAmount,
+              reason: "Patient cancelled appointment",
+              meta: {refundId}
+            }
+
+            console.log("payload", payload)
+
+            const refundResponse = await refundChapaPayment(
+              payment.referenceId,
+              refundAmount,
+              "Patient cancelled appointment",
+              { refundId }
+            );
+
+            if (refundResponse.status !== 'success')
+              throw ServerError.internal("Refund failed");
+
+            payment.refunds.push({
+              refundId,
+              amount: refundAmount,
+              reason: "appointment_cancelled_by_patient",
+              status: REFUND_STATUS.PENDING,
+            });
+          }
+        }
+      }
+      await payment.save({ session });
     }
+
+    await appointment.save({ session });
+    await slotUtils.releaseBlockedSlot(appointment.doctor, appointment.slot.slotId).session(session);
+    await session.commitTransaction();
+
+    res.json({
+      success: true,
+      message: "Appointment cancelled",
+      data: { refundAmount },
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("Cancellation error:", error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Cancellation failed",
+    });
+  } finally {
+    session.endSession();
   }
-
-  await appointment.save();
-  await payment.save();
-
-  res.json({
-    success: true,
-    message: "Appointment cancelled",
-    data: {
-      appointment,
-      payment,
-    },
-  });
 };
 
 export const rescheduleAppointment = async (req, res) => {

@@ -5,6 +5,8 @@ export const PAYMENT_STATUS = {
     PENDING: "pending",
     PAID: "paid",
     FAILED: "failed",
+    CANCELLED: 'cancelled',
+    REFUND_INITIATED: "refund_initiated",
     REFUNDED: "refunded",
     PARTIALLY_REFUNDED: "partially_refunded"
 }
@@ -50,7 +52,7 @@ const paymentSchema = new mongoose.Schema({
     },
     status: {
         type: String, 
-        enum: Object.keys(PAYMENT_STATUS),
+        enum: Object.values(PAYMENT_STATUS),
         default: PAYMENT_STATUS.PENDING
     },
     paymentMethod: {
