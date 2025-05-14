@@ -32,7 +32,7 @@ router.use(isProfileCompleted);
 
 router.get("/me", patientController.getProfile);
 
-router.post(
+router.put(
   "/profileImage",
   uploadImage.single("profileImage"),
   patientController.uploadPatientProfileImage
