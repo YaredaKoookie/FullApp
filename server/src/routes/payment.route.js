@@ -30,13 +30,13 @@ router.post(
 
 router.get(
     '/chapa/callback', 
-    validate(paymentChains.validateChapaCallback),
+    // validate(paymentChains.validateChapaCallback),
     paymentController.verifyChapaCallback
 )
 
 router.post(
     '/chapa/webhook', 
-    verifyChapaSignature, 
+    // verifyChapaSignature, 
     paymentController.verifyChapaCallback
 )
 
