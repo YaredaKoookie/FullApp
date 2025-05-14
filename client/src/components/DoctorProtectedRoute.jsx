@@ -6,7 +6,7 @@ export const DoctorProfileRoute = () => {
   const location = useLocation();
   if (isLoading) return <div>Loading...</div>;
 
-  if (user?.isProfileCompleted) {
+  if (user?.isProfileCompleted && user?.role === "doctor") {
     return (
       <Navigate to="/doctor/dashboard" state={{ from: location }} replace />
     );
@@ -15,12 +15,12 @@ export const DoctorProfileRoute = () => {
   return <Outlet />;
 };
 
-export const DoctorProtectedRoute = () => {
+export const DoctorProtectedRoute = ({children}) => {
   const { user, isLoading } = useAuth();
   const location = useLocation();
   if (isLoading) return <div>Loading...</div>;
 
-  if (!user?.isProfileCompleted) {
+  if (!user?.isProfileCompleted && user?.role === "doctor") {
     return (
       <Navigate
         to="/doctor/complete-profile"
@@ -29,5 +29,5 @@ export const DoctorProtectedRoute = () => {
       />
     );
   }
-  return <Outlet />;
+  return children || <Outlet />;
 };

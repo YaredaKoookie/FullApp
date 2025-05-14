@@ -26,9 +26,8 @@ const useLogin = () => {
         <Navigate to="/patient/dashboard" />;
       } else if (user?.role === "doctor") {
         <Navigate to="/doctor/complete-profile" />;
-        console.log("profileCompletion", user?.role);
       } else {
-        <Navigate to="/doctor/complete-profiles" />;
+        <Navigate to="/" />;
       }
     },
   });

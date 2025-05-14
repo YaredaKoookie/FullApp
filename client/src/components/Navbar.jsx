@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { Menu, Transition } from "@headlessui/react";
-import { Home, LayoutDashboardIcon, LogIn, LogOut, Menu as MenuIcon, X } from "lucide-react";
+import {
+  HeartPulse,
+  Home,
+  LayoutDashboardIcon,
+  LogIn,
+  LogOut,
+  Menu as MenuIcon,
+  X,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import useLogout from "@/hooks/useLogout";
 import { useAuth } from "@/context/AuthContext";
@@ -17,9 +25,11 @@ const Navbar = () => {
           {/* Logo and Home Link */}
           <div className="flex items-center">
             <Link to="/">
-              <span className="sr-only">Your Logo</span>
-              <div className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center">
-                <span className="text-white font-bold text-lg">YL</span>
+              <div className="flex items-center space-x-2">
+                <HeartPulse className="text-blue-600 h-8 w-8" />
+                <span className="text-2xl font-bold text-blue-800">
+                  CureLogic
+                </span>
               </div>
             </Link>
           </div>
@@ -121,7 +131,7 @@ const Navbar = () => {
                     {user ? (
                       <button
                         onClick={() => {
-                          logout.mutate;
+                          logout.mutate(); // Properly invoke the logout function
                           setMobileMenuOpen(false);
                         }}
                         className="flex items-center rounded-md p-3 text-base font-medium text-gray-900 hover:bg-gray-50 w-full"
@@ -131,7 +141,7 @@ const Navbar = () => {
                       </button>
                     ) : (
                       <Link
-                        to="/login"
+                        to="/auth/login"
                         onClick={() => setMobileMenuOpen(false)}
                         className="flex items-center rounded-md p-3 text-base font-medium text-gray-900 hover:bg-gray-50"
                       >
