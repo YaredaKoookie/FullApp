@@ -30,14 +30,13 @@ router.post(
 
 router.get(
     '/chapa/callback', 
-    validate(paymentChains.validateChapaCallback),
     paymentController.verifyChapaCallback
 )
 
 router.post(
     '/chapa/webhook', 
     verifyChapaSignature, 
-    paymentController.verifyChapaCallback
+    paymentController.handleChapaWebhook
 )
 
 export default router;

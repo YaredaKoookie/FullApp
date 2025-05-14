@@ -1,5 +1,5 @@
 import {isDoctor } from '../middlewares/auth.middleware';
-import {doctorController, reviewController} from '../controllers';
+import {appointmentController, doctorController, reviewController} from '../controllers';
 
 import {Router} from "express"
 import { validate } from '../validations';

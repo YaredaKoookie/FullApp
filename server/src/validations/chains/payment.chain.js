@@ -1,4 +1,4 @@
-import { body, param } from "express-validator";
+import { body, param, query } from "express-validator";
 
 
 const CURRENCY_OPTIONS = ['ETB', 'USB'];
@@ -24,9 +24,9 @@ export const validateInitializePayment = [
 ]
 
 export const validateChapaCallback = [
-    body("tx_ref").notEmpty().withMessage("Transaction reference is required"),
-    body("status").notEmpty().withMessage("Payment status is required"),
-    body("ref_id").notEmpty().withMessage("Reference is is required")
+    query("trx_ref").notEmpty().withMessage("Transaction reference is required"),
+    query("status").notEmpty().withMessage("Payment status is required"),
+    query("_").notEmpty().withMessage("Reference id is required")
 ]
 
 export const validateRefundRequest = [

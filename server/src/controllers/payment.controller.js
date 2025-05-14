@@ -1,163 +1,270 @@
 import Appointment, {
   APPOINTMENT_STATUS,
 } from "../models/appointment/appointment.model";
-
 import Payment, {
   PAYMENT_STATUS,
   REFUND_STATUS,
 } from "../models/appointment/payment.model";
-
 import Patient from "../models/patient/patient.model";
 import { logger, ServerError } from "../utils";
 import { chapa, env } from "../config";
 import mongoose from "mongoose";
 import Doctor from "../models/doctors/doctor.model";
-import { refundChapaPayment } from "../config/chapa.config";
+import {
+  initializeChapaPaymentApi,
+  refundChapaPayment,
+} from "../config/chapa.config";
 import { generateUniqueToken } from "../utils/token.util";
 
 export const initiatePayment = async (req, res) => {
-  const appointmentId = req.params?.appointmentId;
-  const currency = req.body?.currency || "ETB";
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  if (!["ETB", "USD"].includes(currency))
-    throw ServerError.badRequest(
-      "Only ETB or USD are allowed as a currency to pay"
+  try {
+    const { appointmentId } = req.params;
+    const currency = (req.body?.currency || "ETB").toUpperCase();
+
+    // Input validation
+    if (!appointmentId) {
+      throw ServerError.badRequest("Appointment ID is required");
+    }
+
+    if (!["ETB", "USD"].includes(currency)) {
+      throw ServerError.badRequest("Only ETB or USD currencies are supported");
+    }
+
+    // Get patient with email
+    const patient = await Patient.findOne({ user: req.user.sub })
+      .select("_id user")
+      .populate("user", "email")
+      .session(session);
+
+    if (!patient) {
+      throw ServerError.notFound("Patient not found");
+    }
+
+    // Get and validate appointment
+    const appointment = await Appointment.findById(appointmentId).session(
+      session
     );
 
-  if (!appointmentId)
-    throw ServerError.badRequest("appointment id is required");
+    if (!appointment) {
+      throw ServerError.notFound("Appointment not found");
+    }
 
-  const patient = await Patient.findOne({ userId: req.user.sub })
-    .select("_id user")
-    .populate("user", "email");
+    if (!appointment.doctor) {
+      throw ServerError.notFound("Doctor not assigned to appointment");
+    }
 
-  if (patient) throw ServerError.notFound("Patient not found");
+    if (appointment.patient.toString() !== patient._id.toString()) {
+      throw ServerError.forbidden(
+        "Only appointment owner can initiate payment"
+      );
+    }
 
-  const appointment = await Appointment.findById(appointmentId);
+    if (appointment.status !== APPOINTMENT_STATUS.ACCEPTED) {
+      throw ServerError.badRequest(
+        "Payment can only be initiated for accepted appointments"
+      );
+    }
 
-  if (!appointment) throw ServerError.notFound("Appointment not found");
+    // Check for existing payment
+    const existingPayment = await Payment.findOne({
+      appointment: appointment._id,
+    }).session(session);
 
-  if (!appointment.doctor)
-    throw ServerError.notFound("Doctor for this appointment cannot be found");
+    if (existingPayment) {
+      if (existingPayment.status === PAYMENT_STATUS.PAID) {
+        throw ServerError.badRequest("Payment already completed");
+      }
+      throw ServerError.badRequest("Payment initiation already in progress");
+    }
 
-  if (appointment.patient.toString() !== patient._id.toString())
-    throw ServerError.badRequest(
-      "Payment is allowed only for the owner of the appointment"
-    );
+    // Create new payment
+    const payment = new Payment({
+      patient: patient._id,
+      appointment: appointment._id,
+      doctor: appointment.doctor,
+      amount: appointment.fee,
+      currency,
+      status: PAYMENT_STATUS.PENDING,
+    });
 
-  if (appointment.status !== APPOINTMENT_STATUS.ACCEPTED)
-    throw ServerError.badRequest(
-      "Payment is allowed only for doctor accepted appointments"
-    );
+    // Update appointment status
+    appointment.status = APPOINTMENT_STATUS.PAYMENT_PENDING;
 
-  let payment = await Payment.findOne({ appointment: appointment._id });
+    // Save changes
+    await payment.save({ session });
+    await appointment.save({ session });
 
-  if (payment)
-    throw ServerError.badRequest(
-      "Payment has already been initiated for this appointment"
-    );
+    await session.commitTransaction();
 
-  payment = new Payment({
-    patient: patient._id,
-    appointment: appointment._id,
-    doctor: appointment.doctor,
-    amount: appointment.fee,
-    currency,
-    status: PAYMENT_STATUS.PENDING,
-  });
+    res.status(201).json({
+      success: true,
+      data: {
+        payment,
+        paymentInitiationUrl: `/payments/${payment._id}/initialize`, // Suggested next step
+      },
+    });
+  } catch (error) {
+    await session.abortTransaction();
 
-  appointment.status = APPOINTMENT_STATUS.PAYMENT_PENDING;
+    if (error instanceof ServerError) {
+      throw error;
+    }
 
-  await appointment.save();
-  await payment.save();
-
-  res.json({
-    success: true,
-    data: {
-      payment,
-    },
-  });
+    console.error("Payment initiation error:", error);
+    throw ServerError.internal("Failed to initiate payment");
+  } finally {
+    session.endSession();
+  }
 };
 
 export const initializeChapaPayment = async (req, res) => {
-  const { paymentId } = req.params;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  const patient = await Patient.findOne({ user: req.user.sub });
+  try {
+    const { paymentId } = req.params;
+    if (!paymentId) throw ServerError.notFound("Payment id not found");
 
-  if (patient) throw ServerError.notFound("Patient not found");
+    // Get patient with user email
+    const patient = await Patient.findOne({ user: req.user.sub })
+      .populate("user", "email")
+      .session(session);
+    if (!patient) throw ServerError.notFound("Patient not found");
 
-  const payment = await Payment.findOne({
-    _id: paymentId,
-    patient: patient._id,
-  });
+    // Find payment
+    const payment = await Payment.findOne({
+      _id: paymentId,
+      patient: patient._id,
+    }).session(session);
 
-  if (!payment) throw ServerError.notFound("Payment not found or initiated");
+    if (!payment) throw ServerError.notFound("Payment not found");
 
-  if (payment.status !== PAYMENT_STATUS.PENDING)
-    throw ServerError.badRequest("Payment is not in pending state");
+    // Check payment status
+    if (payment.status === PAYMENT_STATUS.PAID) {
+      throw ServerError.badRequest("Payment is already processed");
+    }
+    if (payment.status !== PAYMENT_STATUS.PENDING) {
+      throw ServerError.badRequest("Payment is not in pending state");
+    }
 
-  const tx_ref = chapa.genTxRef({
-    prefix: `appointment_${payment._id}_${Date.now()}`,
-  });
+    if (payment.transactionId) {
+      try {
+        const verification = await chapa.verify({
+          tx_ref: payment.transactionId,
+        });
 
-  const response = await chapa.initialize({
-    first_name: patient.firstName,
-    last_name: patient.lastName,
-    email: patient.user.email,
-    currency: payment.currency || "ETB",
-    amount: payment.amount,
-    tx_ref,
-    callback_url: `${env.SERVER_URL}/payment/chapa/callback`,
-    return_url: `${env.FRONTEND_URL}/patient/payment/callback`,
-    customization: {
-      title: "Appointment Payment",
-      description: "Payment for medical appointment",
-    },
-  });
+        if (verification?.status === "success") {
+          payment.status = PAYMENT_STATUS.PAID;
+          payment.referenceId = verification.data.reference;
+          const appointment = await Appointment.findById(payment.appointment);
 
-  if (response.status !== "success")
-    throw ServerError.internal("Failed to initialize payment");
+          if (
+            appointment &&
+            appointment.status === APPOINTMENT_STATUS.PAYMENT_PENDING
+          ) {
+            appointment.status = APPOINTMENT_STATUS.CONFIRMED;
+          }
 
-  payment.transactionId = response.data.tx_ref;
-  await payment.save();
+          await payment.save();
 
-  res.status(201).json({
-    success: true,
-    message: "Payment initialized successfully",
-    data: {
-      payment_url: response.data.checkout_url,
-    },
-  });
+          if (appointment) await appointment.save();
+        }
+        throw ServerError.badRequest("Payment already processed");
+      } catch (error) {
+        console.log("chapa verification failed:", error);
+      }
+    }
+
+    // Generate unique transaction reference
+    const tx_ref = `appointment_${payment._id}_${Date.now()}`;
+
+    // Initialize Chapa payment
+    const response = await initializeChapaPaymentApi({
+      first_name: patient.firstName,
+      last_name: patient.lastName,
+      email: patient.user.email,
+      phone_number: "0900123456",
+      currency: payment.currency || "ETB",
+      amount: payment.amount,
+      tx_ref,
+      callback_url: `${env.SERVER_URL}/payment/chapa/callback`,
+      return_url: `${env.FRONTEND_URL}/patient/payment/callback`,
+      customization: {
+        title: "Appointment Fee",
+        description: "Payment for appointment",
+      },
+    });
+
+    if (response.status !== "success" || !response?.data) {
+      throw ServerError.internal("Failed to initialize payment");
+    }
+
+    // Update payment with transaction ID
+    payment.transactionId = tx_ref;
+    await payment.save({ session });
+
+    await session.commitTransaction();
+
+    res.status(201).json({
+      success: true,
+      message: "Payment initialized successfully",
+      data: {
+        payment_url: response.data.checkout_url,
+      },
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("Payment initialization error:", error);
+
+    if (error instanceof ServerError) {
+      throw error; // Re-throw already formatted errors
+    }
+    throw ServerError.internal("Unable to initialize payment");
+  } finally {
+    session.endSession();
+  }
 };
 
 export const verifyChapaCallback = async (req, res, next) => {
-  const { tx_ref, status, ref_id } = req.body;
+  console.log("chapa callback query", req.query);
 
-  if (!tx_ref || !status || !ref_id)
+  const trx_ref = req.query.trx_ref || req.query.tx_ref;
+  const ref_id = req.query._ || req.query.ref_id;
+  const status = req.query.status;
+
+  if (!trx_ref || !status || !ref_id)
     throw ServerError.badRequest("Invalid chapa payload");
 
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const [name, paymentId] = tx_ref.split("_");
+    const [name, paymentId] = trx_ref.split("_");
     const payment = await Payment.findById(paymentId).session(session);
 
     if (!payment) throw ServerError.notFound("Payment record not found");
+
+    if (payment.status === PAYMENT_STATUS.PAID)
+      throw ServerError.badRequest("Payment already completed");
 
     if (payment.status !== PAYMENT_STATUS.PENDING) {
       await session.abortTransaction();
       return res.json(404).json({ message: "Payment is not in pending state" });
     }
 
-    const response = await chapa.verify({ tx_ref });
+    const response = await chapa.verify({ tx_ref: trx_ref });
 
-    if (!response || !response.status)
-      throw ServerError("Invalid chapa verification response");
+    console.log("response", response);
+
+    if (!response || response.status !== "success")
+      throw ServerError.badRequest("Invalid chapa verification response");
 
     const { status, data, message } = response;
 
-    payment.transactionId = data.tx_ref || tx_ref;
+    payment.transactionId = data.tx_ref || trx_ref;
     payment.referenceId = data.reference || ref_id;
     payment.paymentMethod = data.method;
     payment.currency = data.currency;
@@ -270,18 +377,21 @@ export const processRefund = async (req, res, next) => {
     let refundId = generateUniqueToken();
 
     const meta = { refundId };
-    const refundResponse = await refundChapaPayment(tx_ref, amount, reason, meta);
+    const refundResponse = await refundChapaPayment(
+      tx_ref,
+      amount,
+      reason,
+      meta
+    );
 
     const { status, data } = refundResponse;
 
-    if(status !== 'success')
+    if (status !== "success")
       throw ServerError.internal("Refund initialization failed");
 
     refundId = data.meta.refundId;
 
-    if(!refundId)
-      throw ServerError.notFound("refund id is not found");
-
+    if (!refundId) throw ServerError.notFound("refund id is not found");
 
     const refundEntry = {
       amount,
@@ -307,45 +417,178 @@ export const processRefund = async (req, res, next) => {
   }
 };
 
-export const handleChapaRefundWebhook = async (req, res, next) => {
-  const { tx_ref, status, amount, meta } = req.body;
+export const handleChapaWebhook = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  console.log("chapa webhook body", req.body);
+  try {
+    // Validate webhook signature (critical security check)
+    const signature = req.headers["x-chapa-signature"];
+    if (!verifyChapaSignature(signature, req.body)) {
+      throw ServerError.unauthorized("Invalid webhook signature");
+    }
 
-  if (!tx_ref || !status || !amount)
-    throw ServerError.badRequest("Invalid webhook payload");
+    const {
+      tx_ref,
+      status,
+      event,
+      amount,
+      meta,
+      reference,
+      currency,
+      payment_method,
+    } = req.body;
 
+    // Basic validation (complementing express-validator)
+    if (!tx_ref || !status || !event) {
+      throw ServerError.badRequest("Missing required webhook fields");
+    }
 
-  const payment = await Payment.findOne({ referenceId: tx_ref });
+    // Find and lock payment document
+    const payment = await Payment.findOne({ referenceId: tx_ref }).session(
+      session
+    );
 
+    if (!payment) {
+      throw ServerError.notFound("Payment not found");
+    }
 
-  if (!payment) throw ServerError.notFound("404", "Payment not found");
-  
+    // Handle different event types
+    let message = "";
+    switch (event) {
+      case "charge.success":
+        await handleSuccessfulCharge({
+          payment,
+          status,
+          reference,
+          currency,
+          payment_method,
+          session,
+        });
+        message = "Payment successful";
+        break;
 
-  const refund = payment.refunds.find(r => r.refundId === meta?.refundId);
+      case "charge.refunded":
+        await handleRefund({
+          payment,
+          status,
+          meta,
+          session,
+        });
+        message = "Refund processed";
+        break;
 
-  if(!refund)
-    throw ServerError.badRequest("refund not found");
+      default:
+        message = "Webhook received (no action taken)";
+    }
 
-  if(refund.status !== REFUND_STATUS.PENDING)
-    throw ServerError.badRequest("Refund already processed "+meta?.refundId)
+    await session.commitTransaction();
 
-  refund.status = status === 'success' ? REFUND_STATUS.PROCESSED : REFUND_STATUS.FAILED;
-  refund.processedAt = status === 'success' ? new Date() : null;
+    res.json({
+      success: true,
+      message,
+      data: { payment: payment.toObject() },
+    });
+  } catch (error) {
+    await session.abortTransaction();
 
-  const totalRefunded = payment.refunds.reduce((sum, refund) => {
-    return refund.status === REFUND_STATUS.PROCESSED ? (sum + refund.amount) : sum
-  }, 0)
+    if (error instanceof ServerError) {
+      throw error;
+    }
 
-  if(totalRefunded === payment.amount) payment.status = PAYMENT_STATUS.REFUNDED;
-  if(totalRefunded > payment.amount) payment.status = PAYMENT_STATUS.PARTIALLY_REFUNDED;
-
-  await payment.save();
-
-
-  return res.json({
-    success: true,
-    message: "refund updated",
-    data: { payment },
-  });
+    console.error("Webhook processing error:", error);
+    throw ServerError.internal("Webhook processing failed");
+  } finally {
+    session.endSession();
+  }
 };
+
+// Helper functions for better separation of concerns
+async function handleSuccessfulCharge({
+  payment,
+  status,
+  reference,
+  currency,
+  payment_method,
+  session,
+}) {
+  if (status !== "success") return;
+
+  // Validate payment can be marked as paid
+  const allowedStatuses = [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.FAILED];
+  if (!allowedStatuses.includes(payment.status)) {
+    throw ServerError.badRequest(
+      `Payment cannot be marked as paid from current state: ${payment.status}`
+    );
+  }
+
+  // Update payment
+  payment.status = PAYMENT_STATUS.PAID;
+  payment.referenceId = reference;
+  payment.transactionId = tx_ref;
+  payment.currency = currency || payment.currency;
+  payment.paymentDate = new Date();
+  payment.paymentMethod = payment_method;
+
+  // Update related appointment
+  const appointment = await Appointment.findById(payment.appointment).session(
+    session
+  );
+
+  if (appointment) {
+    const allowedAppointmentStatuses = [
+      APPOINTMENT_STATUS.ACCEPTED,
+      APPOINTMENT_STATUS.PAYMENT_PENDING,
+    ];
+
+    if (allowedAppointmentStatuses.includes(appointment.status)) {
+      appointment.status = APPOINTMENT_STATUS.CONFIRMED;
+      appointment.confirmedAt = new Date();
+      await appointment.save({ session });
+    }
+  }
+
+  await payment.save({ session });
+}
+
+async function handleRefund({ payment, status, meta, session }) {
+  if (status !== "refunded") return;
+
+  const refund = payment.refunds.find((r) => r.refundId === meta?.refundId);
+  if (!refund) {
+    throw ServerError.notFound("Refund not found");
+  }
+
+  if (refund.status === REFUND_STATUS.PROCESSED) {
+    throw ServerError.badRequest(`Refund already processed: ${meta?.refundId}`);
+  }
+
+  // Process refund
+  refund.status = REFUND_STATUS.PROCESSED;
+  refund.processedAt = new Date();
+
+  // Calculate total refunded amount
+  const totalRefunded = payment.refunds.reduce((sum, r) => {
+    return r.status === REFUND_STATUS.PROCESSED ? sum + r.amount : sum;
+  }, 0);
+
+  // Update payment status based on refund amount
+  if (totalRefunded >= payment.amount) {
+    payment.status = PAYMENT_STATUS.REFUNDED;
+  } else if (totalRefunded > 0) {
+    payment.status = PAYMENT_STATUS.PARTIALLY_REFUNDED;
+  }
+
+  await payment.save({ session });
+}
+
+// Security verification function
+function verifyChapaSignature(signature, payload) {
+  const secret = env.CHAPA_WEBHOOK_SECRET_KEY;
+  const expectedSignature = crypto
+    .createHmac("sha256", secret)
+    .update(JSON.stringify(payload))
+    .digest("hex");
+
+  return signature === expectedSignature;
+}
