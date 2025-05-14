@@ -267,15 +267,8 @@ export const getSlots = async (req, res) => {
       "doctorId",
       "name specialization -_id"
     ); // Optional: include basic doctor info
-    const schedule = await Schedule.findOne({ doctorId }).populate(
-      "doctorId",
-      "name specialization -_id"
-    ); // Optional: include basic doctor info
 
     if (!schedule) {
-      return res
-        .status(404)
-        .json({ message: "Schedule not found for this doctor" });
       return res
         .status(404)
         .json({ message: "Schedule not found for this doctor" });
@@ -292,24 +285,16 @@ export const getSlots = async (req, res) => {
       slots = slots.filter(
         (slot) =>
           new Date(slot.date).toDateString() === targetDate.toDateString()
-      slots = slots.filter(
-        (slot) =>
-          new Date(slot.date).toDateString() === targetDate.toDateString()
       );
     }
 
     if (isBooked !== undefined) {
       const bookedFilter = isBooked === "true";
       slots = slots.filter((slot) => slot.isBooked === bookedFilter);
-      const bookedFilter = isBooked === "true";
-      slots = slots.filter((slot) => slot.isBooked === bookedFilter);
     }
 
     if (upcomingOnly === "true") {
-    if (upcomingOnly === "true") {
       const now = new Date();
-      slots = slots.filter(
-        (slot) => new Date(slot.date) >= new Date(now.setHours(0, 0, 0, 0))
       slots = slots.filter(
         (slot) => new Date(slot.date) >= new Date(now.setHours(0, 0, 0, 0))
       );
@@ -328,10 +313,7 @@ export const getSlots = async (req, res) => {
       totalSlots: slots.length,
       available: slots.filter((s) => !s.isBooked).length,
       booked: slots.filter((s) => s.isBooked).length,
-      available: slots.filter((s) => !s.isBooked).length,
-      booked: slots.filter((s) => s.isBooked).length,
       slots,
-      generatedAt: new Date().toISOString(),
       generatedAt: new Date().toISOString(),
     };
 
@@ -339,19 +321,13 @@ export const getSlots = async (req, res) => {
   } catch (error) {
     console.error("Error fetching slots:", error);
 
-    console.error("Error fetching slots:", error);
-
     // Handle specific errors
-    if (error.name === "CastError") {
     if (error.name === "CastError") {
       return res.status(400).json({ message: "Invalid doctorId format" });
     }
 
     res.status(500).json({
-
-    res.status(500).json({
       message: "Error retrieving slots",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
