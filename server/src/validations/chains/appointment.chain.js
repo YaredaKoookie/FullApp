@@ -21,24 +21,21 @@ export const validateGetAppointments = [
         ", "
       )}`
     ),
-  query("page").optional().isInt().withMessage("page should be an integer"),
-  query("limit").optional().isInt().withMessage("limit should be an integer"),
+  query("page").optional().isInt({min: 1}).withMessage("page should be an integer and minimum of 1"),
+  query("limit").optional().isInt({min: 1}).withMessage("limit should be an integer and minimum of 1"),
 ];
 
 export const validateAcceptAppointment = [
   param("doctorId")
-  .notEmpty()
-  .withMessage("Appointment id is required")
-  .isMongoId()
-  .withMessage("Invalid appointment id")
-]
+    .notEmpty()
+    .withMessage("Appointment id is required")
+    .isMongoId()
+    .withMessage("Invalid appointment id"),
+];
 
 export const validateCancelAppointment = [
-  param("appointmentId").notEmpty().withMessage("Appointment id is required"),
-  body("cancellationReason")
-    .optional()
-    .isString()
-    .isLength({max: 500})
+  param("appointmentId").notEmpty().withMessage("Appointment id is required").isMongoId().withMessage("Invalid appointment id"),
+  body("cancellationReason").optional().isString().isLength({ max: 500 }),
 ];
 
 // Utility: Validate ObjectId
@@ -67,11 +64,41 @@ export const validateAppointmentCreation = [
     .withMessage("Reason can be a maximum of 500 characters"),
   // Slot Validation
   body("slotId")
-  .notEmpty()
-  .withMessage("slot id is required")
-  .isMongoId()
-  .withMessage("invalid slot id format")
+    .notEmpty()
+    .withMessage("slot id is required")
+    .isMongoId()
+    .withMessage("invalid slot id format"),
 ];
+
+export const validateRequestSchedule = [
+  param("appointmentId")
+    .notEmpty()
+    .withMessage("appointment id is required")
+    .isMongoId()
+    .withMessage("invalid appointment id format"),
+  body("slotId")
+    .notEmpty()
+    .withMessage("slot id is required")
+    .isMongoId()
+    .withMessage("invalid slot id format"),
+  body("reason")
+  .optional()
+  .isLength({min: 2, max: 500})
+  .withMessage("reason should be between 2 and 500 character length")
+];
+
+export const validateRespondToReschedule = [
+  param("appointmentId")
+  .notEmpty()
+  .withMessage("appointment id is required")
+  .isMongoId()
+  .withMessage("invalid appointment id format"),
+  param("action")
+  .notEmpty()
+  .withMessage("reschedule action [accept, reject] is required")
+  .isIn(['accept', 'reject'])
+  .withMessage("reschedule actions are only accept or reject")
+]
 
 export const validateOther = [
   body("rescheduleHistory")

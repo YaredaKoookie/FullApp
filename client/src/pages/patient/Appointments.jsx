@@ -4,6 +4,7 @@ import { Calendar, Clock, Video, Stethoscope, CheckCircle2, XCircle, Clock4, Cal
 import { format, parseISO, isToday, isTomorrow, isPast, isFuture } from 'date-fns';
 import useGetApprovedDoctors from '@/hooks/useGetApprovedDoctors';
 import useGetPatientAppointments from '@/hooks/useGetPatientAppointments';
+import { Link } from 'react-router-dom';
 
 
 const fetchAppointments = () => {
@@ -191,10 +192,10 @@ const Appointments = () => {
               <div className="flex items-start space-x-4">
                 {/* Doctor Avatar */}
                 <div className="flex-shrink-0">
-                  {appointment.doctor?.avatar ? (
+                  {appointment.doctor?.profilePhoto ? (
                     <img
                       className="h-12 w-12 rounded-full object-cover"
-                      src={appointment.doctor?.avatar}
+                      src={"http://localhost:3000"+appointment.doctor?.profilePhoto}
                       alt={appointment.doctor?.fullName}
                     />
                   ) : (
@@ -269,9 +270,9 @@ const Appointments = () => {
                   </>
                 )}
                 {appointment.status === 'pending' && (
-                  <button className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                  <Link to={`${appointment._id}/details`} className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     View Details
-                  </button>
+                  </Link>
                 )}
                 {appointment.status === 'completed' && (
                   <button className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">

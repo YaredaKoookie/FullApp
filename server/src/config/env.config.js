@@ -29,6 +29,9 @@ const env = cleanEnv(process.env, {
   SERVER_URL: url(),
   CHAPA_SECRET_KEY: str(),
   CHAPA_WEBHOOK_SECRET_KEY: str(),
+  CLOUDINARY_CLOUD_NAME: str(),
+  CLOUDINARY_API_KEY: str(),
+  CLOUDINARY_API_SECRET: str(),
   NODE_ENV: str({
     choices: ["production", "development"],
     default: "development",

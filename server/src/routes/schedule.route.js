@@ -66,16 +66,14 @@ router.delete(
 );
 
 
-
-
 // Get doctor's schedule
 router.get("/:doctorId" , getSchedule);  // done
 
 // Create initial schedule (first-time setup)
-router.post("/:doctorId", createSchedule);   //done
+router.post("/:doctorId", createSchedule);   // done
 
 // Update schedule (working hours, breaks, etc.)
-router.put("/:doctorId", updateSchedule);   // con
+router.put("/:doctorId", updateSchedule);   // done
 
 
 
@@ -91,7 +89,7 @@ router.get(
 
 router.put(
   '/doctors/:doctorId/slots/:slotId/book',
-  isPatient,
+  // isPatient,
   bookAppointmentSlot
 );
 

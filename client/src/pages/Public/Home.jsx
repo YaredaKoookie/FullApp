@@ -315,5 +315,4 @@ const CureLogicHomepage = () => {
     </div>
   );
 };
-
 export default CureLogicHomepage;

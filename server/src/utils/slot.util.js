@@ -1,3 +1,4 @@
+import { Types } from "mongoose";
 import Appointment from "../models/appointment/appointment.model";
 import Schedule from "../models/schedule/Schedule.model";
 import ServerError from "./ServerError";
@@ -29,12 +30,14 @@ export const handleSlotConflict = async (slotId, doctorId, patientId) => {
     (slot) => slot._id.toString() === slotId
   );
 
+
   const start = new Date(
     `${bookedSlot.date.toISOString().split("T")[0]}T${bookedSlot.startTime}:00`
   );
   const end = new Date(
     `${bookedSlot.date.toISOString().split("T")[0]}T${bookedSlot.endTime}:00`
   );
+
 
   const slotQuery = {
     "slot.start": { $lt: end },
@@ -48,7 +51,7 @@ export const handleSlotConflict = async (slotId, doctorId, patientId) => {
 
   if (existingAppointment)
     throw ServerError.badRequest(
-      "Patient already has an appointment during this time"
+      "Appointment has been allocated during this time"
     );
 
   return { start, end };
@@ -89,14 +92,12 @@ const checkSlots = async () => {
   }
 };
 
-
 /**
  * Checks availability of multiple slots for a doctor
  * @param {ObjectId} doctorId - The doctor's ID
  * @param {Array} requestedSlots - Array of slots to check [{ date, startTime, endTime }]
  * @returns {Object} - { availableSlots: Array, conflictingSlots: Array }
  */
-
 
 export const checkSlotAvailability = async (doctorId, requestedSlots) => {
   try {
@@ -261,6 +262,22 @@ export const releaseBlockedSlot = (doctorId, slotId) => {
     {
       $set: {
         "availableSlots.$.isBooked": false, // The $ operator identifies the matched element
+      },
+    }
+  );
+};
+
+export const blockAvailableSlot = (doctorId, slotId) => {
+  const slotObjectId = new Types.ObjectId(slotId);
+  return Schedule.updateOne(
+    {
+      doctorId,
+      "availableSlots._id": slotObjectId,
+      "availableSlots.isBooked": false, // Ensure the slot is not already booked
+    },
+    {
+      $set: {
+        "availableSlots.$.isBooked": true, // The $ operator identifies the matched element
       },
     }
   );

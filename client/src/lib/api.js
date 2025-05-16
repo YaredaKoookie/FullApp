@@ -44,10 +44,52 @@ export const getAppointments = async () => {
   return await apiClient.get("/patient/appointments");
 };
 
-export const getApprovedDoctors = async () => {
-  return await apiClient.get("/patient/doctors");
+export const getApprovedDoctors = async (query) => {
+  return await apiClient.get("/patient/doctors?"+query);
 };
 
 export const getDoctorProfile = async () => {
   return await apiClient.get("/doctors/profile/me");
 };
+
+
+export const getPatientProfile = async () => {
+  return await apiClient.get("/patient/profile");
+};
+
+export const getPayments = async () => {
+  return await apiClient.get("/patient/payments");
+};
+
+
+export const getAppointmentById = async (id) => {
+  return await apiClient.get("/patient/appointments/"+id);
+};
+
+export const getDoctorStatistics = async () => {
+  return await apiClient.get("/patient/doctors/statistics");
+};
+
+
+export const cancelAppointment = async (id, data) => {
+  return await apiClient.put(`/patient/appointments/${id}/cancel`, data);
+};
+
+
+export const updateProfile = async (data) => {
+  return await apiClient.put("/patient/profile", data, {
+    headers: {
+      'Content-Type': "multipart/form-data"
+    }
+  });
+};
+
+
+
+export const updateProfileImage = async (data) => {
+  return await apiClient.put("/patient/profile/image", data, {
+    headers: {
+      'Content-Type': "multipart/form-data"
+    }
+  });
+}
