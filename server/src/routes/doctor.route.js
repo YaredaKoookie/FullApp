@@ -1,22 +1,27 @@
 import {isDoctor } from '../middlewares/auth.middleware';
-import {appointmentController, doctorController, reviewController} from '../controllers';
+import {doctorController, doctorPatient, reviewController} from '../controllers';
 
 import {Router} from "express"
 import { validate } from '../validations';
 import { completeProfileValidation } from '../validations/chains/doctor.chain';
 import { handleMulterErrors, uploadDoctorFiles } from '../config/MultiFile';
 import { uploadImage, uploadImages } from '../config/multer.config';
-// import { doctorEditProfileValidation } from '../validations/chains/editdoctor.chain';
 
 const router = Router();
 
-
-
-// DOCTOR PUBLIC
-router.get('/all_doctors', doctorController.getAllApprovedDoctors);
-router.get('/doctor/:id', doctorController.getDoctorById);
-
-// complete the doctor profile page
+const parseJsonFields = (fieldsToParse = []) => (req, res, next) => {
+  try {
+    fieldsToParse.forEach(field => {
+      if (req.body[field]) {
+        req.body[field] = JSON.parse(req.body[field]);
+      }
+    });
+    next();
+  } catch (err) {
+    next(new Error("Invalid JSON in multipart/form field"));
+  }
+};
+// profile Complete
 router.post('/profile/complete', isDoctor, uploadDoctorFiles.fields([
     { name: "profilePhoto", maxCount: 1 },
     { name: "nationalIdFront", maxCount: 1 },
@@ -25,16 +30,37 @@ router.post('/profile/complete', isDoctor, uploadDoctorFiles.fields([
     { name: "licenseBack", maxCount: 1 },
     { name: "boardCertificationsDocument", maxCount: 1 },
     { name: "educationDocument", maxCount: 1 },
-  ]) ,handleMulterErrors, validate(completeProfileValidation), doctorController.completeProfile);
-// router.post('profile/upload',  ,isDoctor, doctorController.uploadDoctorProfileImage);
-
+  ]) ,handleMulterErrors, parseJsonFields(["qualifications", "hospitalAddress", "languages"]), 
+  doctorController.completeProfile);
 router.get("/profile/me",isDoctor, doctorController.getCurrentDoctor);
+
 // Update doctor profile
-router.put('/profile/upload', isDoctor, uploadImage.single("profilePhoto") ,doctorController.uploadDoctorProfileImage);
+router.put(
+  "/profile/upload",
+  isDoctor,
+  uploadImage.single("profilePhoto"),
+  doctorController.uploadDoctorProfileImage
+)
+router.put('/profile/update' , isDoctor , doctorController.updateDoctorProfile)  //unfinished
 
-router.put('/profile/update' , isDoctor , doctorController.updateDoctorProfile)  
 
 
+
+
+// GET /api/patients - List all patients (with pagination/filter)
+router.get('/patient', isDoctor , doctorPatient.getDoctorPatients);
+// GET /api/patients/:id - Get single patient details
+router.get('/patient/:id', isDoctor , doctorPatient.getPatientById);
+// GET /api/patients/:id/medical-history - Get medical history
+router.get('/patient/:id/medical-history', isDoctor , doctorPatient.getMedicalHistory);
+// GET /api/patients/:id/consultations - Get consultations
+router.get('/patient/:id/consultations', isDoctor , doctorPatient.getConsultations);
+// GET /api/patients/:id/prescriptions - Get prescriptions
+router.get('/patient/:id/prescriptions', isDoctor , doctorPatient.getPrescriptions);
+// POST /api/patients/:id/consultations - Create new consultation
+router.post('/patient/:id/consultations', isDoctor , doctorPatient.createConsultation);
+// POST /api/patients/:id/prescriptions - Create new prescription
+router.post('/patient/:id/prescriptions', isDoctor , doctorPatient.createPrescription);
 
 
 
@@ -100,12 +126,12 @@ router.put('/profile/update' , isDoctor , doctorController.updateDoctorProfile)
 //////////////////////////
 // DOCTOR PROTECTED
 // router.put('/profile/edit', isDoctor, validate(doctorEditProfileValidation), doctorController.editProfile);
-router.delete('/delete-account', isDoctor, doctorController.deleteAccount);
-router.get('/appointments', isDoctor, doctorController.getAppointments);
-router.put('/appointments/:id/confirm', isDoctor, doctorController.approveAppointment);
-router.put('/appointments/:id/cancel', isDoctor, doctorController.declineAppointment);
-router.put('/appointments/:id/mark-complete', isDoctor, doctorController.markComplete);
-router.put('/appointments/:id/decline', isDoctor, doctorController.cancelAppointment); 
+// router.delete('/delete-account', isDoctor, doctorController.deleteAccount);
+// router.get('/appointments', isDoctor, doctorController.getAppointments);
+// router.put('/appointments/:id/confirm', isDoctor, doctorController.approveAppointment);
+// router.put('/appointments/:id/cancel', isDoctor, doctorController.declineAppointment);
+// router.put('/appointments/:id/mark-complete', isDoctor, doctorController.markComplete);
+// router.put('/appointments/:id/decline', isDoctor, doctorController.cancelAppointment); 
 // router.post('/setAvailability', isDoctor, doctorController.setAvailability); 
 // router.get('/availability', isDoctor, doctorController.getAvailability);
 

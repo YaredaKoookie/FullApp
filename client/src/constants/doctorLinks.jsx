@@ -1,4 +1,4 @@
-import { AppWindowIcon, HeartPlusIcon, CurrencyIcon ,NewspaperIcon, HistoryIcon, MessageCircleIcon, UserIcon, Calendar1Icon } from "lucide-react"
+import { AppWindowIcon, HeartPlusIcon, CurrencyIcon ,NewspaperIcon, HistoryIcon, MessageCircleIcon, UserIcon, Calendar1Icon, User2Icon, Settings2Icon } from "lucide-react"
 
 const doctorLinks = [
     {
@@ -15,9 +15,9 @@ const doctorLinks = [
     },
     {
         id: 3,
-        name: "Doctors",
-        url: "/doctor/doctors",
-        icon: HeartPlusIcon
+        name: "Patients",
+        url: "/doctor/patient",
+        icon: User2Icon
     },
     {
         id: 8,
@@ -48,6 +48,12 @@ const doctorLinks = [
         name : "Scheduling",
         url : "/doctor/schedule",
         icon : Calendar1Icon
+    },
+    {
+        id: 9,
+        name : "Setting",
+        url : "/doctor/setting",
+        icon : Settings2Icon
     }
 ]
 

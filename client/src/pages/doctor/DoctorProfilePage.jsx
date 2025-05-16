@@ -1,26 +1,44 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { Dialog, Transition, Tab } from "@headlessui/react";
 import { Camera, Pencil, X, Check, ChevronDown, ChevronUp } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { toast } from "react-toastify";
 import useGetDoctorProfile from "@/hooks/useGetDoctorProfile";
+import { useAuth } from "@/context/AuthContext";
 
 const DoctorProfilePage = () => {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
-
-  // Fetch doctor profile data
+  const [editableProfile, setEditableProfile] = useState(null);
+  // const {user} = useAuth();
   const { data: profile, isLoading: isProfileLoading } = useGetDoctorProfile();
-  console.log(profile);
+  console.log("user ", profile);
 
-  // Update profile mutation
+  useEffect(() => {
+    if (profile) {
+      setEditableProfile({
+        ...profile,
+        qualifications: profile.qualifications.degree || [],
+        languages: profile.languages || [],
+        serviceAreas: profile.serviceAreas || [],
+        hospitalAddress: profile.hospitalAddress || {
+          street: "",
+          city: "",
+          state: "",
+          country: "",
+          postalCode: "",
+        },
+      });
+    }
+  }, [profile]);
+
   const updateMutation = useMutation({
     mutationFn: (updatedProfile) =>
-      apiClient.put("doctor/profile/update", updatedProfile),
+      apiClient.put(`/doctors/profile/update`, updatedProfile),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["doctorProfile"] }); // Should match your query key
+      queryClient.invalidateQueries({ queryKey: ["doctorProfile"] });
       toast.success("Profile updated successfully");
       setIsEditing(false);
     },
@@ -29,15 +47,19 @@ const DoctorProfilePage = () => {
     },
   });
 
-  // Photo upload mutation
   const photoMutation = useMutation({
     mutationFn: (photoFile) => {
+      // console.log(photoFile);
       const formData = new FormData();
-      formData.append("photo", photoFile);
-      return apiClient.put("doctor/profile/upload", formData);
+      formData.append("profilePhoto", photoFile);
+      return apiClient.put(`/doctors/profile/upload`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["doctorProfile"] }); // Should match your query key
+      queryClient.invalidateQueries({ queryKey: ["doctorProfile"] });
       toast.success("Profile photo updated successfully");
     },
     onError: (error) => {
@@ -47,20 +69,20 @@ const DoctorProfilePage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!profile) return;
-    updateMutation.mutate(profile);
+    if (!editableProfile) return;
+    updateMutation.mutate(editableProfile);
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    queryClient.setQueryData(["doctorProfile"], (prev) => ({
+    setEditableProfile((prev) => ({
       ...prev,
       [name]: value,
     }));
   };
 
   const handleNestedChange = (parent, field, value) => {
-    queryClient.setQueryData(["doctorProfile"], (prev) => ({
+    setEditableProfile((prev) => ({
       ...prev,
       [parent]: {
         ...prev[parent],
@@ -70,30 +92,30 @@ const DoctorProfilePage = () => {
   };
 
   const handleArrayChange = (field, value) => {
-    queryClient.setQueryData(["doctorProfile"], (prev) => ({
+    setEditableProfile((prev) => ({
       ...prev,
       [field]: value ? value.split(",").map((item) => item.trim()) : [],
     }));
   };
 
   const handlePhotoChange = (e) => {
+    console.log(e);
     if (e.target.files?.[0]) {
       photoMutation.mutate(e.target.files[0]);
     }
   };
 
-  if (isProfileLoading) {
+  const handleCancel = () => {
+    setEditableProfile(profile);
+    setIsEditing(false);
+  };
+
+  if (isProfileLoading || !editableProfile) {
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
-  }
-
-  console.log("profile", profile)
-
-  if (!profile) {
-    return <div className="text-center py-10">No profile data found</div>;
   }
 
   return (
@@ -111,7 +133,7 @@ const DoctorProfilePage = () => {
         ) : (
           <div className="flex gap-2">
             <button
-              onClick={() => setIsEditing(false)}
+              onClick={handleCancel}
               className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"
             >
               <X size={16} />
@@ -173,7 +195,7 @@ const DoctorProfilePage = () => {
                 <div className="md:col-span-1 flex flex-col items-center">
                   <div className="relative group">
                     <img
-                      src={profile.profilePhoto || "/default-avatar.jpg"}
+                      src={`http://localhost:3000${editableProfile.profilePhoto}`}
                       alt="Profile"
                       className="w-40 h-40 rounded-full object-cover border-4 border-white shadow-md"
                     />
@@ -185,6 +207,7 @@ const DoctorProfilePage = () => {
                           accept="image/*"
                           onChange={handlePhotoChange}
                           className="hidden"
+                          name="profilePhoto"
                         />
                       </label>
                     )}
@@ -206,7 +229,7 @@ const DoctorProfilePage = () => {
                         <input
                           type="text"
                           name="firstName"
-                          value={profile.firstName}
+                          value={editableProfile.firstName || ""}
                           onChange={handleChange}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -225,7 +248,7 @@ const DoctorProfilePage = () => {
                         <input
                           type="text"
                           name="middleName"
-                          value={profile.middleName || ""}
+                          value={editableProfile.middleName || ""}
                           onChange={handleChange}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -244,7 +267,7 @@ const DoctorProfilePage = () => {
                         <input
                           type="text"
                           name="lastName"
-                          value={profile.lastName}
+                          value={editableProfile.lastName || ""}
                           onChange={handleChange}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -264,7 +287,7 @@ const DoctorProfilePage = () => {
                       {isEditing ? (
                         <select
                           name="gender"
-                          value={profile.gender}
+                          value={editableProfile.gender || ""}
                           onChange={handleChange}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
@@ -287,7 +310,7 @@ const DoctorProfilePage = () => {
                         <input
                           type="date"
                           name="dateOfBirth"
-                          value={profile.dateOfBirth || ""}
+                          value={editableProfile.dateOfBirth || ""}
                           onChange={handleChange}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -313,7 +336,7 @@ const DoctorProfilePage = () => {
                     <input
                       type="text"
                       name="specialization"
-                      value={profile.specialization}
+                      value={editableProfile.specialization || ""}
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -324,7 +347,7 @@ const DoctorProfilePage = () => {
                   )}
                 </div>
 
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Qualifications
                   </label>
@@ -332,7 +355,9 @@ const DoctorProfilePage = () => {
                     <div>
                       <input
                         type="text"
-                        value={profile.qualifications.join(", ")}
+                        value={(editableProfile.qualifications || []).join(
+                          ", "
+                        )}
                         onChange={(e) =>
                           handleArrayChange("qualifications", e.target.value)
                         }
@@ -350,7 +375,7 @@ const DoctorProfilePage = () => {
                         : "None specified"}
                     </div>
                   )}
-                </div>
+                </div> */}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -361,7 +386,7 @@ const DoctorProfilePage = () => {
                       <input
                         type="number"
                         name="yearsOfExperience"
-                        value={profile.yearsOfExperience}
+                        value={editableProfile.yearsOfExperience || ""}
                         onChange={handleChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         min="0"
@@ -381,7 +406,7 @@ const DoctorProfilePage = () => {
                       <div>
                         <input
                           type="text"
-                          value={profile.languages.join(", ")}
+                          value={(editableProfile.languages || []).join(", ")}
                           onChange={(e) =>
                             handleArrayChange("languages", e.target.value)
                           }
@@ -409,7 +434,7 @@ const DoctorProfilePage = () => {
                   {isEditing ? (
                     <textarea
                       name="bio"
-                      value={profile.bio}
+                      value={editableProfile.bio || ""}
                       onChange={handleChange}
                       rows={4}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -434,7 +459,7 @@ const DoctorProfilePage = () => {
                     <input
                       type="text"
                       name="hospitalName"
-                      value={profile.hospitalName}
+                      value={editableProfile.hospitalName || ""}
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -453,7 +478,7 @@ const DoctorProfilePage = () => {
                     <div className="space-y-4">
                       <input
                         type="text"
-                        value={profile.hospitalAddress.street}
+                        value={editableProfile.hospitalAddress?.street || ""}
                         onChange={(e) =>
                           handleNestedChange(
                             "hospitalAddress",
@@ -467,7 +492,7 @@ const DoctorProfilePage = () => {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <input
                           type="text"
-                          value={profile.hospitalAddress.city}
+                          value={editableProfile.hospitalAddress?.city || ""}
                           onChange={(e) =>
                             handleNestedChange(
                               "hospitalAddress",
@@ -480,7 +505,7 @@ const DoctorProfilePage = () => {
                         />
                         <input
                           type="text"
-                          value={profile.hospitalAddress.state}
+                          value={editableProfile.hospitalAddress?.state || ""}
                           onChange={(e) =>
                             handleNestedChange(
                               "hospitalAddress",
@@ -493,7 +518,9 @@ const DoctorProfilePage = () => {
                         />
                         <input
                           type="text"
-                          value={profile.hospitalAddress.postalCode}
+                          value={
+                            editableProfile.hospitalAddress?.postalCode || ""
+                          }
                           onChange={(e) =>
                             handleNestedChange(
                               "hospitalAddress",
@@ -505,8 +532,8 @@ const DoctorProfilePage = () => {
                           placeholder="Postal Code"
                         />
                       </div>
-                      <select
-                        value={profile.hospitalAddress.country}
+                      {/* <select
+                        value={editableProfile.hospitalAddress?.country || ""}
                         onChange={(e) =>
                           handleNestedChange(
                             "hospitalAddress",
@@ -519,17 +546,16 @@ const DoctorProfilePage = () => {
                         <option value="">Select Country</option>
                         <option value="US">United States</option>
                         <option value="UK">United Kingdom</option>
-                        {/* Add more countries as needed */}
-                      </select>
+                      </select> */}
                     </div>
                   ) : (
                     <div className="px-3 py-2 bg-gray-50 rounded-md">
                       {[
-                        profile.hospitalAddress.street,
-                        profile.hospitalAddress.city,
-                        profile.hospitalAddress.state,
-                        profile.hospitalAddress.postalCode,
-                        profile.hospitalAddress.country,
+                        profile.hospitalAddress?.street,
+                        profile.hospitalAddress?.city,
+                        profile.hospitalAddress?.state,
+                        profile.hospitalAddress?.postalCode,
+                        profile.hospitalAddress?.country,
                       ]
                         .filter(Boolean)
                         .join(", ")}
@@ -546,7 +572,7 @@ const DoctorProfilePage = () => {
                       <input
                         type="tel"
                         name="phoneNumber"
-                        value={profile.phoneNumber}
+                        value={editableProfile.phoneNumber || ""}
                         onChange={handleChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
@@ -569,7 +595,7 @@ const DoctorProfilePage = () => {
                         <input
                           type="number"
                           name="consultationFee"
-                          value={profile.consultationFee}
+                          value={editableProfile.consultationFee || ""}
                           onChange={handleChange}
                           className="pl-7 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                           min="0"
@@ -592,7 +618,7 @@ const DoctorProfilePage = () => {
                     <div>
                       <input
                         type="text"
-                        value={profile.serviceAreas.join(", ")}
+                        value={(editableProfile.serviceAreas || []).join(", ")}
                         onChange={(e) =>
                           handleArrayChange("serviceAreas", e.target.value)
                         }

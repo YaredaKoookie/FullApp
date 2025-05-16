@@ -36,10 +36,20 @@ import DoctorSchedule from "@/pages/doctor/DoctorSchedule";
 import CureLogicHomepage from "@/pages/public/Home";
 import CompleteDoctorProfile from "@/pages/doctor/CompleteDoctorProfile";
 import DoctorProfilePage from "@/pages/doctor/DoctorProfilePage";
+// import DoctorPatientsPage from "@/pages/doctor/DoctorAppointmentsDashboard";
+import AccountSetting from "@/pages/doctor/AccountSetting";
+import DoctorAppointmentsDashboard from "@/pages/doctor/DoctorAppointmentsDashboard";
+import DoctorListContent from "@/Admin/AdminDoctorListPage";
+import AdminPatientListContent from "@/Admin/AdminPatinet";
+import PaymentsWithdrawalsContent from "@/Admin/PaymentsWithdrawalsContent";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route errorElement={<ErrorBoundary />}>
+
+      <Route path="/admin/doc" element={<DoctorListContent/>}/>
+      <Route path="/admin/pay" element={<PaymentsWithdrawalsContent/>}/>
+      <Route path="/admin/pat" element={<AdminPatientListContent/>}/>
       <Route path="/" element={<App />}>
         <Route index element={<CureLogicHomepage />} />
       </Route>
@@ -61,6 +71,8 @@ const router = createBrowserRouter(
         <Route index path="dashboard" element={<DoctorDashboard />} />
         <Route path="schedule" element={<DoctorSchedule />} />
         <Route path="profile" element={<DoctorProfilePage />} />
+        <Route path="patient" element={<DoctorAppointmentsDashboard/>} />
+        <Route path="setting" element={<AccountSetting/>} />
       </Route>
 
       {/* <Route
