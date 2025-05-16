@@ -1,27 +1,40 @@
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { 
-  User, 
-  Phone, 
-  Calendar, 
-  MapPin, 
-  Droplet, 
-  HeartPulse, 
-  Bell, 
-  Globe, 
-  Lock, 
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import {
+  User,
+  Phone,
+  Calendar,
+  MapPin,
+  Droplet,
+  HeartPulse,
+  Bell,
+  Globe,
+  Lock,
   Edit2,
   Check,
   X,
-  ChevronDown
-} from 'lucide-react';
-import { Menu, Transition } from '@headlessui/react';
+  ChevronDown,
+} from "lucide-react";
+// import { Menu, Transition } from "@headlessui/react";
+import useUpdateProfileImage from "../../hooks/useUpdateProfileImage";
+import useGetPatientProfile from "../../hooks/useGetPatientProfile";
+import Loading from "@/components/Loading";
+import useUpdateProfile from "@/hooks/useUpdateProfile";
 
 const PatientProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState('personal');
+  const [activeTab, setActiveTab] = useState("personal");
   const [patientData, setPatientData] = useState(null);
-  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm();
+  const updateProfileImageMutation = useUpdateProfileImage();
+  const updateProfileMutation = useUpdateProfile();
+  const { isLoading: isProfileLoading, data: response } =
+    useGetPatientProfile();
 
   // Fetch patient data (replace with your API call)
   useEffect(() => {
@@ -32,22 +45,22 @@ const PatientProfile = () => {
         profileImage: null,
         gender: "male",
         phone: "+1234567890",
-        dob: "1985-04-15",
+        dateOfBirth: "1985-04-15",
         bloodType: "A+",
         preferredLanguage: "English",
         maritalStatus: "married",
         notificationPreferences: {
           systemNotification: true,
           emailNotification: false,
-          smsNotification: true
+          smsNotification: true,
         },
         emergencyContact: [
           {
             name: "Jane Doe",
             relation: "Spouse",
             phone: "+1987654321",
-            email: "jane@example.com"
-          }
+            email: "jane@example.com",
+          },
         ],
         insurance: [
           {
@@ -55,8 +68,8 @@ const PatientProfile = () => {
             policyNumber: "BC123456789",
             coverageDetails: "Full coverage",
             validTill: "2025-12-31",
-            status: "active"
-          }
+            status: "active",
+          },
         ],
         location: {
           locationType: "home",
@@ -67,9 +80,9 @@ const PatientProfile = () => {
           state: "NY",
           coordinates: {
             type: "Point",
-            coordinates: [-74.006, 40.7128]
-          }
-        }
+            coordinates: [-74.006, 40.7128],
+          },
+        },
       };
       setPatientData(mockData);
       reset(mockData); // Initialize form with data
@@ -78,11 +91,51 @@ const PatientProfile = () => {
     fetchPatientData();
   }, [reset]);
 
-  const onSubmit = (data) => {
+  if (isProfileLoading) return <Loading />;
+
+  console.log(response);
+  const profile = response?.data?.user;
+
+  if (!profile) {
+    return <div>Unable to load profile please try again</div>;
+  }
+
+  if (profile && !profile.emergencyContact?.length) {
+    profile.emergencyContact = [
+      {
+        name: "Not provided",
+        relation: "Not Provided",
+        phone: "Not Provided",
+        email: "Not Provided",
+      },
+    ];
+  }
+  if (profile && !profile.insurance?.length) {
+    profile.insurance = [
+      {
+        provider: "Not Provided yet",
+        policyNumber: "Not Provided yet",
+        coverageDetails: "Not Provided yet",
+        validTill: "Not Provided yet",
+        status: "Not Provided yet",
+      },
+    ];
+  }
+
+  const onSubmit = async (data) => {
     console.log("Updated data:", data);
     // Here you would typically make an API call to update the patient data
+    await updateProfileMutation.mutateAsync(data);
     setIsEditing(false);
     setPatientData(data);
+  };
+
+  const onProfileImageChange = (e) => {
+    const file = e.target.files?.[0];
+    const formData = new FormData();
+    if (!file) return;
+    formData.append("profileImage", file);
+    updateProfileImageMutation.mutate(formData);
   };
 
   const onCancel = () => {
@@ -90,18 +143,18 @@ const PatientProfile = () => {
     setIsEditing(false);
   };
 
-  if (!patientData) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>;
-  }
-
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">My Profile</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+            My Profile
+          </h1>
           <p className="text-gray-500 mt-1">
-            {isEditing ? "Update your personal information" : "View and manage your profile"}
+            {isEditing
+              ? "Update your personal information"
+              : "View and manage your profile"}
           </p>
         </div>
         {!isEditing && (
@@ -119,26 +172,42 @@ const PatientProfile = () => {
       <div className="border-b border-gray-200 mb-6">
         <nav className="-mb-px flex space-x-8">
           <button
-            onClick={() => setActiveTab('personal')}
-            className={`${activeTab === 'personal' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+            onClick={() => setActiveTab("personal")}
+            className={`${
+              activeTab === "personal"
+                ? "border-indigo-500 text-indigo-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
             Personal Information
           </button>
           <button
-            onClick={() => setActiveTab('emergency')}
-            className={`${activeTab === 'emergency' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+            onClick={() => setActiveTab("emergency")}
+            className={`${
+              activeTab === "emergency"
+                ? "border-indigo-500 text-indigo-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
             Emergency Contacts
           </button>
           <button
-            onClick={() => setActiveTab('insurance')}
-            className={`${activeTab === 'insurance' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+            onClick={() => setActiveTab("insurance")}
+            className={`${
+              activeTab === "insurance"
+                ? "border-indigo-500 text-indigo-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
             Insurance
           </button>
           <button
-            onClick={() => setActiveTab('notifications')}
-            className={`${activeTab === 'notifications' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+            onClick={() => setActiveTab("notifications")}
+            className={`${
+              activeTab === "notifications"
+                ? "border-indigo-500 text-indigo-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
             Notifications
           </button>
@@ -146,38 +215,49 @@ const PatientProfile = () => {
       </div>
 
       {/* Profile Form */}
-      <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {activeTab === 'personal' && (
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+      >
+        {activeTab === "personal" && (
           <div className="p-6 md:p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Profile Image */}
               <div className="md:col-span-2 flex items-center">
                 <div className="relative">
                   <div className="w-20 h-20 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-2xl font-bold">
-                    {patientData.profileImage ? (
-                      <img src={patientData.profileImage} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                    {profile.profileImage ? (
+                      <img
+                        src={profile.profileImage}
+                        alt="Profile"
+                        className={`w-full h-full rounded-full object-cover ${updateProfileImageMutation.isPending ? "animate-pulse" : ""}`}
+                      />
                     ) : (
-                      patientData.name.charAt(0)
+                      profile.firstName
                     )}
                   </div>
-                  {isEditing && (
+                  {
                     <button
                       type="button"
-                      className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow-sm border border-gray-200 hover:bg-gray-50"
+                      disabled={updateProfileImageMutation.isPending}
+                      className="absolute disabled:opacity-50 disabled:cursor-not-allowed bottom-0 right-0 bg-white rounded-full p-1 shadow-sm border border-gray-200 hover:bg-gray-50"
                     >
                       <Edit2 className="w-4 h-4 text-gray-600" />
                     </button>
-                  )}
+                  }
                 </div>
-                {isEditing && (
+                {
                   <div className="ml-4">
-                    <label className="block text-sm font-medium text-gray-700">Change Photo</label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Change Photo
+                    </label>
                     <input
+                      onChange={onProfileImageChange}
                       type="file"
                       className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                     />
                   </div>
-                )}
+                }
               </div>
 
               {/* Name */}
@@ -188,12 +268,13 @@ const PatientProfile = () => {
                 </label>
                 {isEditing ? (
                   <input
-                    {...register("name", { required: "Name is required" })}
+                    {...register("firstName", { required: "Name is required" })}
                     type="text"
+                    defaultValue={profile.firstName}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
                 ) : (
-                  <p className="text-gray-900">{patientData.nwame}</p>
+                  <p className="text-gray-900">{profile.fullName}</p>
                 )}
               </div>
 
@@ -206,6 +287,7 @@ const PatientProfile = () => {
                 {isEditing ? (
                   <select
                     {...register("gender")}
+                    defaultValue={profile.gender.toLowerCase()}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   >
                     <option value="male">Male</option>
@@ -213,7 +295,7 @@ const PatientProfile = () => {
                     <option value="other">Other</option>
                   </select>
                 ) : (
-                  <p className="text-gray-900 capitalize">{patientData.gender}</p>
+                  <p className="text-gray-900 capitalize">{profile.gender}</p>
                 )}
               </div>
 
@@ -225,20 +307,25 @@ const PatientProfile = () => {
                 </label>
                 {isEditing ? (
                   <input
-                    {...register("phone", { 
+                    {...register("phone", {
                       required: "Phone is required",
                       pattern: {
                         value: /^\+?[1-9]\d{1,14}$/,
-                        message: "Invalid phone number format"
-                      }
+                        message: "Invalid phone number format",
+                      },
                     })}
+                    defaultValue={profile.phone}
                     type="tel"
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
                 ) : (
-                  <p className="text-gray-900">{patientData.phone}</p>
+                  <p className="text-gray-900">{profile.phone}</p>
                 )}
-                {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>}
+                {errors.phone && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.phone.message}
+                  </p>
+                )}
               </div>
 
               {/* Date of Birth */}
@@ -247,19 +334,29 @@ const PatientProfile = () => {
                   <Calendar className="w-4 h-4 mr-2 text-gray-400" />
                   Date of Birth
                 </label>
+                {console.log(profile.date)}
                 {isEditing ? (
                   <input
-                    {...register("dob", { 
+                    {...register("dateOfBirth", {
                       required: "Date of birth is required",
-                      validate: value => new Date(value) < new Date() || "Date must be in the past"
+                      validate: (value) =>
+                        new Date(value) < new Date() ||
+                        "Date must be in the past",
                     })}
+                    defaultValue={profile.dateOfBirth}
                     type="date"
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
                 ) : (
-                  <p className="text-gray-900">{new Date(patientData.dob).toLocaleDateString()}</p>
+                  <p className="text-gray-900">
+                    {new Date(profile.dateOfBirth).toLocaleDateString()}
+                  </p>
                 )}
-                {errors.dob && <p className="mt-1 text-sm text-red-600">{errors.dob.message}</p>}
+                {errors.dateOfBirth && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.dateOfBirth.message}
+                  </p>
+                )}
               </div>
 
               {/* Blood Type */}
@@ -271,6 +368,7 @@ const PatientProfile = () => {
                 {isEditing ? (
                   <select
                     {...register("bloodType")}
+                    defaultValue={profile.bloodType}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   >
                     <option value="">Unknown</option>
@@ -284,7 +382,9 @@ const PatientProfile = () => {
                     <option value="O-">O-</option>
                   </select>
                 ) : (
-                  <p className="text-gray-900">{patientData.bloodType || "Unknown"}</p>
+                  <p className="text-gray-900">
+                    {profile.bloodType || "Unknown"}
+                  </p>
                 )}
               </div>
 
@@ -297,6 +397,7 @@ const PatientProfile = () => {
                 {isEditing ? (
                   <select
                     {...register("maritalStatus")}
+                    defaultValue={profile.maritalStatus}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   >
                     <option value="">Prefer not to say</option>
@@ -308,7 +409,9 @@ const PatientProfile = () => {
                     <option value="other">Other</option>
                   </select>
                 ) : (
-                  <p className="text-gray-900 capitalize">{patientData.maritalStatus || "Not specified"}</p>
+                  <p className="text-gray-900 capitalize">
+                    {profile.maritalStatus || "Not specified"}
+                  </p>
                 )}
               </div>
 
@@ -321,6 +424,7 @@ const PatientProfile = () => {
                 {isEditing ? (
                   <select
                     {...register("preferredLanguage")}
+                    defaultValue={profile.phone}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   >
                     <option value="English">English</option>
@@ -330,7 +434,7 @@ const PatientProfile = () => {
                     <option value="Other">Other</option>
                   </select>
                 ) : (
-                  <p className="text-gray-900">{patientData.preferredLanguage}</p>
+                  <p className="text-gray-900">{profile.preferredLanguage}</p>
                 )}
               </div>
 
@@ -342,78 +446,91 @@ const PatientProfile = () => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Country
+                    </label>
                     {isEditing ? (
                       <input
-                        {...register("location.country", { required: "Country is required" })}
+                        {...register("location.country", {
+                          required: "Country is required",
+                        })}
+                        defaultValue={profile.location?.country}
                         type="text"
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
-                      <p className="text-gray-900">{patientData.location.country}</p>
+                      <p className="text-gray-900">
+                        {profile.location.country}
+                      </p>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      City
+                    </label>
                     {isEditing ? (
                       <input
-                        {...register("location.city", { required: "City is required" })}
+                        {...register("location.city", {
+                          required: "City is required",
+                        })}
+                        defaultValue={profile.location?.city}
                         type="text"
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
-                      <p className="text-gray-900">{patientData.location.city}</p>
+                      <p className="text-gray-900">{profile.location.city}</p>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Address
+                    </label>
                     {isEditing ? (
                       <input
                         {...register("location.address")}
                         type="text"
+                        defaultValue={profile.location?.address}
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
-                      <p className="text-gray-900">{patientData.location.address}</p>
+                      <p className="text-gray-900">
+                        {profile.location.address || "Unknown"}
+                      </p>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Postal Code
+                    </label>
                     {isEditing ? (
                       <input
                         {...register("location.postalCode")}
+                        defaultValue={profile.postalCode}
                         type="text"
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
-                      <p className="text-gray-900">{patientData.location.postalCode}</p>
+                      <p className="text-gray-900">
+                        {profile.location.postalCode || "Unknown"}
+                      </p>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      State
+                    </label>
                     {isEditing ? (
                       <input
                         {...register("location.state")}
+                        defaultValue={profile.location.state}
+                        
                         type="text"
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
-                      <p className="text-gray-900">{patientData.location.state}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Location Type</label>
-                    {isEditing ? (
-                      <select
-                        {...register("location.locationType")}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      >
-                        <option value="home">Home</option>
-                        <option value="work">Work</option>
-                        <option value="other">Other</option>
-                      </select>
-                    ) : (
-                      <p className="text-gray-900 capitalize">{patientData.location.locationType}</p>
+                      <p className="text-gray-900">
+                        {profile.location.state || "Unknown"}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -422,17 +539,27 @@ const PatientProfile = () => {
           </div>
         )}
 
-        {activeTab === 'emergency' && (
+        {activeTab === "emergency" && (
           <div className="p-6 md:p-8">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Emergency Contacts</h3>
-            {patientData.emergencyContact.map((contact, index) => (
-              <div key={index} className="mb-6 border-b border-gray-200 pb-6 last:border-b-0 last:pb-0">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Emergency Contacts
+            </h3>
+            {profile.emergencyContact.map((contact, index) => (
+              <div
+                key={index}
+                className="mb-6 border-b border-gray-200 pb-6 last:border-b-0 last:pb-0"
+              >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Name
+                    </label>
                     {isEditing ? (
                       <input
-                        {...register(`emergencyContact.${index}.name`, { required: "Name is required" })}
+                        {...register(`emergencyContact.${index}.name`, {
+                          required: "Name is required",
+                        })}
+                        defaultValue={contact.name}
                         type="text"
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
@@ -441,10 +568,15 @@ const PatientProfile = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Relationship</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Relationship
+                    </label>
                     {isEditing ? (
                       <input
-                        {...register(`emergencyContact.${index}.relation`, { required: "Relationship is required" })}
+                        {...register(`emergencyContact.${index}.relation`, {
+                          required: "Relationship is required",
+                        })}
+                        defaultValue={contact.relation}
                         type="text"
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
@@ -453,16 +585,19 @@ const PatientProfile = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone
+                    </label>
                     {isEditing ? (
                       <input
-                        {...register(`emergencyContact.${index}.phone`, { 
+                        {...register(`emergencyContact.${index}.phone`, {
                           required: "Phone is required",
                           pattern: {
                             value: /^\+?[1-9]\d{1,14}$/,
-                            message: "Invalid phone number format"
-                          }
+                            message: "Invalid phone number format",
+                          },
                         })}
+                        defaultValue={contact.phone}
                         type="tel"
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
@@ -471,15 +606,20 @@ const PatientProfile = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email
+                    </label>
                     {isEditing ? (
                       <input
                         {...register(`emergencyContact.${index}.email`)}
                         type="email"
+                        defaultValue={contact.email}
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
-                      <p className="text-gray-900">{contact.email || "Not provided"}</p>
+                      <p className="text-gray-900">
+                        {contact.email || "Not provided"}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -506,17 +646,27 @@ const PatientProfile = () => {
           </div>
         )}
 
-        {activeTab === 'insurance' && (
+        {activeTab === "insurance" && (
           <div className="p-6 md:p-8">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Insurance Information</h3>
-            {patientData.insurance.map((insurance, index) => (
-              <div key={index} className="mb-6 border-b border-gray-200 pb-6 last:border-b-0 last:pb-0">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Insurance Information
+            </h3>
+            {profile.insurance.map((insurance, index) => (
+              <div
+                key={index}
+                className="mb-6 border-b border-gray-200 pb-6 last:border-b-0 last:pb-0"
+              >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Provider</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Provider
+                    </label>
                     {isEditing ? (
                       <input
-                        {...register(`insurance.${index}.provider`, { required: "Provider is required" })}
+                        {...register(`insurance.${index}.provider`, {
+                          required: "Provider is required",
+                        })}
+                        defaultValue={insurance.provider}
                         type="text"
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
@@ -525,10 +675,15 @@ const PatientProfile = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Policy Number</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Policy Number
+                    </label>
                     {isEditing ? (
                       <input
-                        {...register(`insurance.${index}.policyNumber`, { required: "Policy number is required" })}
+                        {...register(`insurance.${index}.policyNumber`, {
+                          required: "Policy number is required",
+                        })}
+                        defaultValue={insurance.policyNumber}
                         type="text"
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
@@ -537,36 +692,49 @@ const PatientProfile = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Coverage Details</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Coverage Details
+                    </label>
                     {isEditing ? (
                       <textarea
                         {...register(`insurance.${index}.coverageDetails`)}
                         rows={3}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      />
-                    ) : (
-                      <p className="text-gray-900">{insurance.coverageDetails || "Not specified"}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Valid Until</label>
-                    {isEditing ? (
-                      <input
-                        {...register(`insurance.${index}.validTill`)}
-                        type="date"
+                        defaultValue={insurance.coverageDetails}
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
                       <p className="text-gray-900">
-                        {insurance.validTill ? new Date(insurance.validTill).toLocaleDateString() : "Not specified"}
+                        {insurance.coverageDetails || "Not specified"}
                       </p>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Valid Until
+                    </label>
+                    {isEditing ? (
+                      <input
+                        {...register(`insurance.${index}.validTill`)}
+                        type="date"
+                        defaultValue={insurance.validTill}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      />
+                    ) : (
+                      <p className="text-gray-900">
+                        {insurance.validTill
+                          ? new Date(insurance.validTill).toLocaleDateString()
+                          : "Not specified"}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
                     {isEditing ? (
                       <select
                         {...register(`insurance.${index}.status`)}
+                        defaultValue={insurance.status}
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       >
                         <option value="active">Active</option>
@@ -574,7 +742,9 @@ const PatientProfile = () => {
                         <option value="pending">Pending</option>
                       </select>
                     ) : (
-                      <p className="text-gray-900 capitalize">{insurance.status}</p>
+                      <p className="text-gray-900 capitalize">
+                        {insurance.status}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -601,9 +771,11 @@ const PatientProfile = () => {
           </div>
         )}
 
-        {activeTab === 'notifications' && (
+        {activeTab === "notifications" && (
           <div className="p-6 md:p-8">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Notification Preferences</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Notification Preferences
+            </h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -611,17 +783,28 @@ const PatientProfile = () => {
                     <Bell className="w-4 h-4 mr-2 text-gray-400" />
                     System Notifications
                   </label>
-                  <p className="text-sm text-gray-500">Receive notifications within the application</p>
+                  <p className="text-sm text-gray-500">
+                    Receive notifications within the application
+                  </p>
                 </div>
                 {isEditing ? (
                   <input
                     {...register("notificationPreferences.systemNotification")}
+                    defaultChecked={profile.notificationPreferences?.systemNotification}
                     type="checkbox"
                     className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                   />
                 ) : (
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${patientData.notificationPreferences.systemNotification ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    {patientData.notificationPreferences.systemNotification ? 'Enabled' : 'Disabled'}
+                  <span
+                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      profile.notificationPreferences.systemNotification
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {profile.notificationPreferences.systemNotification
+                      ? "Enabled"
+                      : "Disabled"}
                   </span>
                 )}
               </div>
@@ -631,17 +814,28 @@ const PatientProfile = () => {
                     <Bell className="w-4 h-4 mr-2 text-gray-400" />
                     Email Notifications
                   </label>
-                  <p className="text-sm text-gray-500">Receive notifications via email</p>
+                  <p className="text-sm text-gray-500">
+                    Receive notifications via email
+                  </p>
                 </div>
                 {isEditing ? (
                   <input
                     {...register("notificationPreferences.emailNotification")}
+                    defaultChecked={profile.notificationPreferences?.emailNotification}
                     type="checkbox"
                     className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                   />
                 ) : (
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${patientData.notificationPreferences.emailNotification ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    {patientData.notificationPreferences.emailNotification ? 'Enabled' : 'Disabled'}
+                  <span
+                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      profile.notificationPreferences.emailNotification
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {profile.notificationPreferences.emailNotification
+                      ? "Enabled"
+                      : "Disabled"}
                   </span>
                 )}
               </div>
@@ -651,17 +845,29 @@ const PatientProfile = () => {
                     <Bell className="w-4 h-4 mr-2 text-gray-400" />
                     SMS Notifications
                   </label>
-                  <p className="text-sm text-gray-500">Receive notifications via text message</p>
+                  <p className="text-sm text-gray-500">
+                    Receive notifications via text message
+                  </p>
                 </div>
                 {isEditing ? (
                   <input
                     {...register("notificationPreferences.smsNotification")}
+                    checked={profile.notificationPreferences?.smsNotification}
+              
                     type="checkbox"
                     className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                   />
                 ) : (
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${patientData.notificationPreferences.smsNotification ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    {patientData.notificationPreferences.smsNotification ? 'Enabled' : 'Disabled'}
+                  <span
+                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      profile.notificationPreferences.smsNotification
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {profile.notificationPreferences.smsNotification
+                      ? "Enabled"
+                      : "Disabled"}
                   </span>
                 )}
               </div>
@@ -702,7 +908,9 @@ const PatientProfile = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-700">Password</p>
-                <p className="text-sm text-gray-500">Last changed 3 months ago</p>
+                <p className="text-sm text-gray-500">
+                  Last changed 3 months ago
+                </p>
               </div>
               <button className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
                 Change Password
@@ -710,8 +918,12 @@ const PatientProfile = () => {
             </div>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-700">Two-Factor Authentication</p>
-                <p className="text-sm text-gray-500">Add an extra layer of security</p>
+                <p className="text-sm font-medium text-gray-700">
+                  Two-Factor Authentication
+                </p>
+                <p className="text-sm text-gray-500">
+                  Add an extra layer of security
+                </p>
               </div>
               <button className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
                 Enable 2FA

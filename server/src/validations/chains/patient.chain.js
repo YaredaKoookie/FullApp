@@ -4,6 +4,7 @@ import {
   oneOf,
   optional,
   check,
+  query
 } from "express-validator";
 
 // Patient Validation Middleware
@@ -181,75 +182,51 @@ export const validatePatientCreation = [
     .isMongoId()
     .withMessage("Each medical history entry must be a valid MongoDB ObjectId"),
 ];
+
+export const validateGetDoctorStatistics = [
+  query("limit")
+    .optional()
+    .isInt({ min: 1, max: 50 })
+    .withMessage("Limit must be an integer between 1 and 50"),
+  query("location")
+    .optional()
+    .isString()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage("Location must be a string between 2 and 50 characters"),
+  query("specialization")
+    .optional()
+    .isString()
+    .trim()
+    .withMessage("Specialization must be a string between 2 and 50 characters"),
+  query("minExperience")
+    .optional()
+    .isInt({ min: 0, max: 50 })
+    .withMessage("Minimum experience must be an integer between 0 and 50"),
+  query("maxExperience")
+    .optional()
+    .isInt({ min: 0, max: 50 })
+    .withMessage("Maximum experience must be an integer between 0 and 50"),
+  query("minFee")
+    .optional()
+    .isInt({ min: 0, max: 500 })
+    .withMessage("Minimum fee must be an integer between 0 and 500"),
+  query("maxFee")
+    .optional()
+    .isInt({ min: 0, max: 500 })
+    .withMessage("Maximum fee must be an integer between 0 and 500"),
+  query("minRating")
+    .optional()
+    .isFloat({ min: 0, max: 5 })
+    .withMessage("Minimum rating must be a float between 0 and 5"),
+  query("maxRating")
+    .optional()
+    .isFloat({ min: 0, max: 5 })
+    .withMessage("Maximum rating must be a float between 0 and 5"),
+];
+
+
 export const validatePatientUpdate = [
-  // Allowed fields validation (modified to handle file uploads)
-  // body().custom((body, { req }) => {
-  //   const allowedFields = [
-  //     "firstName",
-  //     "middleName",
-  //     "lastName",
-  //     "phone",
-  //     "notificationPreferences",
-  //     "bloodType",
-  //     "emergencyContact",
-  //     "insurance",
-  //     "preferredLanguage",
-  //     "maritalStatus",
-  //     "location",
-  //   ];
-  //   body = req.body;
-
-  //   console.log(body)
-  //   // Automatically allow profileImage if a file was uploaded
-  //   if (req.file) {
-  //     allowedFields.push("profileImage");
-  //   }
-
-  //   const invalidFields = Object.keys(body).filter(
-  //     (field) => !allowedFields.includes(field)
-  //   );
-
-  //   if (invalidFields.length > 0) {
-  //     throw new Error(`Invalid fields: ${invalidFields.join(", ")}`);
-  //   }
-  //   return true;
-  // }),
-  body().custom((body, { req }) => {
-   const allowedTopLevelFields = [
-      "firstName",
-      "middleName", 
-      "lastName",
-      "phone",
-      "notificationPreferences",
-      "bloodType",
-      "emergencyContact",
-      "insurance",
-      "preferredLanguage",
-      "maritalStatus",
-      "location"
-    ];
-
-    // Skip validation if only uploading a file
-    if (req.file && (!body || Object.keys(body).length === 0)) {
-      return true;
-    }
-
-    // Check top-level fields
-    const invalidFields = Object.keys(body).filter(field => {
-      // Handle nested fields in form-data (e.g., "notificationPreferences.emailNotification")
-      const topLevelField = field.split('.')[0];
-      return !allowedTopLevelFields.includes(topLevelField);
-    });
-
-    if (invalidFields.length > 0) {
-      throw new Error(`Invalid fields: ${invalidFields.join(", ")}`);
-    }
-    return true;
-  }),
-
-
-
-  // Individual field validations
   body("firstName")
     .optional()
     .trim()
@@ -265,27 +242,6 @@ export const validatePatientUpdate = [
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage("Last Name must be between 2-100 characters"),
-
-  // File validation (checks the actual uploaded file)
-  check("file")
-    .optional()
-    .custom((_, { req }) => {
-      if (req.file) {
-        const allowedMimeTypes = [
-          "image/jpeg",
-          "image/png",
-          "image/gif",
-          "image/webp",
-        ];
-        if (!allowedMimeTypes.includes(req.file.mimetype)) {
-          throw new Error("Only JPEG, PNG, GIF, or WEBP images are allowed");
-        }
-        if (req.file.size > 5 * 1024 * 1024) {
-          throw new Error("Image must be less than 5MB");
-        }
-      }
-      return true;
-    }),
 
   body("phone")
     .optional()

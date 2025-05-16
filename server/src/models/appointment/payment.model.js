@@ -76,7 +76,7 @@ const paymentSchema = new mongoose.Schema({
         required: false
     },
     failureReason: {type: String}
-})
+}, {timestamps: true})
 
 
 export default mongoose.model("Payment", paymentSchema);

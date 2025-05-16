@@ -142,6 +142,10 @@ const patientSchema = new Schema(
       type: String,
       default: null,
     },
+    profileImageId: {
+      type: String, 
+      default: ""
+    },
     gender: {
       type: String,
       enum: ["male", "female", "other"],
@@ -198,8 +202,15 @@ const patientSchema = new Schema(
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
   }
 );
+
+patientSchema.virtual("fullName").get(function () {
+  return [this.firstName, this.middleName,  this.lastName]
+    .filter(Boolean)
+    .join(" ");
+});
 
 // Geospatial Index
 patientSchema.index(

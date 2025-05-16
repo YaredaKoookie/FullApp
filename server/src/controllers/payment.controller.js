@@ -503,6 +503,43 @@ export const handleChapaWebhook = async (req, res) => {
   }
 };
 
+export const getPayments = async (req, res) => {
+  const userId = req.user.sub;
+  const status = req.body?.status;
+  const { page = 1, limit = 20 } = req.query;
+  const skip = (page - 1) * limit;
+
+  const patient = await Patient.findOne({ user: userId }).select("_id");
+
+  if (!patient) throw ServerError.notFound("Patient profile not found");
+
+  const query = { patient: patient._id };
+  if (status) query.status = status;
+
+  const payments = await Payment.find(query)
+    .populate("doctor")
+    .populate("patient")
+    .skip(skip)
+    .limit(limit)
+    .sort({ createdAt: -1 });
+
+  const totalPayments = await Payment.countDocuments(query);
+  const totalPages = Math.ceil(totalPayments / limit);
+
+  res.json({
+    success: true,
+    data: {
+      payments,
+    },
+    pagination: {
+      totalPages,
+      totalPayments,
+      currentPage: Number(page),
+      limit: Number(limit),
+    },
+  });
+};
+
 // Helper functions for better separation of concerns
 async function handleSuccessfulCharge({
   payment,

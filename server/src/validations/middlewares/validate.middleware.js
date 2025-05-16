@@ -1,30 +1,58 @@
-import { validationResult, matchedData,  } from "express-validator";
+import { validationResult, matchedData } from "express-validator";
 import { logger, ServerError } from "../../utils";
 
-const validate = (validations, options = { matchData: true }) =>
+/**
+ * Enhanced validation middleware with better error handling and debugging
+ * @param {Array} validations - Array of express-validator chains
+ * @param {Object} options - Configuration options
+ * @param {Boolean} options.matchData - Whether to filter request data
+ * @param {Boolean} options.debug - Enable detailed logging
+ */
+const validate = (validations, options = { matchData: true, debug: false }) => 
   async (req, res, next) => {
-    console.log("middleware body", req.body)
-    await Promise.all(validations.map((validation) => validation.run(req)));
+    console.log("body", req.body);
+    try {
+      if (options.debug) {
+        logger.debug('Original request body:', req.body);
+        logger.debug('Running validations:', validations.map(v => v.toString()));
+      }
 
-    const errors = validationResult(req);
+      // Run all validations in parallel
+      await Promise.all(validations.map(validation => validation.run(req)));
 
-    if (!errors.isEmpty()) {
-      console.log('errors', errors)
-      const error = new ServerError("ValidationError");
-      error.name = "ValidationError"; // Explicitly set the error name
-      logger.debug(error.name);
-      error.statusCode = 400;
-      error.details = errors.array().map((err) => ({
-      path: err.param,
-      message: err.msg,
-      }));
+      const errors = validationResult(req);
 
-      return next(error);
+      if (!errors.isEmpty()) {
+        if (options.debug) {
+          logger.debug('Validation errors:', errors.array());
+        }
+
+        const error = new ServerError("Validation failed", 400);
+        error.name = "ValidationError";
+        error.details = errors.array().map(({ param, msg }) => ({
+          path: param,
+          message: msg
+        }));
+
+        return next(error);
+      }
+
+      // Filter request data if enabled
+      if (options.matchData) {
+        const filteredData = matchedData(req, { includeOptionals: false });
+        if (options.debug) {
+          logger.debug('Filtered request data:', filteredData);
+        }
+        req.body = filteredData;
+      }
+
+      next();
+    } catch (err) {
+      if (options.debug) {
+        logger.error('Validation middleware error:', err);
+      }
+      next(new ServerError("Validation processing failed", 500));
     }
-
-    if (options.matchData) req.body = matchedData(req);
-
-    next();
-};
+  };
 
 export default validate;

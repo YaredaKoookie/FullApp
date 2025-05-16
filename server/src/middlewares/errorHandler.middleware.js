@@ -21,12 +21,13 @@ export function globalErrorHandler(err, req, res, next) {
 
   if(err.name === "ValidationError"){
      message = "Validation Error"
+     statusCode = 400;
   }
 
 
   logger.error("Error", err);
 
-  res.status(statusCode).format({
+  res.status(statusCode || 500).format({
     "application/json": () => {
       res.json({
         success: false,

@@ -1,6 +1,5 @@
 // config/multer.config.js
 import multer from 'multer';
-import path from "path"
 import fs from "fs"
 
 const storagePaths  = {
@@ -19,6 +18,9 @@ const imageFilter = (req, file, cb) => {
   }
   cb(null, true);
 };
+
+
+
 
 export const uploadImage = multer({
   storage: multer.memoryStorage(),

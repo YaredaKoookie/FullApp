@@ -36,6 +36,8 @@ import DoctorSchedule from "@/pages/doctor/DoctorSchedule";
 import CureLogicHomepage from "@/pages/public/Home";
 import CompleteDoctorProfile from "@/pages/doctor/CompleteDoctorProfile";
 import DoctorProfilePage from "@/pages/doctor/DoctorProfilePage";
+import AppointmentDetailsPage from "@/pages/patient/AppointmentDetailsPage";
+import Payments from "@/pages/patient/Payments";
 // import DoctorPatientsPage from "@/pages/doctor/DoctorAppointmentsDashboard";
 import AccountSetting from "@/pages/doctor/AccountSetting";
 import DoctorAppointmentsDashboard from "@/pages/doctor/DoctorAppointmentsDashboard";
@@ -55,10 +57,7 @@ const router = createBrowserRouter(
       </Route>
 
       <Route path="doctor" element={<DoctorProfileRoute />}>
-        <Route
-          path="complete-profile"
-          element={<CompleteDoctorProfile />}
-        />
+        <Route path="complete-profile" element={<CompleteDoctorProfile />} />
       </Route>
       <Route
         path="doctor"
@@ -105,10 +104,26 @@ const router = createBrowserRouter(
           }
         />
         <Route
+          path="appointments/:appointmentId/details"
+          element={
+            <ProtectedRoute>
+              <AppointmentDetailsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="doctors"
           element={
             <ProtectedRoute>
               <PatientDoctors />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="payments"
+          element={
+            <ProtectedRoute>
+              <Payments />
             </ProtectedRoute>
           }
         />

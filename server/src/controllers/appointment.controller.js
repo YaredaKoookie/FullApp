@@ -1,6 +1,6 @@
 import Appointment, {
   APPOINTMENT_STATUS,
-  CANCELLATION_REASONS,
+  RESCHEDULE_STATUS,
 } from "../models/appointment/appointment.model";
 import Doctor from "../models/doctors/doctor.model";
 import Patient from "../models/patient/patient.model";
@@ -9,21 +9,19 @@ import Payment, {
   PAYMENT_STATUS,
   REFUND_STATUS,
 } from "../models/appointment/payment.model";
-import SlotUtils from "../utils/slot.util";
-import { chapa, env } from "../config";
+import SlotUtils, { handleSlotConflict } from "../utils/slot.util";
 import Schedule from "../models/schedule/Schedule.model";
-import { logger, slotUtils } from "../utils";
-import { refundChapaPayment } from "../config/chapa.config";
+import { slotUtils } from "../utils";
 import mongoose from "mongoose";
 import { generateUniqueToken } from "../utils/token.util";
-import { handleRefund, initiateRefund } from "../utils/payment.util";
+import { initiateRefund } from "../utils/payment.util";
+import appointmentModel from "../models/appointment/appointment.model";
 
-// patient requests for an appointment
 export const requestAppointment = async (req, res) => {
   const doctorId = req.params.doctorId;
   const { reason, appointmentType, slotId } = req.body;
 
-  const doctor = await Doctor.findOne({ userId: doctorId });
+  const doctor = await Doctor.findById(doctorId);
 
   if (!doctor) throw ServerError.notFound("doctor not found");
 
@@ -76,133 +74,8 @@ export const requestAppointment = async (req, res) => {
     },
   });
 };
-// doctor accepts patient's requested appointment
-export const acceptAppointment = async (req, res) => {
-  const { appointmentId } = req.params;
-  const userId = req.user.sub;
 
-  const appointment = await Appointment.findById(appointmentId);
-
-  if (!appointment) {
-    throw ServerError.notFound("Appointment not found");
-  }
-
-  if (appointment.status !== APPOINTMENT_STATUS.PENDING)
-    throw ServerError.badRequest(
-      "Only pending appointments can set to confirmed"
-    );
-
-  const doctor = await Doctor.findOne({ userId });
-
-  if (!doctor) throw ServerError.notFound("doctor not found");
-
-  if (appointment.doctor.toString() !== doctor._id.toString())
-    throw ServerError.forbidden("Not authorized to accept this appointment");
-
-  appointment.status = APPOINTMENT_STATUS.ACCEPTED;
-  appointment.acceptedAt = new Date().toISOString();
-
-  await appointment.save();
-  res.json({
-    message: "Appointment accepted successfully",
-    data: {
-      appointment,
-    },
-  });
-};
-
-export const doctorCancelAppointment = async (req, res) => {
-  const { appointmentId } = req.params;
-  const { cancellationReason } = req.body;
-
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-
-    
-    const doctor = await Doctor.findOne({ userId: req.user.sub }).session(
-    session
-  );
-
-  if (!doctor) throw ServerError.notFound("doctor not found");
-
-  const { PENDING, ACCEPTED, CONFIRMED, PAYMENT_PENDING } = APPOINTMENT_STATUS;
-  const appointment = await Appointment.findOne({
-    _id: appointmentId,
-    doctor: doctor._id,
-    status: { $in: [PENDING, ACCEPTED, CONFIRMED, PAYMENT_PENDING] },
-  }).session(session);
-
-  if (!appointment) throw ServerError.notFound("appointment not found");
-
-  if (appointment.doctor._id.toString() !== appointment.doctor.toString())
-    throw ServerError.notFound("Not the owner of this appointment");
-
-  appointment.cancellation = {
-    reason: cancellationReason,
-    cancelledBy: doctor._id,
-    cancelledByRole: "Doctor",
-    cancelledAt: new Date(),
-  };
-  appointment.status = APPOINTMENT_STATUS.CANCELLED;
-
-  if (appointment.status === APPOINTMENT_STATUS.PAYMENT_PENDING) {
-    await Payment.findOneAndUpdate(
-      { appointment: appointment._id },
-      { status: PAYMENT_STATUS.CANCELLED },
-      { new: true }
-    );
-
-    await appointment.save({ session });
-
-    await slotUtils
-    .releaseBlockedSlot(appointment.doctor, appointment.slot.slotId)
-    .session(session);
-    
-    session.commitTransaction();
-
-    return res.json({
-      success: true,
-      message: "appointment cancelled successfully",
-    });
-  }
-  
-  const payment = await Payment.findOne({
-    appointment: appointment._id,
-  }).session(session);
-  
-  if (payment && payment.status === PAYMENT_STATUS.PAID) {
-    refundAmount = appointment.fee;
-    payment.refunds.push({
-      refundId: generateUniqueToken(),
-      amount: refundAmount,
-      reason: "doctor cancelled appointment",
-      status: REFUND_STATUS.PENDING,
-    });
-    
-    payment.status = PAYMENT_STATUS.REFUND_INITIATED;
-    await payment.save({ session });
-  }
-  
-  await appointment.save({ session });
-  
-  await slotUtils
-  .releaseBlockedSlot(appointment.doctor, appointment.slot.slotId)
-  .session(session);
-  
-  res.json({
-    success: true,
-    message: "appointment cancelled successfully",
-  });
-} catch (error){
-  await session.abortTransaction();
-  console.log("doctor cancel error", error);
-  throw error;
-} finally {
-  await session.endSession();
-}
-};
+export const updatePendingAppointment = async (req, res) => {};
 
 export const patientCancelAppointment = async (req, res) => {
   const { cancellationReason } = req.body;
@@ -219,9 +92,11 @@ export const patientCancelAppointment = async (req, res) => {
     );
 
     if (!patient) throw ServerError.notFound("Patient not found");
+    console.log("Appointment ID:", appointmentId);
+    console.log("Patient ID:", patient._id);
 
-    const appointment = await Appointment.findById({
-      appointment: appointmentId,
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
       patient: patient._id,
       status: {
         $in: [
@@ -324,10 +199,46 @@ export const patientCancelAppointment = async (req, res) => {
   }
 };
 
+export const getAppointmentById = async (req, res) => {
+  const {appointmentId} = req.params;
+  
+  if(!appointmentId)
+    throw ServerError.badRequest("Appointment id is required");
+
+  const patient = await Patient.findOne({user: req.user.sub}).select("_id email");
+
+  if(!patient)
+    throw ServerError.badRequest("User not found");
+
+  const appointment = await Appointment.findOne({
+    _id: appointmentId,
+    patient: patient._id
+  }).populate("patient").populate("doctor");
+
+  
+
+
+  if(!appointment)
+    throw ServerError.notFound("Appointment not found")
+
+  res.json({
+    success: true, 
+    data: {
+      appointment: {
+        ...appointment.toObject(),
+        patient: {
+          ...appointment.patient.toObject(), 
+          email: patient.email
+        }
+      }
+    }
+  })
+}
+
 export const getPatientAppointments = async (req, res) => {
   const userId = req.user.sub;
   const status = req.body.status;
-  const { page = 1, limit = 20 } = req.params;
+  const { page = 1, limit = 20 } = req.query;
   const skip = (page - 1) * limit;
 
   const patient = await Patient.findOne({ user: userId });
@@ -338,7 +249,7 @@ export const getPatientAppointments = async (req, res) => {
   if (status) query.status = status;
 
   const appointments = await Appointment.find(query)
-    .populate("doctor", "firstName lastName specialization profilePhoto")
+    .populate("doctor", "firstName middleName specialization profilePhoto")
     .skip(skip)
     .limit(limit)
     .sort({ createdAt: -1 });
@@ -360,112 +271,117 @@ export const getPatientAppointments = async (req, res) => {
   });
 };
 
-
-export const getDoctorAvailability = async (req, res) => {
-  try {
-    const { day } = req.query;
-    if (!day && !req.params.doctorId)
-      throw ServerError.badRequest("day and doctorId is required");
-
-    const doctor = await Doctor.findById(req.params.doctorId);
-
-    if (!doctor) return res.status(404).json({ error: "Doctor not found" });
-
-    // Find working hours for the requested day
-    const schedule = doctor.workingHours.find((slot) => slot.day === day);
-    if (!schedule) return res.json({ available: false });
-
-    console.log("schedule", schedule);
-    // Generate theoretical slots (no date filtering yet)
-    const slots = SlotUtils.generateDaySlots(
-      schedule,
-      doctor.appointmentDuration
-    );
-
-    res.json({
-      available: true,
-      slots,
-      breaks: schedule.breaks || [],
-    });
-  } catch (error) {
-    console.error("Error getting doctor availability:", error);
-    res
-      .status(500)
-      .json({ message: "Failed to get availability", error: error.message });
-  }
+export const reschedulePendingAppointment = async (req, res) => {
+  const { appointmentId } = req.params;
+  const { slotId } = req.body;
 };
 
+export const requestAppointmentReschedule = async (req, res) => {
+  const { appointmentId } = req.params;
+  const { slotId, reason } = req.body;
 
-export const rescheduleAppointment = async (req, res) => {
-  const appointmentId = req.params;
-  const { slots, reason } = req.body;
+  const user =
+    req.user.role === "doctor"
+      ? await Doctor.findOne({ userId: req.user.sub })
+      : await Patient.findOne({ user: req.user.sub });
 
-  if (!appointmentId) throw ServerError.notFound("Appointment id is required");
+  if (!user) throw ServerError.notFound("User not found");
 
-  const appointment = await Appointment.findById(appointmentId);
-
-  if (!appointment) throw ServerError.notFound("Appointment not found");
-
-  const { COMPLETED, CANCELLED } = APPOINTMENT_STATUS;
-
-  if ([COMPLETED, CANCELLED].includes(appointment.status))
-    throw ServerError.badRequest(
-      "Appointment is already " + appointment.status + " status."
-    );
-
-  const patient = await Patient.findOne({ _id: req.user.sub }).select("_id");
-
-  if (!patient) throw ServerError.notFound("Patient not found");
-
-  if (patient._id.toString() !== appointment.patient.toString())
-    throw ServerError.badRequest("Not an owner of this appointment");
-
-  const doctor = await Doctor.findById(appointment.doctor);
-
-  if (!doctor)
-    throw ServerError.notFound("doctor not found related to this appointment");
-
-  //! THIS LOGIC CHANGES WHEN SLOT LOGIC CHANGE
-  const start = new Date(startTime);
-  const end = new Date(endTime);
-
-  const selectedDay = start.toLocaleDateString("en-US", {
-    weekday: "long",
+  const appointment = await Appointment.findOne({
+    _id: appointmentId,
+    $or: [{ patient: user._id }, { doctor: user._id }],
+    status: {
+      $in: [
+        APPOINTMENT_STATUS.PENDING,
+        APPOINTMENT_STATUS.CONFIRMED,
+        APPOINTMENT_STATUS.ACCEPTED,
+        APPOINTMENT_STATUS.RESCHEDULED,
+      ],
+    },
   });
 
-  const dayAvailability = doctor.weeklyAvailability.find(
-    (availability) => availability.day === selectedDay
+  if (!appointment)
+    throw ServerError.notFound(
+      "Appointment not found or not in state to be rescheduled"
+    );
+
+  const isOwner = [appointment.doctor, appointment.patient].some(
+    (id) => id.toString() === user._id.toString()
   );
 
-  if (dayAvailability)
-    throw ServerError.badRequest(`Doctor is not available on ${selectedDay}.`);
-
-  // Check slot availability
-  const isAvailable = await SlotUtils.isSlotAvailable(doctor._id, start, end);
-
-  if (!isAvailable)
-    throw ServerError.badRequest("Selected slot is not available");
-
-  //! TEMPORARY LOGIC ENDS HERE
-
-  if (appointment.rescheduleHistory.length >= 5) {
-    throw ServerError.badRequest("Maximum rescheduling capacity reached");
+  if (!isOwner) {
+    throw ServerError.badRequest("Not an owner of this appointment");
   }
 
-  const rescheduledByModel = req.user.role === "patient" ? "Patient" : "Doctor";
+  const rescheduledByRole = req.user.role === "patient" ? "Patient" : "Doctor";
 
-  appointment.rescheduleHistory = {
-    previousTimeSlot: { start: appointment.start, end: appointment.end },
-    newTimeSlot: { start, end },
+  if (appointment.status !== APPOINTMENT_STATUS.PENDING) {
+    if (appointment.rescheduleHistory?.length >= 5) {
+      throw ServerError.badRequest("Maximum rescheduling capacity reached");
+    }
+    const hasPendingSchedule = appointment?.rescheduleHistory.some(
+      (r) => r.status === RESCHEDULE_STATUS.PENDING
+    );
+
+    if (hasPendingSchedule) {
+      throw ServerError.badRequest(
+        "A pending reschedule request already exists"
+      );
+    }
+  }
+
+  const { start, end } = await handleSlotConflict(
+    slotId,
+    appointment.doctor,
+    appointment.patient
+  );
+
+  let updateOperation = {};
+
+  let rescheduleHistory = {
+    previousTimeSlot: {
+      start: appointment.slot.start,
+      end: appointment.slot.end,
+      slotId: appointment.slot.slotId,
+    },
+    newTimeSlot: { start, end, slotId },
     reason: reason || "",
     rescheduledBy: req.user.sub,
-    rescheduledByModel: rescheduledByModel,
+    rescheduledByRole: rescheduledByRole,
   };
 
-  appointment.slot.start = start;
-  appointment.slot.end = end;
+  if (appointment.status === APPOINTMENT_STATUS.PENDING) {
+    updateOperation = {
+      $set: {
+        "slot.start": start,
+        "slot.end": end,
+        "slot.slotId": slotId,
+      },
+    };
 
-  await appointment.save();
+    await slotUtils.releaseBlockedSlot(
+      appointment.doctor,
+      appointment.slot.slotId
+    );
+    await slotUtils.blockAvailableSlot(appointment.doctor, slotId);
+  } else {
+    updateOperation = {
+      $push: { rescheduleHistory },
+    };
+  }
+
+  console.log("update operation", updateOperation);
+
+  const updatedAppointment = await Appointment.findOneAndUpdate(
+    {
+      _id: appointmentId,
+    },
+    updateOperation,
+    { new: true }
+  );
+
+  if (!updatedAppointment)
+    throw ServerError.badRequest("Unable to update the appointment");
 
   res.json({
     success: true,
@@ -474,6 +390,100 @@ export const rescheduleAppointment = async (req, res) => {
       appointment,
     },
   });
+};
+
+// doctor based controller
+
+export const doctorCancelAppointment = async (req, res) => {
+  const { appointmentId } = req.params;
+  const { cancellationReason } = req.body;
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const doctor = await Doctor.findOne({ userId: req.user.sub }).session(
+      session
+    );
+
+    if (!doctor) throw ServerError.notFound("doctor not found");
+
+    const { PENDING, ACCEPTED, CONFIRMED, PAYMENT_PENDING } =
+      APPOINTMENT_STATUS;
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      doctor: doctor._id,
+      status: { $in: [PENDING, ACCEPTED, CONFIRMED, PAYMENT_PENDING] },
+    }).session(session);
+
+    if (!appointment) throw ServerError.notFound("appointment not found");
+
+    if (appointment.doctor._id.toString() !== appointment.doctor.toString())
+      throw ServerError.notFound("Not the owner of this appointment");
+
+    appointment.cancellation = {
+      reason: cancellationReason,
+      cancelledBy: doctor._id,
+      cancelledByRole: "Doctor",
+      cancelledAt: new Date(),
+    };
+    appointment.status = APPOINTMENT_STATUS.CANCELLED;
+
+    if (appointment.status === APPOINTMENT_STATUS.PAYMENT_PENDING) {
+      await Payment.findOneAndUpdate(
+        { appointment: appointment._id },
+        { status: PAYMENT_STATUS.CANCELLED },
+        { new: true }
+      );
+
+      await appointment.save({ session });
+
+      await slotUtils
+        .releaseBlockedSlot(appointment.doctor, appointment.slot.slotId)
+        .session(session);
+
+      session.commitTransaction();
+
+      return res.json({
+        success: true,
+        message: "appointment cancelled successfully",
+      });
+    }
+
+    const payment = await Payment.findOne({
+      appointment: appointment._id,
+    }).session(session);
+
+    if (payment && payment.status === PAYMENT_STATUS.PAID) {
+      refundAmount = appointment.fee;
+      payment.refunds.push({
+        refundId: generateUniqueToken(),
+        amount: refundAmount,
+        reason: "doctor cancelled appointment",
+        status: REFUND_STATUS.PENDING,
+      });
+
+      payment.status = PAYMENT_STATUS.REFUND_INITIATED;
+      await payment.save({ session });
+    }
+
+    await appointment.save({ session });
+
+    await slotUtils
+      .releaseBlockedSlot(appointment.doctor, appointment.slot.slotId)
+      .session(session);
+
+    res.json({
+      success: true,
+      message: "appointment cancelled successfully",
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    console.log("doctor cancel error", error);
+    throw error;
+  } finally {
+    await session.endSession();
+  }
 };
 
 export const completeAppointment = async (req, res) => {
@@ -512,6 +522,96 @@ export const completeAppointment = async (req, res) => {
   });
 };
 
+export const acceptAppointment = async (req, res) => {
+  const { appointmentId } = req.params;
+  const userId = req.user.sub;
 
+  const appointment = await Appointment.findById(appointmentId);
 
+  if (!appointment) {
+    throw ServerError.notFound("Appointment not found");
+  }
 
+  if (appointment.status !== APPOINTMENT_STATUS.PENDING)
+    throw ServerError.badRequest(
+      "Only pending appointments can set to confirmed"
+    );
+
+  const doctor = await Doctor.findOne({ userId });
+
+  if (!doctor) throw ServerError.notFound("doctor not found");
+
+  if (appointment.doctor.toString() !== doctor._id.toString())
+    throw ServerError.forbidden("Not authorized to accept this appointment");
+
+  appointment.status = APPOINTMENT_STATUS.ACCEPTED;
+  appointment.acceptedAt = new Date().toISOString();
+
+  await appointment.save();
+  res.json({
+    message: "Appointment accepted successfully",
+    data: {
+      appointment,
+    },
+  });
+};
+
+// for all roles
+
+export const respondToReschedule = async (req, res) => {
+  const { appointmentId, action } = req.params;
+
+  if (!appointmentId) throw ServerError.badRequest("appointment id not found");
+  if (!["accept", "reject"].includes(action))
+    throw ServerError.badRequest(
+      "you can only accept or reject the reschedule"
+    );
+
+  const userId = req.user.sub;
+  const user = await (req.user.role === "patient"
+    ? Patient.findOne({ user: userId })
+    : Doctor.findOne({ userId }));
+
+  if (!user) throw ServerError.notFound("User not found");
+
+  const appointment = await Appointment.findOne({
+    _id: appointmentId,
+    $or: [{ patient: user._id }, { doctor: user._id }],
+  });
+
+  if (!appointment) throw new ServerError.notFound("Appointment not found");
+
+  const pendingRescheduleItem = appointment.rescheduleHistory.find(
+    (r) => r.status === RESCHEDULE_STATUS.PENDING
+  );
+
+  if (!pendingRescheduleItem)
+    throw ServerError.notFound("Pending reschedule slot not found");
+
+  if (pendingRescheduleItem.rescheduledBy.toString() === user._id.toString())
+    throw ServerError.notFound("You are the requester of this schedule");
+
+  if (action === "reject") {
+    pendingRescheduleItem.status = RESCHEDULE_STATUS.REJECTED;
+  } else if (action === "accept") {
+    pendingRescheduleItem.status = RESCHEDULE_STATUS.ACCEPTED;
+    appointment.slot = pendingRescheduleItem.newTimeSlot;
+    appointment.status = APPOINTMENT_STATUS.RESCHEDULED;
+  }
+
+  await appointment.save();
+  await pendingRescheduleItem.save();
+  await Schedule.updateOne(
+    { doctorId: appointment.doctor, "availableSlots._id": slotId },
+    {
+      $set: {
+        "availableSlots.$.isBooked": true,
+        "availableSlots.$.bookedAt": new Date(),
+      },
+    }
+  );
+  res.json({
+    success: true,
+    message: "appointment rescheduled successfully",
+  });
+};

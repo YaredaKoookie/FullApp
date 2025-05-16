@@ -8,6 +8,7 @@ import {
 import {
   appointmentController,
   patientController,
+  paymentController,
   reviewController,
 } from "../controllers";
 import {
@@ -16,7 +17,7 @@ import {
 } from "../validations/chains/review.chain";
 import { isPatient, isProfileCompleted } from "../middlewares/auth.middleware";
 import { uploadImage } from "../config/multer.config";
-import { getDoctorAvailability } from "../controllers/appointment.controller";
+import { upload } from "../config/cloudinary.config";
 
 const router = Router();
 
@@ -26,30 +27,37 @@ router.post(
   validate(patientChains.validatePatientCreation),
   patientController.createPatientProfile
 );
-router.get("/doctors/:doctorId/availability", getDoctorAvailability);
 
 router.use(isProfileCompleted);
 
-router.get("/me", patientController.getProfile);
 
 router.put(
-  "/profileImage",
-  uploadImage.single("profileImage"),
+  "/profile/image",
+  upload.single("profileImage"),
   patientController.uploadPatientProfileImage
 );
 
 router.put(
-  "/edit",
+  "/profile",
   uploadImage.single("profileImage"),
   validate(patientChains.validatePatientUpdate),
   patientController.updateProfile
 );
+
+router.get("/profile", patientController.getProfile);
 
 router.get(
   "/doctors",
   validate(doctorChains.validateGetDoctor),
   patientController.getApprovedDoctors
 );
+
+
+router.get(
+  "/doctors/statistics",
+  validate(patientChains.validateGetDoctorStatistics),
+  patientController.getDoctorStatistics 
+)
 
 router.get("/doctors/:doctorId", patientController.getApprovedDoctorById);
 
@@ -67,10 +75,6 @@ router.put(
 
 router.delete("/reviews/:reviewId", reviewController.deleteReview);
 
-// router.get('/patient/chats', auth, isPatient, chatController.getChats);
-// router.post('/patient/upload-record', auth, isPatient, patientController.uploadMedicalRecord); // NEW
-// router.get('/patient/transactions', auth, isPatient, patientController.getTransactionHistory); // NEW
-
 //*############# Appointment related routes #############
 
 router.post(
@@ -78,11 +82,22 @@ router.post(
   validate(appointmentChains.validateAppointmentCreation),
   appointmentController.requestAppointment
 );
+
 router.get(
   "/appointments",
   validate(appointmentChains.validateGetAppointments),
   appointmentController.getPatientAppointments
 );
+
+router.get(
+  "/appointments/:appointmentId",
+  appointmentController.getAppointmentById
+);
+
+router.get(
+  "/payments",
+  paymentController.getPayments
+)
 
 router.put(
   "/appointments/:appointmentId/cancel",
@@ -90,17 +105,23 @@ router.put(
   appointmentController.patientCancelAppointment
 );
 
-// router.get("/appointments",
-//     validate(appointmentChains.validateGetAppointmentByStatus),
-//     patientController.getPatientAppointments
-// );
+router.post(
+  "/appointments/:appointmentId/reschedule",
+  validate(appointmentChains.validateRequestSchedule),
+  appointmentController.requestAppointmentReschedule
+)
 
-// router.put(
-//     '/appointments/:appointmentId/cancel',
-//     validate(appointmentChains.validateCancelAppointment),
-//     patientController.cancelAppointment
-// );
+router.put(
+  "/appointments/:appointmentId/reschedule/:action", 
+  validate(appointmentChains.validateRespondToReschedule),
+  appointmentController.respondToReschedule
+)
 
 //* ############ appointment related routes ends here ##############
 
 export default router;
+
+
+// router.get('/patient/chats', auth, isPatient, chatController.getChats);
+// router.post('/patient/upload-record', auth, isPatient, patientController.uploadMedicalRecord); // NEW
+// router.get('/patient/transactions', auth, isPatient, patientController.getTransactionHistory); // NEW

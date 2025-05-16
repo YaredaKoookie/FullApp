@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs";
 import sharp from "sharp";
 import logger from "../utils/logger.util.js";
+import { deleteImage, uploadImageCloud } from "../config/cloudinary.config.js";
 /**
  * @desc Create a new patient profile linked to an existing user.
  * @route POST /api/patients/profiles
@@ -135,34 +136,12 @@ export const getProfile = async (req, res) => {
 export const updateProfile = async (req, res) => {
   const { sub: userId } = req.user;
 
-  console.log(req.body);
-
   // Find the patient associated with the user
   let patient = await Patient.findOne({ user: userId });
 
   if (!patient) throw ServerError.notFound("Profile not found");
 
-  let oldImagePath = null;
-  let newImagePath = null;
-
-  if (req.file) {
-    if (patient.profileImage) {
-      oldImagePath = path.join("public", patient.profileImage);
-    }
-
-    const fileId = crypto.randomUUID().toString("hex");
-    const filePath = "/uploads/patients";
-    const fileName = `${fileId}.webp`;
-    const uploadPath = path.join("public", filePath, fileName);
-
-    await sharp(req.file.buffer)
-      .resize(500, 500)
-      .webp({ quality: 80 })
-      .toFile(uploadPath);
-
-    newImagePath = `${filePath}/${fileName}`;
-    req.body.profileImage = newImagePath;
-  }
+  console.log("body update", req.body);
 
   // Only update specific fields from req.body to prevent unwanted changes
   const updatedPatient = await Patient.findByIdAndUpdate(
@@ -173,16 +152,6 @@ export const updateProfile = async (req, res) => {
       runValidators: true, // Apply validation rules
     }
   );
-
-  console.log("oldImagePath", oldImagePath);
-
-  if (oldImagePath) {
-    fs.unlink(oldImagePath, (err) => {
-      if (err) {
-        logger.error("Unable to delete old image:", err);
-      }
-    });
-  }
 
   // Return the updated patient profile
   res.json({
@@ -195,50 +164,53 @@ export const updateProfile = async (req, res) => {
 };
 
 export const uploadPatientProfileImage = async (req, res, next) => {
-  const { sub, role } = req.user.role;
+  const { sub, role } = req.user;
 
-  const patient = await Patient.findOne({ userId: sub });
+  const patient = await Patient.findOne({ user: sub });
 
-  if (!patient) throw new ServerError.notFound("patient profile not found");
+  if (!patient) throw ServerError.notFound("patient profile not found");
 
-  if (!req.file) throw new ServerError.badRequest("No file provided to upload");
+  if (!req.file) throw ServerError.badRequest("No file provided to upload");
 
-  let oldImagePath = null;
-  let newImagePath = null;
+  // let oldImagePath = null;
+  // let newImagePath = null;
 
-  if (patient.profileImage) {
-    oldImagePath = path.join("public", patient.profileImage);
+  if (patient.profileImageId) {
+    await deleteImage(patient.profileImageId);
+    // oldImagePath = path.join("public", patient.profileImage);
   }
 
-  const fileId = crypto.randomUUID().toString("hex");
-  const filePath = "/uploads/patients";
-  const fileName = `${fileId}.webp`;
-  const uploadPath = path.join("public", filePath, fileName);
+  const uploadResult = await uploadImageCloud(req.file.path, "patientsProfile");
 
-  await sharp(req.file.buffer)
-    .resize(500, 500)
-    .webp({ quality: 80 })
-    .toFile(uploadPath);
+  // const fileId = crypto.randomUUID().toString("hex");
+  // const filePath = "/uploads/patients";
+  // const fileName = `${fileId}.webp`;
+  // const uploadPath = path.join("public", filePath, fileName);
 
-  newImagePath = `${filePath}/${fileName}`;
-  req.body.profileImage = newImagePath;
+  // await sharp(req.file.buffer)
+  //   .resize(500, 500)
+  //   .webp({ quality: 80 })
+  //   .toFile(uploadPath);
+
+  // newImagePath = `${filePath}/${fileName}`;
+  // req.body.profileImage = newImagePath;
 
   const updatePatient = await Patient.findByIdAndUpdate(
     patient._id, // Find by the patient's id
-    { profileImage: newImagePath }, // Fields to update
+    { profileImage: uploadResult.url, profileImageId: uploadResult.public_id }, // Fields to update
     {
       new: true, // Return the updated document
       runValidators: true, // Apply validation rules
     }
   );
 
-  if (oldImagePath) {
-    fs.unlink(oldImagePath, (err) => {
-      if (err) {
-        logger.error("Unable to delete old image:", err);
-      }
-    });
-}
+  // if (oldImagePath) {
+  //   fs.unlink(oldImagePath, (err) => {
+  //     if (err) {
+  //       logger.error("Unable to delete old image:", err);
+  //     }
+  //   });
+  // }
 
   res.json({
     success: true,
@@ -425,54 +397,317 @@ export const cancelAppointment = async (req, res) => {
   });
 };
 
-// ##### PUBLIC
+/**
+ * @desc    Get all approved doctors with advanced filtering
+ * @route   GET /api/doctors/approved
+ * @access  Public
+ */
 export const getApprovedDoctors = async (req, res) => {
-  const {
-    page = 1,
-    limit = 20,
-    specialization,
-    location,
-    minRating,
-  } = req.query;
-  const skip = (page - 1) * limit;
+  try {
+    // Extract query parameters
+    const {
+      search,
+      specialization,
+      minExperience,
+      maxExperience,
+      minFee,
+      maxFee,
+      minRating,
+      gender,
+      languages,
+      serviceAreas,
+      city,
+      state,
+      country,
+      sort,
+      page = 1,
+      limit = 10,
+    } = req.query;
 
-  const query = { approvalStatus: "approved" };
+    // Build the base query for approved doctors
+    let query = {
+      verificationStatus: "verified",
+      isActive: true,
+    };
 
-  if (specialization) {
-    const specializations = specialization
-      .split(",")
-      .map((spec) => spec.trim());
-    query.specialization = { $in: specializations };
+    // Text search (across name fields)
+    if (search) {
+      query.$text = { $search: search };
+    }
+
+    // Specialization filter
+    if (specialization) {
+      query.specialization = new RegExp(specialization, "i");
+    }
+
+    // Experience range filter
+    if (minExperience || maxExperience) {
+      query.yearsOfExperience = {};
+      if (minExperience) query.yearsOfExperience.$gte = Number(minExperience);
+      if (maxExperience) query.yearsOfExperience.$lte = Number(maxExperience);
+    }
+
+    // Fee range filter
+    if (minFee || maxFee) {
+      query.consultationFee = {};
+      if (minFee) query.consultationFee.$gte = Number(minFee);
+      if (maxFee) query.consultationFee.$lte = Number(maxFee);
+    }
+
+    // Rating filter
+    if (minRating) {
+      query.rating = { $gte: Number(minRating) };
+    }
+
+    // Gender filter
+    if (gender) {
+      query.gender = gender.toLowerCase();
+    }
+
+    // Language filter (array - can match any of provided languages)
+    if (languages) {
+      const langArray = languages
+        .split(",")
+        .map((lang) => lang.trim().toLowerCase());
+      query.languages = { $in: langArray };
+    }
+
+    // Service areas filter (array - can match any of provided areas)
+    if (serviceAreas) {
+      const areasArray = serviceAreas
+        .split(",")
+        .map((area) => area.trim().toLowerCase());
+      query.serviceAreas = { $in: areasArray };
+    }
+
+    // Location filters
+    if (city) query["location.city"] = new RegExp(city, "i");
+    if (state) query["location.state"] = new RegExp(state, "i");
+    if (country) query["location.country"] = new RegExp(country, "i");
+
+    // Sorting options
+    let sortOption = {};
+    if (sort) {
+      const sortFields = sort.split(",");
+      sortFields.forEach((field) => {
+        const [key, order] = field.split(":");
+        sortOption[key] = order === "desc" ? -1 : 1;
+      });
+    } else {
+      // Default sort by rating descending
+      sortOption = { rating: -1 };
+    }
+
+    // Pagination
+    const pageNumber = parseInt(page);
+    const limitNumber = parseInt(limit);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // Execute query with pagination and sorting
+    const doctors = await Doctor.find(query)
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limitNumber)
+      .populate("userId", "email") // Include basic user info
+      .populate("schedule"); // Include schedule info
+
+    // Get total count for pagination info
+    const total = await Doctor.countDocuments(query);
+
+    // Prepare response
+    res.json({
+      success: true,
+      data: {
+        doctors,
+      },
+      pagination: {
+        totalDoctors: total,
+        currentPage: pageNumber,
+        limit: doctors.length,
+        totalPages: Math.ceil(total / limitNumber),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching approved doctors:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching doctors",
+      error: error.message,
+    });
   }
+};
 
-  if (location) query["location.city"] = { $regex: location, $options: "i" };
+export const getDoctorStatistics = async (req, res) => {
+  try {
+    const matchStage = {
+      verificationStatus: "verified",
+      isActive: true,
+    };
 
-  if (minRating) query.rating = { $gte: Number(minRating) };
-  console.log(query);
+    const [
+      specializations,
+      experienceRanges,
+      feeRanges,
+      ratingDistribution,
+      languageDistribution,
+      locationDistribution,
+      totalCounts,
+      verifiedCounts,
+      averages,
+    ] = await Promise.all([
+      Doctor.aggregate([
+        { $match: matchStage },
+        { $group: { _id: "$specialization", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 20 },
+      ]),
 
-  const doctors = await Doctor.find(query)
-    .select(
-      "-licenseNumber -licenseDocument -idProof -withdrawalBalance -adminRemarks -applicationNotes"
-    )
-    .skip(skip)
-    .limit(Number(limit))
-    .sort({ rating: -1, experience: -1 });
+      Doctor.aggregate([
+        { $match: matchStage },
+        {
+          $bucket: {
+            groupBy: "$yearsOfExperience",
+            boundaries: [0, 5, 10, 15, 20, 30, 50],
+            default: "50+",
+            output: { count: { $sum: 1 } },
+          },
+        },
+        {
+          $project: {
+            range: {
+              $concat: [{ $toString: "$_id" }, " years"],
+            },
+            count: 1,
+          },
+        },
+      ]),
+      Doctor.aggregate([
+        { $match: matchStage },
+        {
+          $bucket: {
+            groupBy: "$consultationFee",
+            boundaries: [0, 50, 100, 150, 200, 300, 500],
+            default: "500+",
+            output: { count: { $sum: 1 } },
+          },
+        },
+        {
+          $project: {
+            range: {
+              $switch: {
+                branches: [
+                  { case: { $eq: ["$_id", 0] }, then: "$0-$50" },
+                  { case: { $eq: ["$_id", 50] }, then: "$50-$100" },
+                  { case: { $eq: ["$_id", 100] }, then: "$100-$150" },
+                  { case: { $eq: ["$_id", 150] }, then: "$150-$200" },
+                  { case: { $eq: ["$_id", 200] }, then: "$200-$300" },
+                  { case: { $eq: ["$_id", 300] }, then: "$300-$500" },
+                  { case: { $eq: ["$_id", "500+"] }, then: "$500+" },
+                ],
+                default: "Other",
+              },
+            },
+            count: 1,
+          },
+        },
+      ]),
+      Doctor.aggregate([
+        { $match: matchStage },
+        {
+          $project: {
+            roundedRating: {
+              $divide: [
+                { $multiply: { $round: { $multiply: ["$rating", 2] } } },
+                2,
+              ],
+            },
+          },
+        },
+        { $group: { _id: "$roundedRating", count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+      ]),
 
-  const totalDoctors = await Doctor.countDocuments(query);
-  const totalPages = Math.ceil(totalDoctors / limit);
+      Doctor.aggregate([
+        { $match: matchStage },
+        { $unwind: "$languages" },
+        { $group: { _id: "$languages", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ]),
 
-  res.json({
-    success: true,
-    data: {
-      doctors,
-    },
-    pagination: {
-      totalDoctors,
-      totalPages,
-      currentPage: Number(page),
-      limit: Number(limit),
-    },
-  });
+      Doctor.aggregate([
+        { $match: matchStage },
+        { $group: { _id: "$location.city", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 15 },
+      ]),
+
+      Doctor.countDocuments(matchStage),
+      Doctor.countDocuments({ verificationStatus: "verified" }),
+
+      Doctor.aggregate([
+        { $match: matchStage },
+        {
+          $group: {
+            _id: null,
+            avgRating: { $avg: "$rating" },
+            avgFee: { $avg: "$consultationFee" },
+            avgExperience: { $avg: "$yearsOfExperience" },
+          },
+        },
+      ]),
+    ]);
+
+    const result = {
+      specializations: specializations.map((s) => ({
+        _id: s._id,
+        count: s.count,
+      })),
+      experienceRanges: experienceRanges.map((r) => ({
+        range: r.range,
+        count: r.count,
+      })),
+      feeRanges: feeRanges.map((r) => ({
+        range: r.range,
+        count: r.count,
+      })),
+      ratingDistribution: ratingDistribution.map((r) => ({
+        rating: r._id,
+        count: r.count,
+      })),
+      languageDistribution: languageDistribution.map((l) => ({
+        language: l._id,
+        count: l.count,
+      })),
+      locationDistribution: locationDistribution.map((l) => ({
+        city: l._id,
+        count: l.count,
+      })),
+      totalDoctors: totalCounts,
+      verifiedDoctors: verifiedCounts,
+      averageRating: averages[0]?.avgRating
+        ? parseFloat(averages[0].avgRating.toFixed(2))
+        : 0,
+      averageFee: averages[0]?.avgFee
+        ? parseFloat(averages[0].avgFee.toFixed(2))
+        : 0,
+      averageExperience: averages[0]?.avgExperience
+        ? parseFloat(averages[0].avgExperience.toFixed(1))
+        : 0,
+    };
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Error fetching doctor statistics:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch doctor statistics",
+      error: error.message,
+    });
+  }
 };
 
 export const getApprovedDoctorById = async (req, res) => {

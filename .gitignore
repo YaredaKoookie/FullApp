@@ -63,6 +63,7 @@ yarn-error.log*
 # ================================
 server/public/uploads/
 server/uploads/
+server/public/uploads/
 server/storage/
 server/**/*.sqlite
 server/**/*.sqlite3

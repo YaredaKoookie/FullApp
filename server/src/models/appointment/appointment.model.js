@@ -31,6 +31,12 @@ export const APPOINTMENT_TYPES = {
   VIRTUAL: "virtual",
 };
 
+export const RESCHEDULE_STATUS = {
+  PENDING: "pending",
+  ACCEPTED: "accepted", 
+  REJECTED: "rejected"
+}
+
 export const CANCELLATION_REASONS = {
   PATIENT_REQUEST: "patient_request",
   DOCTOR_REQUEST: "doctor_request",
@@ -69,7 +75,7 @@ const timeSlotSchema = new Schema(
 const rescheduleSchema = new Schema(
   {
     previousTimeSlot: timeSlotSchema,
-    preferredSlots: timeSlotSchema,
+    newTimeSlot: timeSlotSchema,
     reason: {
       type: String,
       trim: true,
@@ -80,10 +86,15 @@ const rescheduleSchema = new Schema(
       refPath: "rescheduledByRole",
       required: true,
     },
-    rescheduledByModel: {
+    rescheduledByRole: {
       type: String,
       enum: ["Patient", "Doctor", "Admin"],
       required: true,
+    },
+    rescheduleStatus: {
+      type: String, 
+      enum: Object.values(RESCHEDULE_STATUS),
+      default: RESCHEDULE_STATUS.PENDING,
     },
     rescheduledAt: {
       type: Date,
@@ -188,7 +199,7 @@ const appointmentSchema = new Schema(
 );
 
 // Indexes
-appointmentSchema.index({ "slot.startTime": 1, "slot.endTime": 1 });
+appointmentSchema.index({ "slot.start": 1, "slot.end": 1 });
 appointmentSchema.index({ status: 1, "slot.start": 1 });
 
 export default model("Appointment", appointmentSchema);
