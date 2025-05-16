@@ -61,6 +61,7 @@ yarn-error.log*
 # ================================
 # Server/Backend specific
 # ================================
+server/public/uploads/
 server/uploads/
 server/public/uploads/
 server/storage/

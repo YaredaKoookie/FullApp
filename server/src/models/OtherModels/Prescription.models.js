@@ -1,3 +1,4 @@
+import { model, Schema } from "mongoose";
 const prescriptionSchema = new Schema(
   {
     appointment: {
