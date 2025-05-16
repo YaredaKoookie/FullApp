@@ -3,8 +3,8 @@ import { env } from "../config";
 import { ServerError } from "../utils";
 
 const verifyChapaSignature = (req, res, next) => {
-  const payload = JSON.stringify(req.body);
   const signature = req.headers["Chapa-Signature"];
+  const payload = JSON.stringify(req.body);
 
   console.log("chapa payload", payload);
   console.log("chapa signature", signature);

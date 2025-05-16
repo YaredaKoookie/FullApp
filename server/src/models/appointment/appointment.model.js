@@ -69,7 +69,7 @@ const timeSlotSchema = new Schema(
 const rescheduleSchema = new Schema(
   {
     previousTimeSlot: timeSlotSchema,
-    newTimeSlot: timeSlotSchema,
+    preferredSlots: timeSlotSchema,
     reason: {
       type: String,
       trim: true,
