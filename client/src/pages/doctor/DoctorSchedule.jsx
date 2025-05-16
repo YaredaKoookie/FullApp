@@ -16,34 +16,27 @@ import useGetDoctorProfile from "@/hooks/useGetDoctorProfile";
 
 const DoctorSchedule = () => {
   const { data: doctor, isLoading: isDoctorLoading } = useGetDoctorProfile();
-  const doctorId = doctor?.doctorId;
+  const doctorId = doctor?._id;
   // console.log(doctorId);
   const queryClient = useQueryClient();
-
-  // State with schema defaults
   const [newWorkingHours, setNewWorkingHours] = useState({
     day: "Monday",
     startTime: "09:00",
     endTime: "17:00",
     breaks: [],
   });
-
   const [newBreak, setNewBreak] = useState({
     startTime: "",
     endTime: "",
   });
-
   const [newBlockedSlot, setNewBlockedSlot] = useState({
     date: new Date().toISOString().split("T")[0],
     startTime: "",
     endTime: "",
     reason: "",
   });
-
   const [isGeneratingSlots, setIsGeneratingSlots] = useState(false);
   const [daysToGenerate, setDaysToGenerate] = useState(14);
-
-  // Data fetching with proper error handling
   const {
     data: schedule,
     isLoading,
@@ -52,8 +45,6 @@ const DoctorSchedule = () => {
     queryKey: ["schedule", doctorId],
     queryFn: async () => {
       const response = await apiClient.get(`/schedule/${doctorId}`);
-
-      // console.log("data", response.data);
       return {
         workingHours: response.data.workingHours || [],
         availableSlots: response.data.availableSlots || [],
@@ -84,13 +75,11 @@ const DoctorSchedule = () => {
     queryKey: ["blockedSlots", doctorId],
     queryFn: async () => {
       const response = await apiClient.get(`/schedule/${doctorId}/blocked`);
-      console.log(response);
+      // console.log(response);
       return response.blockedSlots || [];
     },
     enabled: !!doctorId && !!schedule,
   });
-
-  // Mutations with proper error handling
   const updateScheduleMutation = useMutation({
     mutationFn: (updatedSchedule) =>
       apiClient.put(`/schedule/${doctorId}`, updatedSchedule),
@@ -100,7 +89,6 @@ const DoctorSchedule = () => {
     },
     onError: () => toast.error("Failed to update schedule"),
   });
-
   const generateSlotsMutation = useMutation({
     mutationFn: ({ startDate, endDate }) =>
       apiClient.post(`/schedule/${doctorId}/slots/generate`, {
@@ -114,7 +102,6 @@ const DoctorSchedule = () => {
     },
     onError: () => toast.error("Failed to generate slots"),
   });
-
   const updateSlotMutation = useMutation({
     mutationFn: ({ slotId, updates }) =>
       apiClient.put(`/schedule/${doctorId}/slots/${slotId}`, updates),
@@ -124,7 +111,6 @@ const DoctorSchedule = () => {
     },
     onError: () => toast.error("Failed to update slot"),
   });
-
   const addBlockedSlotMutation = useMutation({
     mutationFn: (blockedSlot) =>
       apiClient.post(`/schedule/${doctorId}/blocked`, blockedSlot),
@@ -140,8 +126,6 @@ const DoctorSchedule = () => {
     },
     onError: () => toast.error("Failed to add blocked slot"),
   });
-
-  // Handlers with proper null checks
   const handleAddWorkingDay = () => {
     if (!schedule) {
       toast.error("Schedule data not loaded yet");
@@ -154,7 +138,6 @@ const DoctorSchedule = () => {
     };
     updateScheduleMutation.mutate(updatedSchedule);
   };
-
   const handleRemoveWorkingDay = (day) => {
     if (!schedule) return;
 
@@ -164,13 +147,11 @@ const DoctorSchedule = () => {
     };
     updateScheduleMutation.mutate(updatedSchedule);
   };
-
   const handleAddBreak = (day) => {
     if (!schedule || !newBreak.startTime || !newBreak.endTime) {
       toast.error("Please enter both start and end times");
       return;
     }
-
     const updatedSchedule = {
       ...schedule,
       workingHours: schedule.workingHours.map((wh) =>
@@ -182,7 +163,6 @@ const DoctorSchedule = () => {
     updateScheduleMutation.mutate(updatedSchedule);
     setNewBreak({ startTime: "", endTime: "" });
   };
-
   const createScheduleMutation = useMutation({
     mutationFn: (newSchedule) =>
       apiClient.post(`/schedule/${doctorId}`, newSchedule),
@@ -219,9 +199,7 @@ const DoctorSchedule = () => {
   }
 
   if (error) {
-    // Check if the error is a 404 (not found)
     const isNotFoundError = error?.status === 404;
-
     return (
       <div className="text-center py-8">
         {isNotFoundError ? (
@@ -271,8 +249,6 @@ const DoctorSchedule = () => {
       </div>
     );
   }
-
-  // Additional check in case the API returns empty data instead of 404
   if (!schedule || Object.keys(schedule).length === 0) {
     return (
       <div className="text-center py-8">

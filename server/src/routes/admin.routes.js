@@ -1,31 +1,53 @@
-import express from "express";
-import {
-  verifyAdminJWT,
-  requireSuperAdmin,
-  hasAdminPermission
-} from "../middleware/adminAuth.js";
-import {
-  adminLogin,
-  createSubAdmin,
-  manageUsers,
-  getSystemAnalytics
-} from "../controllers/admin.controller.js";
-
+import express from 'express';
 const router = express.Router();
 
-// Authentication
-router.post("/login", adminLogin);
-router.post("/refresh-token", refreshAdminToken);
+import {isDoctor } from '../middlewares/auth.middleware';
+import { adminController } from '../controllers/index.js';
+import { withdrawController } from '../controllers/index.js';
 
-// Admin management (super-admin only)
-router.post("/sub-admins", requireSuperAdmin, createSubAdmin);
-router.patch("/sub-admins/:id", requireSuperAdmin, updateSubAdmin);
+router.get(
+  '/doctors/',
+  isDoctor,
+//   authorizePermissions('admin'),
+  adminController.getAllDoctors
+);
 
-// User management
-router.get("/users", hasAdminPermission("manage-users"), manageUsers);
-router.patch("/users/:id/status", hasAdminPermission("manage-users"), toggleUserStatus);
+router.get(
+  '/doctors/:id',
+  isDoctor,
+//   authorizePermissions('admin'),
+  adminController.getDoctorById
+);
 
-// Analytics
-router.get("/analytics", hasAdminPermission("view-analytics"), getSystemAnalytics);
+router.patch(
+  '/doctors/:id/approve',
+  isDoctor,
+//   authorizePermissions('admin'),
+  adminController.approveDoctor
+);
+
+router.patch(
+  '/doctors/:id/reject',
+  isDoctor,
+//   authorizePermissions('admin'),
+  adminController.rejectDoctor
+);
+
+
+// Admin routes
+router.get('/patient', isDoctor, adminController.getAllPatients);
+router.get('/patient/:id', isDoctor, adminController.getPatientById);
+router.patch('/patient/:id/toggle-status', isDoctor, adminController.togglePatientStatus);
+
+
+
+router.get('/payments', isDoctor, withdrawController.getAllPayments);
+router.get('/payments/:id', isDoctor, withdrawController.getPaymentDetails);
+// router.get('/payments/summary' ,isDoctor , withdrawController.getAllPayments)
+
+
+router.get('/withdraw', isDoctor, withdrawController.getAllWithdrawals);
+router.patch('/withdraw/:id/approve', isDoctor, withdrawController.approveWithdrawal);
+router.patch('/withdraw/:id/reject', isDoctor, withdrawController.rejectWithdrawal);
 
 export default router;

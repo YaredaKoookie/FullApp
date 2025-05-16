@@ -1,3 +1,4 @@
+import { model, Schema } from "mongoose";
 const PrescriptionSchema = new Schema(
   {
     name: { type: String, required: true },

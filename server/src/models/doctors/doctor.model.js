@@ -1,5 +1,30 @@
 import { Schema, model } from "mongoose";
 
+const qualificationSchema = new Schema(
+  {
+    degree: { type: String, required: true },
+    institution: { type: String, required: true },
+    year: { type: String, required: true }, // Could also be Number
+  },
+  { _id: false }
+);
+
+const addressSchema = new Schema(
+  {
+    street1: { type: String, default: "" },
+    street2: { type: String, default: "" },
+    city: { type: String, default: "" },
+    state: { type: String, default: "" },
+    postalCode: { type: String, default: "" },
+    country: { type: String, default: "Ethiopia" },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      default: [0, 0],
+    },
+  },
+  { _id: false }
+);
+
 const doctorSchema = new Schema(
   {
     userId: {
@@ -27,37 +52,23 @@ const doctorSchema = new Schema(
     educationDocument: { type: String },
 
     specialization: { type: String, required: true },
-    qualifications: [
-      {
-        degree: String,
-        institution: String,
-        year: Number,
-      },
-    ],
+    qualifications: {
+      type: [qualificationSchema],
+      default: [],
+    },
     yearsOfExperience: {
       type: Number,
       required: true,
       min: 0,
     },
-    languages: { type: [String], default: [] },
-    hospitalName: { type: String },
+    languages: {
+      type: [String],
+      default: [],
+    },
+    hospitalName: { type: String, default: "" },
     hospitalAddress: {
-      type: {
-        type: String,
-        enum: ["Point"],
-        default: "Point",
-      },
-      coordinates: {
-        type: [Number],
-        index: "2dsphere",
-        required: false,
-      },
-      street1: String,
-      street2: String,
-      city: String,
-      state: String,
-      postalCode: String,
-      country: String,
+      type: addressSchema,
+      default: () => ({}),
     },
     phoneNumber: {
       type: String,
@@ -71,7 +82,10 @@ const doctorSchema = new Schema(
       default: 0,
       min: 0,
     },
-    serviceAreas: { type: [String], default: [] },
+    serviceAreas: {
+      type: [String],
+      default: [],
+    },
     totalReviews: { type: Number, default: 0 },
     rating: {
       type: Number,
@@ -81,12 +95,6 @@ const doctorSchema = new Schema(
     },
     totalEarnings: { type: Number, default: 0 },
     withdrawalBalance: { type: Number, default: 0 },
-
-    location: {
-      city: { type: String },
-      state: { type: String },
-      country: { type: String },
-    },
     applicationNotes: {
       type: String,
       maxlength: 1000,

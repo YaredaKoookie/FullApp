@@ -21,8 +21,10 @@ import {
   Trash2,
 } from "lucide-react";
 import apiClient from "@/lib/apiClient";
+import { Link, useNavigate } from "react-router-dom";
 
 const DoctorProfileForm = () => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
@@ -217,7 +219,7 @@ const DoctorProfileForm = () => {
     mutationFn: async (formData) => {
       // Create FormData for file uploads
       const formDataToSend = new FormData();
-
+      console.log(formData);
       // Append all fields
       formDataToSend.append("firstName", formData.firstName);
       formDataToSend.append("middleName", formData.middleName);
@@ -255,15 +257,20 @@ const DoctorProfileForm = () => {
         formData.boardCertificationsDocument
       );
       formDataToSend.append("educationDocument", formData.educationDocument);
-
-      const response = await apiClient.post("/doctors/profile/complete", formDataToSend, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      console.log("data", formDataToSend.entries());
+      const response = await apiClient.post(
+        "/doctors/profile/complete",
+        formDataToSend,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("send successfull", data);
       toast.success("Profile submitted successfully!");
       setIsOpen(true);
     },
@@ -273,6 +280,7 @@ const DoctorProfileForm = () => {
   });
 
   const handleSubmit = (e) => {
+    console.log(e);
     e.preventDefault();
     if (validateForm()) {
       submitProfile.mutate(formData);
@@ -1087,13 +1095,15 @@ const DoctorProfileForm = () => {
                   </div>
 
                   <div className="mt-6 flex justify-center">
-                    <button
-                      type="button"
-                      className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      Got it, thanks!
-                    </button>
+                    <Link to="/doctor/dashboard">
+                      <button
+                        type="button"
+                        className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Got it, thanks!
+                      </button>
+                    </Link>
                   </div>
                 </Dialog.Panel>
               </Transition.Child>

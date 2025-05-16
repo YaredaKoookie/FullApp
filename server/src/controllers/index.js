@@ -4,3 +4,6 @@ export * as patientController from "./patient.controller"
 export * as paymentController from "./payment.controller"
 export * as reviewController from "./review.controller";
 export * as appointmentController from "./appointment.controller";
+export * as doctorPatient from './DoctorPatients'
+export * as adminController from './admin.controller'
+export * as withdrawController from './withdraw.controller'

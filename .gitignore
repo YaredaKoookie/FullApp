@@ -61,6 +61,7 @@ yarn-error.log*
 # ================================
 # Server/Backend specific
 # ================================
+server/public/uploads/
 server/uploads/
 server/storage/
 server/**/*.sqlite
