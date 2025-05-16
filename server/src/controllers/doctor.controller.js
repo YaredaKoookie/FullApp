@@ -6,6 +6,7 @@ import { ServerError } from "../utils";
 import sharp from "sharp";
 import path from "path";
 import fs from "fs";
+import { deleteImage, uploadImageCloud } from "../config/cloudinary.config";
 
 export const completeProfile = async (req, res) => {
   const { sub: userId } = req.user;
@@ -152,9 +153,21 @@ export const updateDoctorProfile = async (req, res, next) => {
 
     if (!userId) throw ServerError.unauthorized("User not authenticated");
 
+    if (patient.profilePhotoId) {
+      await deleteImage(patient.profilePhotoId);
+    }
+
+    const uploadResult = await uploadImageCloud(
+      req.file.path,
+      "doctorsProfile"
+    );
+
     const doctor = await Doctor.findOneAndUpdate(
       { userId }, // Find by ID
-      { $set: updates },
+      {
+        profilePhoto: uploadResult.url,
+        profilePhotoId: uploadResult.public_id,
+      },
       {
         new: true,
         runValidators: true,
