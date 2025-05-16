@@ -13,43 +13,25 @@ import {
   getAvailableSlotsForPatients,
   bookAppointmentSlot
 } from "../controllers/scheduleController.js";
-import { validate } from "../validations";
-import {
-  generateSlotsValidation,
-  slotIdValidation,
-  updateSlotValidation,
-  blockedSlotValidation,
-  blockIdValidation,
-  doctorIdValidation,
-  createScheduleValidation,
-  updateScheduleValidation,
-} from "../validations/chains/scheduleValidation.js";
-import { param, validationResult } from "express-validator";
 const router = express.Router();
 
-
-// Generate slots for a doctor (automated based on workingHours)
 router.post(
   "/:doctorId/slots/generate",
   generateSlots
 );
 
-// Get all available slots for a doctor
 router.get("/:doctorId/slots",  getSlots);
 
-// Update a slot (e.g., mark as booked)
 router.put(
   "/:doctorId/slots/:slotId",
   updateSlot
 );
 
-// Delete a slot
 router.delete(
   "/:doctorId/slots/:slotId",
   deleteSlot
 );
 
-// Add these routes after the existing ones
 router.post(
   "/:doctorId/blocked",
   addBlockedSlot
@@ -91,7 +73,7 @@ router.get(
 
 router.put(
   '/doctors/:doctorId/slots/:slotId/book',
-  isPatient,
+  // isPatient,
   bookAppointmentSlot
 );
 
