@@ -6,6 +6,7 @@ import { validate } from '../validations';
 import { completeProfileValidation } from '../validations/chains/doctor.chain';
 import { handleMulterErrors, uploadDoctorFiles } from '../config/MultiFile';
 import { uploadImage, uploadImages } from '../config/multer.config';
+import { uploadImageCloud } from '../config/cloudinary.config';
 
 const router = Router();
 
@@ -41,7 +42,7 @@ router.put(
   uploadImage.single("profilePhoto"),
   doctorController.uploadDoctorProfileImage
 )
-router.put('/profile/update' , isDoctor , doctorController.updateDoctorProfile)  //unfinished
+router.put('/profile/update' , uploadImageCloud("profilePhoto"), isDoctor , doctorController.updateDoctorProfile)  //unfinished
 
 
 
