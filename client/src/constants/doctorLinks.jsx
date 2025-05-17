@@ -32,12 +32,6 @@ const doctorLinks = [
         icon: MessageCircleIcon
     },
     {
-        id: 5,
-        name: "Medical Records",
-        url: "/doctor/records",
-        icon: HistoryIcon
-    },
-    {
         id: 6,
         name: "Payments",
         url: "/doctor/payments",

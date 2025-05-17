@@ -1,13 +1,13 @@
-import doctorLinks from "@/constants/doctorLinks";
+import adminLinks from "@/constants/adminLinks";
 import { useAuth } from "@/context/AuthContext";
 import { ChevronLeft, HomeIcon, ArrowLeftCircle } from "lucide-react";
 import React from "react";
 import { NavLink, useLocation, Link } from "react-router-dom";
 
-const DoctorSidebar = ({ isCollapsed, setIsCollapsed }) => {
+const AdminSideBar = ({ isCollapsed, setIsCollapsed }) => {
   const location = useLocation();
-  const {user} = useAuth()
-  console.log(user);
+  const { user } = useAuth()
+  console.log("yse" ,user);
   return (
     <div className="h-screen bg-gradient-to-b from-indigo-50 to-white p-6 w-full relative">
       {/* Header with Collapse Button */}
@@ -66,7 +66,7 @@ const DoctorSidebar = ({ isCollapsed, setIsCollapsed }) => {
         </li>
 
         {/* Doctor Dashboard Links */}
-        {doctorLinks.map(({ icon: LinkIcon, url, name, id }) => (
+        {adminLinks.map(({ icon: LinkIcon, url, name, id }) => (
           <li key={id}>
             <NavLink
               to={url}
@@ -106,7 +106,7 @@ const DoctorSidebar = ({ isCollapsed, setIsCollapsed }) => {
         <div className="absolute bottom-6 left-6 right-6">
           <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-indigo-50 transition-colors cursor-pointer">
             <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-              <img src={user.avatar} alt="avatar" />
+              <img src={user.email} alt="avatar" />
             </div>
             <div className="overflow-hidden">
               {/* <p className="font-medium text-sm truncate">{`http://localhost:3000/${user.avatar}`}</p> */}
@@ -119,4 +119,4 @@ const DoctorSidebar = ({ isCollapsed, setIsCollapsed }) => {
   );
 };
 
-export default DoctorSidebar;
+export default AdminSideBar;

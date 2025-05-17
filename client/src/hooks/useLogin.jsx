@@ -14,7 +14,7 @@ const useLogin = () => {
       toast.error(error.message);
     },
     onSuccess: (response) => {
-      console.log(response);
+      console.log("role",response.role);
       const { accessToken, user } = response.data;
 
       queryClient.invalidateQueries(["user", "me"]);
@@ -26,6 +26,8 @@ const useLogin = () => {
         <Navigate to="/patient/dashboard" />;
       } else if (user?.role === "doctor") {
         <Navigate to="/doctor/complete-profile" />;
+      } else if (user?.role === "admin") {
+        <Navigate to="/admin/dashboard" />;
       } else {
         <Navigate to="/" />;
       }

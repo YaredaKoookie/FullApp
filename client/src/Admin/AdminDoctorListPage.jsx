@@ -28,9 +28,9 @@ import queryClient from '@/lib/queryClient';
 import useGetDoctorProfile from '@/hooks/useGetDoctorProfile';
 
 const DoctorListContent = () => {
-  // const { data: profile, isLoading: isDoctorLoading } = useGetDoctorProfile();
-  // const doctorId = profile?._id;
-
+  // const { data: doctor, isLoading: isDoctorLoading } = useGetDoctorProfile();
+  // const doctorId = doctor._id;
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedDoctor, setSelectedDoctor] = useState(null);
@@ -42,15 +42,14 @@ const DoctorListContent = () => {
   const { data: doctors, isLoading, isError } = useQuery({
     queryKey: ['doctors'],
     queryFn: async () => {
-      const response = await apiClient.get('/admin/doctors');
-      console.log(response)
+      const response = await apiClient.get('/admin/doctor');
       return response.doctors || [];
     },
   });
-
   // Approve doctor mutation
+  // console.log("two",selectedDoctor._id)
   const approveDoctor = useMutation({
-    mutationFn: (doctorId) => apiClient.patch(`/admin/doctors/${doctorId}/approve`),
+    mutationFn: (doctorId) => apiClient.patch(`/admin/doctor/${doctorId}/approve`),
     onSuccess: () => {
       queryClient.invalidateQueries(['doctors']);
       setIsModalOpen(false);
@@ -59,7 +58,7 @@ const DoctorListContent = () => {
 
   // Reject doctor mutation
   const rejectDoctor = useMutation({
-    mutationFn: (doctorId) => apiClient.patch(`/admin/doctors/${doctorId}/reject`),
+    mutationFn: (doctorId) => apiClient.patch(`/admin/doctor/${doctorId}/reject`),
     onSuccess: () => {
       queryClient.invalidateQueries(['doctors']);
       setIsModalOpen(false);
@@ -91,7 +90,6 @@ const DoctorListContent = () => {
 
   const openDoctorModal = (doctor) => {
     setSelectedDoctor(doctor);
-    console.log("one",doctor)
     setIsModalOpen(true);
   };
 
@@ -176,7 +174,7 @@ const DoctorListContent = () => {
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10">
                             {doctor.profilePhoto ? (
-                              <img className="h-10 w-10 rounded-full" src={`http://localhost:3000/${doctor.profilePhoto}`} alt="" />
+                              <img className="h-10 w-10 rounded-full" src={doctor.profilePhoto} alt="" />
                             ) : (
                               <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
                                 <UserIcon className="h-5 w-5 text-gray-500" />
@@ -354,7 +352,7 @@ const DoctorListContent = () => {
                             
                             <div className="flex justify-center mb-4">
                               {selectedDoctor.profilePhoto ? (
-                                <img className="h-32 w-32 rounded-full" src={`http://localhost:3000/${selectedDoctor.profilePhoto}`} alt="" />
+                                <img className="h-32 w-32 rounded-full" src={selectedDoctor.profilePhoto} alt="" />
                               ) : (
                                 <div className="h-32 w-32 rounded-full bg-gray-200 flex items-center justify-center">
                                   <UserIcon className="h-16 w-16 text-gray-500" />

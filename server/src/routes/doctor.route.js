@@ -1,12 +1,12 @@
 import {isDoctor } from '../middlewares/auth.middleware';
-import {doctorController, doctorPatient, reviewController} from '../controllers';
+import {doctorController, doctorPatient, reviewController,paymentDoctorController,appointmentDoctorController} from '../controllers';
 
 import {Router} from "express"
-import { validate } from '../validations';
-import { completeProfileValidation } from '../validations/chains/doctor.chain';
+// import { validate } from '../validations';
+// import { completeProfileValidation } from '../validations/chains/doctor.chain';
 import { handleMulterErrors, uploadDoctorFiles } from '../config/MultiFile';
-import { uploadImage, uploadImages } from '../config/multer.config';
-import { uploadImageCloud } from '../config/cloudinary.config';
+// import { uploadImage, uploadImages } from '../config/multer.config';
+import { upload } from '../config/cloudinary.config';
 
 const router = Router();
 
@@ -22,7 +22,7 @@ const parseJsonFields = (fieldsToParse = []) => (req, res, next) => {
     next(new Error("Invalid JSON in multipart/form field"));
   }
 };
-// profile Complete
+// profile Complete page and profile page
 router.post('/profile/complete', isDoctor, uploadDoctorFiles.fields([
     { name: "profilePhoto", maxCount: 1 },
     { name: "nationalIdFront", maxCount: 1 },
@@ -39,67 +39,53 @@ router.get("/profile/me",isDoctor, doctorController.getCurrentDoctor);
 router.put(
   "/profile/upload",
   isDoctor,
-  uploadImage.single("profilePhoto"),
+  upload.single("profilePhoto"),
   doctorController.uploadDoctorProfileImage
 )
-router.put('/profile/update' , uploadImageCloud("profilePhoto"), isDoctor , doctorController.updateDoctorProfile)  //unfinished
+router.put('/profile/update' , isDoctor , doctorController.updateDoctorProfile)  //unfinished
+
+
+// payment page
+router.get('/payment-stats', isDoctor, paymentDoctorController.getPaymentStats);
+router.get('/earnings', isDoctor, paymentDoctorController.getEarnings);
+router.get('/withdrawals', isDoctor, paymentDoctorController.getWithdrawals);
+router.post('/withdraw', isDoctor, paymentDoctorController.requestWithdrawal);
+
+// appointment page
+router.get('/Allappointments', isDoctor, appointmentDoctorController.getAppointments);
+router.get('/appointment/Allstats', isDoctor, appointmentDoctorController.getAppointmentStats);
+
+// Appointment Actions
+router.post('/appointment/:appointmentId/accept', isDoctor, appointmentDoctorController.acceptAppointment);
+router.post('/appointment/:appointmentId/reject', isDoctor, appointmentDoctorController.rejectAppointment);
+router.post('/appointment/:appointmentId/reschedule', isDoctor, appointmentDoctorController.rescheduleAppointment);
+router.post('/appointment/:appointmentId/cancel', isDoctor, appointmentDoctorController.cancelAppointment);
 
 
 
 
-
-// GET /api/patients - List all patients (with pagination/filter)
-router.get('/patient', isDoctor , doctorPatient.getDoctorPatients);
-// GET /api/patients/:id - Get single patient details
-router.get('/patient/:id', isDoctor , doctorPatient.getPatientById);
-// GET /api/patients/:id/medical-history - Get medical history
-router.get('/patient/:id/medical-history', isDoctor , doctorPatient.getMedicalHistory);
-// GET /api/patients/:id/consultations - Get consultations
-router.get('/patient/:id/consultations', isDoctor , doctorPatient.getConsultations);
-// GET /api/patients/:id/prescriptions - Get prescriptions
-router.get('/patient/:id/prescriptions', isDoctor , doctorPatient.getPrescriptions);
-// POST /api/patients/:id/consultations - Create new consultation
-router.post('/patient/:id/consultations', isDoctor , doctorPatient.createConsultation);
-// POST /api/patients/:id/prescriptions - Create new prescription
-router.post('/patient/:id/prescriptions', isDoctor , doctorPatient.createPrescription);
-
+// // GET /api/patients - List all patients (with pagination/filter)
+// router.get('/patient', isDoctor , doctorPatient.getDoctorPatients);
+// // GET /api/patients/:id - Get single patient details
+// router.get('/patient/:id', isDoctor , doctorPatient.getPatientById);
+// // GET /api/patients/:id/medical-history - Get medical history
+// router.get('/patient/:id/medical-history', isDoctor , doctorPatient.getMedicalHistory);
+// // GET /api/patients/:id/consultations - Get consultations
+// router.get('/patient/:id/consultations', isDoctor , doctorPatient.getConsultations);
+// // GET /api/patients/:id/prescriptions - Get prescriptions
+// router.get('/patient/:id/prescriptions', isDoctor , doctorPatient.getPrescriptions);
+// // POST /api/patients/:id/consultations - Create new consultation
+// router.post('/patient/:id/consultations', isDoctor , doctorPatient.createConsultation);
+// // POST /api/patients/:id/prescriptions - Create new prescription
+// router.post('/patient/:id/prescriptions', isDoctor , doctorPatient.createPrescription);
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// Get filtered list of patients page
+router.get('/patientList', isDoctor, doctorPatient.getPatients);
+router.get('/patient/:doctorId/history',isDoctor, doctorPatient.getPatientHistory);
+router.post('/patient/:doctorId/notes',isDoctor, doctorPatient.addPatientNote);
 
 
 

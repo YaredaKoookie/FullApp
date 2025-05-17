@@ -127,7 +127,7 @@ export const getAllWithdrawals = async (req, res) => {
 
     // Get withdrawals with pagination
     const withdrawals = await Withdrawal.find(query)
-      .populate("doctor", "name email")
+      .populate("doctor")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
@@ -153,8 +153,12 @@ export const getAllWithdrawals = async (req, res) => {
 
 export const approveWithdrawal = async (req, res) => {
   try {
-    const {sub : userId} =req.user
-    const withdrawal = await Withdrawal.findById({userId}).populate(
+    const {sub : userId} = req.user
+    const { doctorId } = req.params;
+    const doctor = await Doctor.findOne({userId});
+    console.log("doc",doctor);
+
+    const withdrawal = await Withdrawal.findById(doctorId).populate(
       "doctor"
     );
 
@@ -186,7 +190,7 @@ export const approveWithdrawal = async (req, res) => {
     await withdrawal.save();
 
     // Deduct from doctor's balance
-    await Doctor.findByIdAndUpdate(withdrawal.doctor._id, {
+    await Payment.findOneAndUpdate(withdrawal.doctor._id, {
       $inc: { balance: -withdrawal.amount },
     });
 

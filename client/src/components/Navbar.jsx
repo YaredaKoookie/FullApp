@@ -57,7 +57,7 @@ const Navbar = () => {
             </Link>
             {user ? (
               <Link
-                to={user.role === "patient" ? "/patient/dashboard" : "/doctor/dashboard"}
+                to={user.role === "patient" ? "/patient/dashboard" : user.role === "doctor" ?  "/doctor/dashboard" : user.role === "admin" ? "admin/dashboard" : ""}
                 className="text-sm font-medium text-gray-900 hover:text-indigo-600 flex items-center"
               >
                 <LayoutDashboardIcon className="h-5 w-5 mr-1" />

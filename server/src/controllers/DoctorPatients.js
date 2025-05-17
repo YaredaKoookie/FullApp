@@ -1,274 +1,175 @@
-import Patient from '../models/patient/patient.model';
-import Consultation from '../models/patient/medicalRecord.model';
-import Prescription from '../models/OtherModels/Prescription.models';
-import ServerError from '../utils/ServerError';
-import Appointment from '../models/appointment/appointment.model';
-import Doctor from '../models/doctors/doctor.model'
-import mongoose from 'mongoose'
+import Patient  from '../models/patient/patient.model'
+import Appointment  from '../models/appointment/appointment.model'
+import Doctor  from '../models/doctors/doctor.model'
 
-
-const getPagination = (page, size) => {
-  const limit = size ? +size : 10;
-  const offset = page ? (page - 1) * limit : 0;
-  return { limit, offset };
-};
-
-export const getDoctorPatients = async (req, res, next) => {
+// @desc    Get filtered list of patients
+// @route   GET /api/patients
+// @access  Private (Doctor)
+export const getPatients = async (req, res) => {
   try {
-    const userId = req.user.sub; // Assuming doctor ID comes from auth middleware
-    const { page = 1, limit = 10, search, status, sort = 'lastAppointment:desc' } = req.query;
-    const { limit: paginationLimit, offset } = getPagination(page, limit);
+    const { sub: userId } = req.user;
+    console.log("user",userId)
+    const doctor = await Doctor.findOne({userId})
+    console.log("doc",doctor)
+    const { search, type, lastAppointment, activeWithin, page = 1, limit = 10 } = req.query;
+    const doctorId = doctor.id;
 
-    // First get all patient IDs who have appointments with this doctor
-    const doctor = await Doctor.findOne({userId});
-    if(!doctor) {
-      res.json({
-        error:true
-      })
-    }
-    const doctorId = doctor._id.toString();
-    const appointments = await Appointment.find({ doctor: doctorId })
-      .select('patient')
-      .lean();
+    // Build query for confirmed appointments with this doctor
+    const appointmentQuery = {
+      doctor: doctorId,
+      status: 'confirmed'
+    };
 
-
-      console.log(appointments)
-    const patientIds = [...new Set(appointments.map(a => a.patient))];
-
-    if (patientIds.length === 0) {
-      return res.json({
-        success: true,
-        data: [],
-        pagination: {
-          total: 0,
-          page: +page,
-          totalPages: 0,
-          limit: +limit
-        }
-      });
+    // Apply filters
+    if (type && type !== 'all') appointmentQuery.type = type;
+    if (lastAppointment && lastAppointment !== 'any') {
+      appointmentQuery['slot.start'] = { $gte: getDateFilter(lastAppointment) };
     }
 
-    // Build query for patients
-    const query = { _id: { $in: patientIds } };
-    
-    if (status && status !== 'all') {
-      query.status = status;
+    // Get patient IDs with matching appointments
+    const patientIds = await Appointment.distinct('patient', appointmentQuery);
+    if (!patientIds.length) {
+      return res.json({ success: true, count: 0, totalCount: 0, patients: [] });
     }
-    
+
+    // Build patient query
+    const patientQuery = { _id: { $in: patientIds } };
     if (search) {
-      query.$or = [
-        { firstName: { $regex: search, $options: 'i' } },
-        { lastName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search, $options: 'i' } }
+      const searchRegex = new RegExp(search, 'i');
+      patientQuery.$or = [
+        { name: searchRegex },
+        // { email: searchRegex },
+        { phone: searchRegex }
       ];
     }
+    if (activeWithin && activeWithin !== 'any') {
+      const days = parseInt(activeWithin.replace('days', ''));
+      patientQuery.lastAppointmentDate = { 
+        $gte: new Date(new Date().setDate(new Date().getDate() - days))
+      };
+    }
 
-    // Get sorting key
-    const [sortKey, sortOrder] = sort.split(':');
-    const sortDirection = sortOrder === 'asc' ? 1 : -1;
-
-    // Get patients with their last appointment date
-    const [patients, total] = await Promise.all([
-      Patient.aggregate([
-        { $match: query },
-        {
-          $lookup: {
-            from: 'appointments',
-            let: { patientId: '$_id' },
-            pipeline: [
-              { 
-                $match: { 
-                  $expr: { 
-                    $and: [
-                      { $eq: ['$patient', '$$patientId'] },
-                      { $eq: ['$doctor', new mongoose.Types.ObjectId(doctorId) ] }
-                    ]
-                  } 
-                } 
-              },
-              { $sort: { date: -1 } },
-              { $limit: 1 }
-            ],
-            as: 'lastAppointment'
-          }
-        },
-        {
-          $addFields: {
-            lastAppointmentDate: { $arrayElemAt: ['$lastAppointment.date', 0] }
-          }
-        },
-        { $sort: { [sortKey === 'lastAppointment' ? 'lastAppointmentDate' : sortKey]: sortDirection } },
-        { $skip: offset },
-        { $limit: paginationLimit },
-        {
-          $project: {
-            password: 0,
-            __v: 0,
-            lastAppointment: 0
-          }
-        }
-      ]),
-      Patient.countDocuments(query)
+    // Get paginated results
+    const totalCount = await Patient.countDocuments(patientQuery);
+    const patients = await Patient.aggregate([
+      { $match: patientQuery },
+      { $lookup: {
+          from: 'appointments',
+          let: { patientId: '$_id' },
+          pipeline: [
+            { $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$patient', '$$patientId'] },
+                  { $eq: ['$doctor', doctorId] },
+                  { $eq: ['$status', 'confirmed'] }
+                ]
+              }
+            }},
+            { $count: 'count' }
+          ],
+          as: 'appointments'
+      }},
+      { $addFields: { appointmentCount: { $arrayElemAt: ['$appointments.count', 0] } } },
+      { $sort: { lastAppointmentDate: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: parseInt(limit) }
     ]);
 
     res.json({
       success: true,
-      data: patients,
-      pagination: {
-        total,
-        page: +page,
-        totalPages: Math.ceil(total / limit),
-        limit: +limit
-      }
+      count: patients.length,
+      totalCount,
+      patients: patients.map(formatPatientResponse)
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server Error' });
   }
 };
 
-export const getPatientById = async (req, res, next) => {
+// @desc    Get patient appointment history
+// @route   GET /api/patients/:id/history
+// @access  Private (Doctor)
+export const getPatientHistory = async (req, res) => {
   try {
-    const patient = await Patient.findById(req.params.id)
-      .select('-__v -createdAt')
-      .lean();
+    const {sub : userId} = req.user;
+    const doctor = await Doctor.findOne({userId});
+    const patient = await Patient.findOne({userId});
+    const history = await Appointment.find({
+      patient: params.id,
+      doctor: doctor.id,
+      status: { $in: ['confirmed', 'completed', 'cancelled'] }
+    })
+    .sort({ 'slot.start': -1 })
+    .lean();
 
+    res.json({ 
+      success: true,
+      history: history.map(a => ({
+        id: a._id,
+        type: a.type,
+        reason: a.reason,
+        status: a.status,
+        slot: { start: a.slot.start, end: a.slot.end }
+      }))
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
+// @desc    Add note to patient
+// @route   POST /api/patients/:id/notes
+// @access  Private (Doctor)
+export const addPatientNote = async (req, res) => {
+  try {
+    const patient = await Patient.findById(req.params.id);
     if (!patient) {
-      throw new ServerError.notFound('Patient not found');
+      return res.status(404).json({ success: false, error: 'Patient not found' });
     }
 
-    res.json({ success: true, data: patient });
-  } catch (error) {
-    next(error);
+    patient.notes = patient.notes || [];
+    patient.notes.push({
+      doctor: req.doctor.id,
+      note: req.body.note,
+      date: new Date()
+    });
+
+    await patient.save();
+    res.json({ success: true, data: patient.notes });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server Error' });
   }
 };
 
-export const getMedicalHistory = async (req, res, next) => {
-  try {
-    const history = await Patient.findById(req.params.id)
-      .select('medicalHistory allergies chronicConditions')
-      .lean();
-
-    if (!history) {
-      throw new ServerError.notFound('Patient not found');
-    }
-
-    res.json({ success: true, data: history });
-  } catch (error) {
-    next(error);
+// Helper functions
+function getDateFilter(range) {
+  const now = new Date();
+  switch (range) {
+    case 'lastWeek': return new Date(now.setDate(now.getDate() - 7));
+    case 'lastMonth': return new Date(now.setMonth(now.getMonth() - 1));
+    case 'last3Months': return new Date(now.setMonth(now.getMonth() - 3));
+    default: return new Date(0);
   }
-};
+}
 
-export const getConsultations = async (req, res, next) => {
-  try {
-    const consultations = await Consultation.find({ patient: req.params.id })
-      .sort({ date: -1 })
-      .lean();
+function formatPatientResponse(p) {
+  return {
+    id: p._id,
+    name: p.name,
+    email: p.email,
+    phone: p.phone,
+    age: calculateAge(p.dob),
+    avatar: p.avatar,
+    appointmentCount: p.appointmentCount || 0,
+    lastAppointmentDate: p.lastAppointmentDate,
+    lastAppointmentType: p.lastAppointmentType
+  };
+}
 
-    res.json({ 
-      success: true, 
-      data: consultations 
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const getPrescriptions = async (req, res, next) => {
-  try {
-    const prescriptions = await Prescription.find({ 
-      patient: req.params.id,
-      status: 'Active' // Only show active by default
-    })
-    .sort({ createdAt: -1 })
-    .lean();
-
-    res.json({ 
-      success: true, 
-      data: prescriptions 
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const searchPatients = async (req, res, next) => {
-  try {
-    const { query } = req.query;
-    
-    if (!query || query.length < 3) {
-      throw new ServerError.badRequest('Search query must be at least 3 characters');
-    }
-
-    const patients = await Patient.find({
-      $or: [
-        { name: { $regex: query, $options: 'i' } },
-        { email: { $regex: query, $options: 'i' } },
-        { phone: { $regex: query, $options: 'i' } },
-        { 'medicalHistory.condition': { $regex: query, $options: 'i' } }
-      ]
-    })
-    .limit(10)
-    .select('name email phone status lastVisit')
-    .lean();
-
-    res.json({ success: true, data: patients });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const createConsultation = async (req, res, next) => {
-  try {
-    const { reason, diagnosis, notes } = req.body;
-    
-    const consultation = new Consultation({
-      patient: req.params.id,
-      doctor: req.user.id,
-      reason,
-      diagnosis,
-      notes,
-      status: 'Scheduled'
-    });
-
-    await consultation.save();
-
-    // Update patient's last visit
-    await Patient.findByIdAndUpdate(req.params.id, { 
-      lastVisit: new Date() 
-    });
-
-    res.status(201).json({ 
-      success: true, 
-      data: consultation 
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const createPrescription = async (req, res, next) => {
-  try {
-    const { medication, dosage, frequency, instructions, duration } = req.body;
-    
-    const prescription = new Prescription({
-      patient: req.params.id,
-      doctor: req.user.id,
-      medication,
-      dosage,
-      frequency,
-      instructions,
-      duration,
-      status: 'Active'
-    });
-
-    await prescription.save();
-
-    res.status(201).json({ 
-      success: true, 
-      data: prescription 
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+function calculateAge(dob) {
+  return dob ? Math.floor((Date.now() - dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25)) : null;
+}

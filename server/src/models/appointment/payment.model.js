@@ -75,7 +75,8 @@ const paymentSchema = new mongoose.Schema({
         type: [refundSchema],
         required: false
     },
-    failureReason: {type: String}
+    failureReason: {type: String},
+    clearedForWithdrawal : {type : Boolean , default : false}
 }, {timestamps: true})
 
 

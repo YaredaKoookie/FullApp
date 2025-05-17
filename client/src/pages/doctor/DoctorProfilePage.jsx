@@ -59,7 +59,7 @@ const DoctorProfilePage = () => {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["doctorProfile"] });
+      queryClient.invalidateQueries({ queryKey: ['doctor', "profile"] });
       toast.success("Profile photo updated successfully");
     },
     onError: (error) => {
@@ -195,9 +195,9 @@ const DoctorProfilePage = () => {
                 <div className="md:col-span-1 flex flex-col items-center">
                   <div className="relative group">
                     <img
-                      src={`http://localhost:3000${editableProfile.profilePhoto}`}
+                      src={editableProfile.profilePhoto}
                       alt="Profile"
-                      className="w-40 h-40 rounded-full object-cover border-4 border-white shadow-md"
+                      className={`w-40 h-40 rounded-full object-cover border-4 border-white shadow-md ${photoMutation.isPending ? "animate-pulse pointer-events-none" : ""}`}
                     />
                     {isEditing && (
                       <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition">
