@@ -40,10 +40,16 @@ import AppointmentDetailsPage from "@/pages/patient/AppointmentDetailsPage";
 import Payments from "@/pages/patient/Payments";
 // import DoctorPatientsPage from "@/pages/doctor/DoctorAppointmentsDashboard";
 import AccountSetting from "@/pages/doctor/AccountSetting";
-import DoctorAppointmentsDashboard from "@/pages/doctor/DoctorAppointmentsDashboard";
+// import DoctorAppointmentsDashboard from "@/pages/doctor/DoctorAppointmentsDashboard";
 import DoctorListContent from "@/Admin/AdminDoctorListPage";
 import AdminPatientListContent from "@/Admin/AdminPatinet";
 import PaymentsWithdrawalsContent from "@/Admin/PaymentsWithdrawalsContent";
+import DoctorPaymentStatPage from "@/pages/doctor/DoctorPatientStatPage";
+import { AdminProfileRoute } from "@/components/AdminProtectedRoute";
+import AdminLayout from "@/Admin/AdminLayout";
+import AppProtector from "@/components/AppProtector";
+import DoctorAppointments from "@/pages/doctor/DoctorAppointments";
+import DoctorPatientPage from "@/pages/doctor/DoctorPatientPage";
 import DoctorProfileDetails from "@/pages/patient/DoctorProfileDetails";
 import IsProfileCompleted from "@/components/IsProfileCompleted";
 import PatientProfileCompletion from "@/pages/patient/PatientProfileComplete";
@@ -51,9 +57,21 @@ import PatientProfileCompletion from "@/pages/patient/PatientProfileComplete";
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route errorElement={<ErrorBoundary />}>
-      <Route path="/admin/doc" element={<DoctorListContent />} />
-      <Route path="/admin/pay" element={<PaymentsWithdrawalsContent />} />
-      <Route path="/admin/pat" element={<AdminPatientListContent />} />
+      <Route
+        path="admin"
+        element={
+          <AppProtector allowedRoles={["admin"]}>
+            <AdminLayout>
+              <AdminProfileRoute />
+            </AdminLayout>
+          </AppProtector>
+        }
+      >
+        <Route path="doctors" element={<DoctorListContent />} />
+        <Route path="payments" element={<PaymentsWithdrawalsContent />} />
+        <Route path="patients" element={<AdminPatientListContent />} />
+      </Route>
+
       <Route path="/" element={<App />}>
         <Route index element={<CureLogicHomepage />} />
       </Route>
@@ -64,16 +82,20 @@ const router = createBrowserRouter(
       <Route
         path="doctor"
         element={
-          <DoctorProtectedRoute>
-            <DoctorLayout />
-          </DoctorProtectedRoute>
+          <AppProtector allowedRoles={["doctor"]}>
+            <DoctorProtectedRoute>
+              <DoctorLayout />
+            </DoctorProtectedRoute>
+          </AppProtector>
         }
       >
         <Route index path="dashboard" element={<DoctorDashboard />} />
         <Route path="schedule" element={<DoctorSchedule />} />
         <Route path="profile" element={<DoctorProfilePage />} />
-        <Route path="patient" element={<DoctorAppointmentsDashboard />} />
+        <Route path="patient" element={<DoctorPatientPage />} />
+        <Route path="appointments" element={<DoctorAppointments />} />
         <Route path="setting" element={<AccountSetting />} />
+        <Route path="payments" element={<DoctorPaymentStatPage />} />
       </Route>
 
       {/* <Route
@@ -87,7 +109,14 @@ const router = createBrowserRouter(
 
       {/* this is my space */}
 
-      <Route path="/patient" element={<PatientLayout />}>
+      <Route
+        path="/patient"
+        element={
+          <AppProtector allowedRoles={["patient"]}>
+            <PatientLayout />
+          </AppProtector>
+        }
+      >
         <Route
           index
           path="dashboard"

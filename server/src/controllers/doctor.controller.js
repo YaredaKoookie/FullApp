@@ -6,6 +6,7 @@ import { ServerError } from "../utils";
 import sharp from "sharp";
 import path from "path";
 import fs from "fs";
+import { deleteImage, uploadImageCloud } from "../config/cloudinary.config";
 
 export const completeProfile = async (req, res) => {
   const { sub: userId } = req.user;
@@ -183,42 +184,51 @@ export const uploadDoctorProfileImage = async (req, res) => {
 
   if (!req.file) throw ServerError.badRequest("No file provided to upload");
 
-  let oldImagePath = null;
-  let newImagePath = null;
+  // let oldImagePath = null;
+  // let newImagePath = null;
 
-  if (doctor.profilePhoto) {
-    oldImagePath = path.join("public", doctor.profilePhoto);
+  // if (doctor.profilePhoto) {
+  //   oldImagePath = path.join("public", doctor.profilePhoto);
+  // }
+
+  // const fileId = crypto.randomUUID().toString("hex");
+  // const filePath = "/uploads/doctors";
+  // const fileName = `${fileId}.webp`;
+  // const uploadPath = path.join("public", filePath, fileName);
+
+  // await sharp(req.file.buffer)
+  //   .resize(500, 500)
+  //   .webp({ quality: 80 })
+  //   .toFile(uploadPath);
+
+  // newImagePath = `${filePath}/${fileName}`;
+  // req.body.profilePhoto = newImagePath;
+
+  if (doctor.profilePhotoId) {
+    await deleteImage(doctor.profilePhotoId);
   }
 
-  const fileId = crypto.randomUUID().toString("hex");
-  const filePath = "/uploads/doctors";
-  const fileName = `${fileId}.webp`;
-  const uploadPath = path.join("public", filePath, fileName);
-
-  await sharp(req.file.buffer)
-    .resize(500, 500)
-    .webp({ quality: 80 })
-    .toFile(uploadPath);
-
-  newImagePath = `${filePath}/${fileName}`;
-  req.body.profilePhoto = newImagePath;
+  const uploadResult = await uploadImageCloud(req.file.path, "doctorsProfile");
 
   const updateDoctor = await Doctor.findByIdAndUpdate(
     doctor._id, // Find by the patient's id
-    { profilePhoto: newImagePath }, // Fields to update
+    {
+      profilePhoto: uploadResult.url,
+      profilePhotoId: uploadResult.public_id,
+    }, // Fields to update
     {
       new: true, // Return the updated document
       runValidators: true, // Apply validation rules
     }
   );
 
-  if (oldImagePath) {
-    fs.unlink(oldImagePath, (err) => {
-      if (err) {
-        logger.error("Unable to delete old image:", err);
-      }
-    });
-  }
+  // if (oldImagePath) {
+  //   fs.unlink(oldImagePath, (err) => {
+  //     if (err) {
+  //       logger.error("Unable to delete old image:", err);
+  //     }
+  //   });
+  // }
 
   res.json({
     success: true,

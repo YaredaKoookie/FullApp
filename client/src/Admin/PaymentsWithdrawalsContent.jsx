@@ -269,7 +269,6 @@ function PaymentsSection() {
     },
     keepPreviousData: true,
   });
-  console.log("payemnt",paymentsData);
   const handleRefresh = () => {
     queryClient.invalidateQueries(["payments"]);
   };
@@ -311,13 +310,11 @@ function PaymentsSection() {
               onChange={(e) => setPaymentMethodFilter(e.target.value)}
             >
               <option value="all">All Methods</option>
-              <option value="stripe">Stripe</option>
-              <option value="paypal">PayPal</option>
+              <option value="stripe">tell Birr</option>
               <option value="bank">Bank Transfer</option>
-              <option value="cash">Cash</option>
             </select>
 
-            <div className="flex items-center space-x-2">
+            {/* <div className="flex items-center space-x-2">
               <input
                 type="date"
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -337,7 +334,7 @@ function PaymentsSection() {
                 }
                 placeholder="End date"
               />
-            </div>
+            </div> */}
 
             <button
               className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700"
@@ -590,9 +587,9 @@ function WithdrawalsSection({ setSelectedWithdrawal, setIsRejectModalOpen }) {
         limit: itemsPerPage,
       };
 
-      const response = await apiClient.get("/admin/withdraw", { params });
-      console.log("with", response.data);
-      return response.data || [];
+      const response = await apiClient.get("/admin/getWithdraw", { params });
+      console.log("with", response);
+      return response || [];
     },
     keepPreviousData: true,
   });
@@ -606,6 +603,7 @@ function WithdrawalsSection({ setSelectedWithdrawal, setIsRejectModalOpen }) {
       queryClient.invalidateQueries(["revenue-summary"]);
     },
   });
+  console.log("hi",approveWithdrawal)
 
   const handleRefresh = () => {
     queryClient.invalidateQueries(["withdrawals"]);

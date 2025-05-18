@@ -79,10 +79,11 @@ export const getDoctorById = async (req, res) => {
 };
 
 export const approveDoctor = async (req, res) => {
+  const {doctorId} = req.params;
   try {
-    const {sub :userId} = req.user;
-    const doctor = await Doctor.findOne({userId});
-    // console.log(doctor);
+    const doctor = await Doctor.findById(doctorId);
+
+    console.log(doctorId);
     if (!doctor) {
       return res.status(404).json({
         success: false,
