@@ -55,6 +55,14 @@ export const isPatient = [
   },
 ];
 
+export const isAdmin = [
+  verifyJWT,
+  (req, res, next) => {
+    if (req.user.role === "admin") return next();
+    next(ServerError.forbidden("Access Denied"));
+  },
+];
+
 export const isProfileCompleted = async (req, res, next) => {
   try {
     let hasProfile = false;
