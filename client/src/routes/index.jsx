@@ -44,14 +44,16 @@ import DoctorAppointmentsDashboard from "@/pages/doctor/DoctorAppointmentsDashbo
 import DoctorListContent from "@/Admin/AdminDoctorListPage";
 import AdminPatientListContent from "@/Admin/AdminPatinet";
 import PaymentsWithdrawalsContent from "@/Admin/PaymentsWithdrawalsContent";
+import DoctorProfileDetails from "@/pages/patient/DoctorProfileDetails";
+import IsProfileCompleted from "@/components/IsProfileCompleted";
+import PatientProfileCompletion from "@/pages/patient/PatientProfileComplete";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route errorElement={<ErrorBoundary />}>
-
-      <Route path="/admin/doc" element={<DoctorListContent/>}/>
-      <Route path="/admin/pay" element={<PaymentsWithdrawalsContent/>}/>
-      <Route path="/admin/pat" element={<AdminPatientListContent/>}/>
+      <Route path="/admin/doc" element={<DoctorListContent />} />
+      <Route path="/admin/pay" element={<PaymentsWithdrawalsContent />} />
+      <Route path="/admin/pat" element={<AdminPatientListContent />} />
       <Route path="/" element={<App />}>
         <Route index element={<CureLogicHomepage />} />
       </Route>
@@ -70,8 +72,8 @@ const router = createBrowserRouter(
         <Route index path="dashboard" element={<DoctorDashboard />} />
         <Route path="schedule" element={<DoctorSchedule />} />
         <Route path="profile" element={<DoctorProfilePage />} />
-        <Route path="patient" element={<DoctorAppointmentsDashboard/>} />
-        <Route path="setting" element={<AccountSetting/>} />
+        <Route path="patient" element={<DoctorAppointmentsDashboard />} />
+        <Route path="setting" element={<AccountSetting />} />
       </Route>
 
       {/* <Route
@@ -100,6 +102,14 @@ const router = createBrowserRouter(
           element={
             <ProtectedRoute>
               <Appointments />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="doctors/:doctorId/details"
+          element={
+            <ProtectedRoute>
+              <DoctorProfileDetails />
             </ProtectedRoute>
           }
         />
@@ -135,14 +145,7 @@ const router = createBrowserRouter(
             </ProtectedRoute>
           }
         />
-        <Route
-          path="profile-complete"
-          element={
-            <ProtectedRoute>
-              <PatientProfileComplete />
-            </ProtectedRoute>
-          }
-        />
+
         <Route
           path="appointments/:id"
           element={
@@ -152,6 +155,13 @@ const router = createBrowserRouter(
           }
         />
       </Route>
+
+      <Route
+        path="/patient/complete-profile"
+        element={<PatientProfileComplete />}
+      />
+
+      
 
       <Route path="auth" element={<RedirectIfLoggedIn />}>
         <Route index element={<Navigate to="/auth/login" replace />} />

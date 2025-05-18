@@ -1,423 +1,872 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
-import { Combobox, Listbox, Transition } from '@headlessui/react';
-import { Calendar } from 'lucide-react';
-import { format } from 'date-fns';
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { useMutation } from "@tanstack/react-query";
+import { CheckCircle, ChevronDown, Upload, X } from "lucide-react";
+import {
+  Description,
+  Dialog,
+  DialogBackdrop,
+  DialogPanel,
+  DialogTitle,
+  Listbox,
+  Transition,
+} from "@headlessui/react";
+import apiClient from "@/lib/apiClient";
+import { Link, useNavigate } from "react-router-dom";
 
-// Schema validation
-const schema = yup.object().shape({
-  name: yup.string().required('Full name is required'),
-  gender: yup.string().oneOf(['male', 'female', 'other']).required('Gender is required'),
-  phone: yup
-    .string()
-    .matches(
-      /^\+?[1-9]\d{1,14}$|^(\+?\d{1,3})?[\s\-]?\(?\d{1,4}\)?[\s\-]?\d{1,4}[\s\-]?\d{1,4}$/,
-      'Invalid phone number format'
-    )
-    .required('Phone number is required'),
-  dob: yup
-    .date()
-    .max(new Date(), 'Date of birth must be in the past')
-    .required('Date of birth is required'),
-  emergencyContact: yup
-    .array()
-    .of(
-      yup.object().shape({
-        name: yup.string().required('Emergency contact name is required'),
-        relation: yup.string().required('Relation is required'),
-        phone: yup
-          .string()
-          .matches(
-            /^\+?[1-9]\d{1,14}$|^(\+?\d{1,3})?[\s\-]?\(?\d{1,4}\)?[\s\-]?\d{1,4}[\s\-]?\d{1,4}$/,
-            'Invalid phone number format'
-          )
-          .required('Emergency contact phone is required'),
-      })
-    )
-    .min(1, 'At least one emergency contact is required'),
-  location: yup.object().shape({
-    country: yup.string().required('Country is required'),
-    city: yup.string().required('City is required'),
-    coordinates: yup.object().shape({
-      coordinates: yup
-        .array()
-        .of(yup.number())
-        .length(2, 'Coordinates must include longitude and latitude')
-        .required(),
-    }),
-  }),
-});
+const genderOptions = [
+  { id: 1, name: "Male", value: "male" },
+  { id: 2, name: "Female", value: "female" },
+  { id: 3, name: "Other", value: "other" },
+];
 
-const genderOptions = ['male', 'female', 'other'];
-const relationOptions = ['Parent', 'Spouse', 'Sibling', 'Child', 'Friend', 'Other'];
+const bloodTypeOptions = [
+  { id: 1, name: "A+", value: "A+" },
+  { id: 2, name: "A-", value: "A-" },
+  { id: 3, name: "B+", value: "B+" },
+  { id: 4, name: "B-", value: "B-" },
+  { id: 5, name: "AB+", value: "AB+" },
+  { id: 6, name: "AB-", value: "AB-" },
+  { id: 7, name: "O+", value: "O+" },
+  { id: 8, name: "O-", value: "O-" },
+  { id: 9, name: "Unknown", value: "" },
+];
 
-const PatientProfileCompletion = () => {
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [emergencyContacts, setEmergencyContacts] = useState([{ name: '', relation: '', phone: '' }]);
+const locationTypeOptions = [
+  { id: 1, name: "Home", value: "home" },
+  { id: 2, name: "Work", value: "work" },
+  { id: 3, name: "Other", value: "other" },
+];
+
+export default function ProfileCompletion() {
+  const [profileImage, setProfileImage] = useState(null);
+  const [profileImagePreview, setProfileImagePreview] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const navigate = useNavigate();
 
   const {
     register,
     handleSubmit,
+    control,
     setValue,
     watch,
     formState: { errors },
   } = useForm({
-    resolver: yupResolver(schema),
     defaultValues: {
-      emergencyContact: [{ name: '', relation: '', phone: '' }],
+      firstName: "",
+      middleName: "",
+      lastName: "",
+      gender: "",
+      phone: "",
+      bloodType: "",
+      dateOfBirth: "",
+      emergencyContact: [
+        {
+          name: "",
+          relation: "",
+          phone: "",
+          email: "",
+        },
+      ],
+      location: {
+        locationType: "home",
+        country: "",
+        city: "",
+        address: "",
+        postalCode: "",
+        state: "",
+        coordinates: [0, 0],
+      },
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: (data) =>
+      apiClient.post("/patient/profile", data, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }),
+    onSuccess: () => {
+      setIsSubmitting(false);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(true), 3000);
+    },
+    onError: (error) => {
+      setIsSubmitting(false);
+      console.error("Error submitting profile:", error);
+      // Handle error (show toast, etc.)
     },
   });
 
   const onSubmit = (data) => {
-    console.log('Form submitted:', data);
-    // Handle form submission
+    setIsSubmitting(true);
+
+    const formData = new FormData();
+    formData.append("firstName", data.firstName);
+    formData.append("middleName", data.middleName);
+    formData.append("lastName", data.lastName);
+    formData.append("gender", data.gender);
+    formData.append("phone", data.phone);
+    formData.append("bloodType", data.bloodType);
+    formData.append("dateOfBirth", data.dateOfBirth);
+    formData.append("emergencyContact", JSON.stringify(data.emergencyContact));
+    formData.append("location", JSON.stringify(data.location));
+
+    if (profileImage) {
+      formData.append("profileImage", profileImage);
+    }
+
+    mutation.mutate(formData);
   };
 
-  const addEmergencyContact = () => {
-    setEmergencyContacts([...emergencyContacts, { name: '', relation: '', phone: '' }]);
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProfileImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  const removeEmergencyContact = (index) => {
-    const updatedContacts = [...emergencyContacts];
-    updatedContacts.splice(index, 1);
-    setEmergencyContacts(updatedContacts);
+  const removeImage = () => {
+    setProfileImage(null);
+    setProfileImagePreview(null);
+    setValue("profileImage", null);
   };
 
-  const handleDateSelect = (date) => {
-    setSelectedDate(date);
-    setValue('dob', date);
-    setShowDatePicker(false);
-  };
+  // Automatically get user's location coordinates if possible
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setValue("location.coordinates", [
+            position.coords.longitude,
+            position.coords.latitude,
+          ]);
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+        }
+      );
+    }
+  }, [setValue]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          {/* Header */}
-          <div className="bg-indigo-600 px-6 py-8 text-center">
-            <h1 className="text-3xl font-bold text-white">Complete Your Profile</h1>
-            <p className="mt-2 text-indigo-100">
-              Please fill in the required information to complete your patient profile
-            </p>
-          </div>
+    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-3xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-extrabold text-gray-900">
+            Complete Your Profile
+          </h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Please fill in the required information to complete your patient
+            profile.
+          </p>
+        </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-8 space-y-8">
-            {/* Personal Information Section */}
-            <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-800 border-b pb-2">Personal Information</h2>
-
-              {/* Name */}
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="name"
-                  type="text"
-                  {...register('name')}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
-                    errors.name ? 'border-red-500' : 'border'
-                  }`}
-                />
-                {errors.name && (
-                  <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
-                )}
-              </div>
-
-              {/* Gender */}
-              <div>
-                <label htmlFor="gender" className="block text-sm font-medium text-gray-700">
-                  Gender <span className="text-red-500">*</span>
-                </label>
-                <select
-                  id="gender"
-                  {...register('gender')}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
-                    errors.gender ? 'border-red-500' : 'border'
-                  }`}
-                >
-                  <option value="">Select gender</option>
-                  {genderOptions.map((gender) => (
-                    <option key={gender} value={gender}>
-                      {gender.charAt(0).toUpperCase() + gender.slice(1)}
-                    </option>
-                  ))}
-                </select>
-                {errors.gender && (
-                  <p className="mt-1 text-sm text-red-600">{errors.gender.message}</p>
-                )}
-              </div>
-
-              {/* Phone */}
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                  Phone Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="phone"
-                  type="tel"
-                  {...register('phone')}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
-                    errors.phone ? 'border-red-500' : 'border'
-                  }`}
-                />
-                {errors.phone && (
-                  <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
-                )}
-              </div>
-
-              {/* Date of Birth */}
-              <div>
-                <label htmlFor="dob" className="block text-sm font-medium text-gray-700">
-                  Date of Birth <span className="text-red-500">*</span>
-                </label>
-                <div className="relative mt-1">
-                  <input
-                    id="dob"
-                    type="text"
-                    readOnly
-                    value={selectedDate ? format(selectedDate, 'MM/dd/yyyy') : ''}
-                    onClick={() => setShowDatePicker(!showDatePicker)}
-                    className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
-                      errors.dob ? 'border-red-500' : 'border'
-                    }`}
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <Calendar className="h-5 w-5 text-gray-400" />
-                  </div>
-                </div>
-                {showDatePicker && (
-                  <div className="mt-2 z-10">
-                    <input type="date" selected={selectedDate} onChange={handleDateSelect} inline />
-                  </div>
-                )}
-                {errors.dob && (
-                  <p className="mt-1 text-sm text-red-600">{errors.dob.message}</p>
-                )}
-              </div>
+        <Dialog
+          open={showSuccess}
+          className="z-50 relative"
+          onClose={() => navigate("/patient/dashboard", { replace: true })}
+        >
+          <DialogBackdrop className="fixed inset-0 bg-black/80" />
+          <div className="fixed inset-0 flex items-center justify-center">
+          <DialogPanel className="bg-gray-100 rounded max-w-md p-12 border-green-500 border-4 text-center">
+            <CheckCircle className="w-12 h-12 mx-auto text-green-500 mb-4" />
+            <DialogTitle className="font-semibold text-lg mb-5">Profile Completed Successfully</DialogTitle>
+            <Description className="font-medium text-gray-800 mb-8">
+              You have completed your profile now you can access the platform as
+              you need.
+            </Description>
+            <div className="flex justify-center gap-4">
+              <button
+                to={() => navigate("/patient/dashboard", { replace: true })}
+                className="px-5 py-2 bg-green-500 hover:bg-green-400 rounded text-sm font-semibold text-white"
+              >
+                Ok
+              </button>
             </div>
+          </DialogPanel>
+          </div>
+        </Dialog>
 
-            {/* Emergency Contacts Section */}
-            <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-800 border-b pb-2">
-                Emergency Contacts <span className="text-red-500">*</span>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="px-4 py-5 sm:p-6">
+              <h2 className="text-lg font-medium text-gray-900 mb-6">
+                Personal Information
               </h2>
 
-              {emergencyContacts.map((_, index) => (
-                <div key={index} className="bg-gray-50 p-4 rounded-lg space-y-4 relative">
-                  {emergencyContacts.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeEmergencyContact(index)}
-                      className="absolute top-2 right-2 text-red-500 hover:text-red-700"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
+              <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                {/* Profile Image Upload */}
+                <div className="sm:col-span-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Profile Photo
+                  </label>
+                  <div className="flex items-center">
+                    <div className="relative rounded-full overflow-hidden h-24 w-24 bg-gray-100">
+                      {profileImagePreview ? (
+                        <>
+                          <img
+                            src={profileImagePreview}
+                            alt="Profile preview"
+                            className="h-full w-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={removeImage}
+                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </>
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center text-gray-400">
+                          <Upload className="h-8 w-8" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="ml-4">
+                      <label
+                        htmlFor="profileImage"
+                        className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       >
-                        <path
-                          fillRule="evenodd"
-                          d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </button>
-                  )}
+                        <Upload className="-ml-1 mr-2 h-5 w-5 text-gray-500" />
+                        {profileImagePreview ? "Change" : "Upload"}
+                      </label>
+                      <input
+                        id="profileImage"
+                        name="profileImage"
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        onChange={handleImageChange}
+                      />
+                    </div>
+                  </div>
+                </div>
 
-                  <div>
+                {/* First Name */}
+                <div className="sm:col-span-2">
+                  <label
+                    htmlFor="firstName"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    First Name *
+                  </label>
+                  <input
+                    type="text"
+                    id="firstName"
+                    {...register("firstName", {
+                      required: "First name is required",
+                    })}
+                    className={`mt-1 block w-full border ${
+                      errors.firstName ? "border-red-300" : "border-gray-300"
+                    } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                  />
+                  {errors.firstName && (
+                    <p className="mt-2 text-sm text-red-600">
+                      {errors.firstName.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Middle Name */}
+                <div className="sm:col-span-2">
+                  <label
+                    htmlFor="middleName"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Middle Name *
+                  </label>
+                  <input
+                    type="text"
+                    id="middleName"
+                    {...register("middleName", {
+                      required: "Middle name is required",
+                    })}
+                    className={`mt-1 block w-full border ${
+                      errors.middleName ? "border-red-300" : "border-gray-300"
+                    } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                  />
+                  {errors.middleName && (
+                    <p className="mt-2 text-sm text-red-600">
+                      {errors.middleName.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Last Name */}
+                <div className="sm:col-span-2">
+                  <label
+                    htmlFor="lastName"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Last Name *
+                  </label>
+                  <input
+                    type="text"
+                    id="lastName"
+                    {...register("lastName", {
+                      required: "Last name is required",
+                    })}
+                    className={`mt-1 block w-full border ${
+                      errors.lastName ? "border-red-300" : "border-gray-300"
+                    } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                  />
+                  {errors.lastName && (
+                    <p className="mt-2 text-sm text-red-600">
+                      {errors.lastName.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Gender */}
+                <div className="sm:col-span-3">
+                  <label
+                    htmlFor="gender"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Gender *
+                  </label>
+                  <Listbox
+                    value={watch("gender")}
+                    onChange={(value) => setValue("gender", value)}
+                  >
+                    {({ open }) => (
+                      <>
+                        <div className="mt-1 relative">
+                          <Listbox.Button className="relative w-full bg-white border border-gray-300 rounded-md shadow-sm pl-3 pr-10 py-2 text-left cursor-default focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <span className="block truncate">
+                              {genderOptions.find(
+                                (g) => g.value === watch("gender")
+                              )?.name || "Select gender"}
+                            </span>
+                            <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                              <ChevronDown className="h-5 w-5 text-gray-400" />
+                            </span>
+                          </Listbox.Button>
+
+                          <Transition
+                            show={open}
+                            leave="transition ease-in duration-100"
+                            leaveFrom="opacity-100"
+                            leaveTo="opacity-0"
+                          >
+                            <Listbox.Options className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+                              {genderOptions.map((gender) => (
+                                <Listbox.Option
+                                  key={gender.id}
+                                  className={({ active }) =>
+                                    `${
+                                      active
+                                        ? "text-white bg-blue-600"
+                                        : "text-gray-900"
+                                    } cursor-default select-none relative py-2 pl-3 pr-9`
+                                  }
+                                  value={gender.value}
+                                >
+                                  {({ selected }) => (
+                                    <>
+                                      <span
+                                        className={`${
+                                          selected
+                                            ? "font-semibold"
+                                            : "font-normal"
+                                        } block truncate`}
+                                      >
+                                        {gender.name}
+                                      </span>
+                                    </>
+                                  )}
+                                </Listbox.Option>
+                              ))}
+                            </Listbox.Options>
+                          </Transition>
+                        </div>
+                      </>
+                    )}
+                  </Listbox>
+                  {errors.gender && (
+                    <p className="mt-2 text-sm text-red-600">
+                      Gender is required
+                    </p>
+                  )}
+                </div>
+
+                {/* Blood Type */}
+                <div className="sm:col-span-3">
+                  <label
+                    htmlFor="bloodType"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Blood Type
+                  </label>
+                  <Listbox
+                    value={watch("bloodType")}
+                    onChange={(value) => setValue("bloodType", value)}
+                  >
+                    {({ open }) => (
+                      <>
+                        <div className="mt-1 relative">
+                          <Listbox.Button className="relative w-full bg-white border border-gray-300 rounded-md shadow-sm pl-3 pr-10 py-2 text-left cursor-default focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <span className="block truncate">
+                              {bloodTypeOptions.find(
+                                (b) => b.value === watch("bloodType")
+                              )?.name || "Select blood type"}
+                            </span>
+                            <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                              <ChevronDown className="h-5 w-5 text-gray-400" />
+                            </span>
+                          </Listbox.Button>
+
+                          <Transition
+                            show={open}
+                            leave="transition ease-in duration-100"
+                            leaveFrom="opacity-100"
+                            leaveTo="opacity-0"
+                          >
+                            <Listbox.Options className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+                              {bloodTypeOptions.map((bloodType) => (
+                                <Listbox.Option
+                                  key={bloodType.id}
+                                  className={({ active }) =>
+                                    `${
+                                      active
+                                        ? "text-white bg-blue-600"
+                                        : "text-gray-900"
+                                    } cursor-default select-none relative py-2 pl-3 pr-9`
+                                  }
+                                  value={bloodType.value}
+                                >
+                                  {({ selected }) => (
+                                    <>
+                                      <span
+                                        className={`${
+                                          selected
+                                            ? "font-semibold"
+                                            : "font-normal"
+                                        } block truncate`}
+                                      >
+                                        {bloodType.name}
+                                      </span>
+                                    </>
+                                  )}
+                                </Listbox.Option>
+                              ))}
+                            </Listbox.Options>
+                          </Transition>
+                        </div>
+                      </>
+                    )}
+                  </Listbox>
+                </div>
+
+                {/* Phone */}
+                <div className="sm:col-span-3">
+                  <label
+                    htmlFor="phone"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    {...register("phone", {
+                      required: "Phone number is required",
+                      pattern: {
+                        value:
+                          /^(\+?\d{1,3}[-. ]?)?(\(?\d{3}\)?[-. ]?)?\d{3}[-. ]?\d{4}$|^(\+251|0)(9|7)\d{8}$/,
+                        message: "Invalid phone number format",
+                      },
+                    })}
+                    className={`mt-1 block w-full border ${
+                      errors.phone ? "border-red-300" : "border-gray-300"
+                    } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                  />
+                  {errors.phone && (
+                    <p className="mt-2 text-sm text-red-600">
+                      {errors.phone.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Date of Birth */}
+                <div className="sm:col-span-3">
+                  <label
+                    htmlFor="dateOfBirth"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Date of Birth *
+                  </label>
+                  <input
+                    type="date"
+                    id="dateOfBirth"
+                    {...register("dateOfBirth", {
+                      required: "Date of birth is required",
+                      validate: (value) => {
+                        const selectedDate = new Date(value);
+                        const today = new Date();
+                        return (
+                          selectedDate < today ||
+                          "Date of birth must be in the past"
+                        );
+                      },
+                    })}
+                    className={`mt-1 block w-full border ${
+                      errors.dateOfBirth ? "border-red-300" : "border-gray-300"
+                    } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                  />
+                  {errors.dateOfBirth && (
+                    <p className="mt-2 text-sm text-red-600">
+                      {errors.dateOfBirth.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Emergency Contact Section */}
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="px-4 py-5 sm:p-6">
+              <h2 className="text-lg font-medium text-gray-900 mb-6">
+                Emergency Contact
+              </h2>
+
+              {watch("emergencyContact")?.map((contact, index) => (
+                <div
+                  key={index}
+                  className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6 mb-6"
+                >
+                  <div className="sm:col-span-6">
+                    <h3 className="text-md font-medium text-gray-700">
+                      Contact #{index + 1}
+                    </h3>
+                  </div>
+
+                  {/* Name */}
+                  <div className="sm:col-span-3">
                     <label
                       htmlFor={`emergencyContact.${index}.name`}
                       className="block text-sm font-medium text-gray-700"
                     >
-                      Name <span className="text-red-500">*</span>
+                      Full Name *
                     </label>
                     <input
-                      id={`emergencyContact.${index}.name`}
                       type="text"
-                      {...register(`emergencyContact.${index}.name`)}
-                      className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
-                        errors.emergencyContact?.[index]?.name ? 'border-red-500' : 'border'
-                      }`}
+                      id={`emergencyContact.${index}.name`}
+                      {...register(`emergencyContact.${index}.name`, {
+                        required: "Name is required",
+                      })}
+                      className={`mt-1 block w-full border ${
+                        errors.emergencyContact?.[index]?.name
+                          ? "border-red-300"
+                          : "border-gray-300"
+                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                     />
                     {errors.emergencyContact?.[index]?.name && (
-                      <p className="mt-1 text-sm text-red-600">
+                      <p className="mt-2 text-sm text-red-600">
                         {errors.emergencyContact[index].name.message}
                       </p>
                     )}
                   </div>
 
-                  <div>
+                  {/* Relation */}
+                  <div className="sm:col-span-3">
                     <label
                       htmlFor={`emergencyContact.${index}.relation`}
                       className="block text-sm font-medium text-gray-700"
                     >
-                      Relation <span className="text-red-500">*</span>
+                      Relationship *
                     </label>
-                    <select
+                    <input
+                      type="text"
                       id={`emergencyContact.${index}.relation`}
-                      {...register(`emergencyContact.${index}.relation`)}
-                      className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
-                        errors.emergencyContact?.[index]?.relation ? 'border-red-500' : 'border'
-                      }`}
-                    >
-                      <option value="">Select relation</option>
-                      {relationOptions.map((relation) => (
-                        <option key={relation} value={relation}>
-                          {relation}
-                        </option>
-                      ))}
-                    </select>
+                      {...register(`emergencyContact.${index}.relation`, {
+                        required: "Relationship is required",
+                      })}
+                      className={`mt-1 block w-full border ${
+                        errors.emergencyContact?.[index]?.relation
+                          ? "border-red-300"
+                          : "border-gray-300"
+                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                    />
                     {errors.emergencyContact?.[index]?.relation && (
-                      <p className="mt-1 text-sm text-red-600">
+                      <p className="mt-2 text-sm text-red-600">
                         {errors.emergencyContact[index].relation.message}
                       </p>
                     )}
                   </div>
 
-                  <div>
+                  {/* Phone */}
+                  <div className="sm:col-span-3">
                     <label
                       htmlFor={`emergencyContact.${index}.phone`}
                       className="block text-sm font-medium text-gray-700"
                     >
-                      Phone Number <span className="text-red-500">*</span>
+                      Phone Number *
                     </label>
                     <input
-                      id={`emergencyContact.${index}.phone`}
                       type="tel"
-                      {...register(`emergencyContact.${index}.phone`)}
-                      className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
-                        errors.emergencyContact?.[index]?.phone ? 'border-red-500' : 'border'
-                      }`}
+                      id={`emergencyContact.${index}.phone`}
+                      {...register(`emergencyContact.${index}.phone`, {
+                        required: "Phone number is required",
+                        pattern: {
+                          value:
+                            /^(\+?\d{1,3}[-. ]?)?(\(?\d{3}\)?[-. ]?)?\d{3}[-. ]?\d{4}$|^(\+251|0)(9|7)\d{8}$/,
+                          message: "Invalid phone number format",
+                        },
+                      })}
+                      className={`mt-1 block w-full border ${
+                        errors.emergencyContact?.[index]?.phone
+                          ? "border-red-300"
+                          : "border-gray-300"
+                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                     />
                     {errors.emergencyContact?.[index]?.phone && (
-                      <p className="mt-1 text-sm text-red-600">
+                      <p className="mt-2 text-sm text-red-600">
                         {errors.emergencyContact[index].phone.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Email */}
+                  <div className="sm:col-span-3">
+                    <label
+                      htmlFor={`emergencyContact.${index}.email`}
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      id={`emergencyContact.${index}.email`}
+                      {...register(`emergencyContact.${index}.email`, {
+                        pattern: {
+                          value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                          message: "Invalid email address",
+                        },
+                      })}
+                      className={`mt-1 block w-full border ${
+                        errors.emergencyContact?.[index]?.email
+                          ? "border-red-300"
+                          : "border-gray-300"
+                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                    />
+                    {errors.emergencyContact?.[index]?.email && (
+                      <p className="mt-2 text-sm text-red-600">
+                        {errors.emergencyContact[index].email.message}
                       </p>
                     )}
                   </div>
                 </div>
               ))}
-
-              <button
-                type="button"
-                onClick={addEmergencyContact}
-                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 mr-1"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                Add Another Emergency Contact
-              </button>
             </div>
+          </div>
 
-            {/* Location Section */}
-            <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-800 border-b pb-2">Location Information</h2>
+          {/* Location Section */}
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="px-4 py-5 sm:p-6">
+              <h2 className="text-lg font-medium text-gray-900 mb-6">
+                Location Information
+              </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="country" className="block text-sm font-medium text-gray-700">
-                    Country <span className="text-red-500">*</span>
+              <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                {/* Location Type */}
+                <div className="sm:col-span-6">
+                  <label
+                    htmlFor="location.locationType"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Location Type
+                  </label>
+                  <Listbox
+                    value={watch("location.locationType")}
+                    onChange={(value) =>
+                      setValue("location.locationType", value)
+                    }
+                  >
+                    {({ open }) => (
+                      <>
+                        <div className="mt-1 relative">
+                          <Listbox.Button className="relative w-full bg-white border border-gray-300 rounded-md shadow-sm pl-3 pr-10 py-2 text-left cursor-default focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <span className="block truncate">
+                              {locationTypeOptions.find(
+                                (l) =>
+                                  l.value === watch("location.locationType")
+                              )?.name || "Select location type"}
+                            </span>
+                            <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                              <ChevronDown className="h-5 w-5 text-gray-400" />
+                            </span>
+                          </Listbox.Button>
+
+                          <Transition
+                            show={open}
+                            leave="transition ease-in duration-100"
+                            leaveFrom="opacity-100"
+                            leaveTo="opacity-0"
+                          >
+                            <Listbox.Options className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+                              {locationTypeOptions.map((locationType) => (
+                                <Listbox.Option
+                                  key={locationType.id}
+                                  className={({ active }) =>
+                                    `${
+                                      active
+                                        ? "text-white bg-blue-600"
+                                        : "text-gray-900"
+                                    } cursor-default select-none relative py-2 pl-3 pr-9`
+                                  }
+                                  value={locationType.value}
+                                >
+                                  {({ selected }) => (
+                                    <>
+                                      <span
+                                        className={`${
+                                          selected
+                                            ? "font-semibold"
+                                            : "font-normal"
+                                        } block truncate`}
+                                      >
+                                        {locationType.name}
+                                      </span>
+                                    </>
+                                  )}
+                                </Listbox.Option>
+                              ))}
+                            </Listbox.Options>
+                          </Transition>
+                        </div>
+                      </>
+                    )}
+                  </Listbox>
+                </div>
+
+                {/* Country */}
+                <div className="sm:col-span-3">
+                  <label
+                    htmlFor="location.country"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Country *
                   </label>
                   <input
-                    id="country"
                     type="text"
-                    {...register('location.country')}
-                    className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
-                      errors.location?.country ? 'border-red-500' : 'border'
-                    }`}
+                    id="location.country"
+                    {...register("location.country", {
+                      required: "Country is required",
+                    })}
+                    className={`mt-1 block w-full border ${
+                      errors.location?.country
+                        ? "border-red-300"
+                        : "border-gray-300"
+                    } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                   />
                   {errors.location?.country && (
-                    <p className="mt-1 text-sm text-red-600">{errors.location.country.message}</p>
+                    <p className="mt-2 text-sm text-red-600">
+                      {errors.location.country.message}
+                    </p>
                   )}
                 </div>
 
-                <div>
-                  <label htmlFor="city" className="block text-sm font-medium text-gray-700">
-                    City <span className="text-red-500">*</span>
+                {/* City */}
+                <div className="sm:col-span-3">
+                  <label
+                    htmlFor="location.city"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    City *
                   </label>
                   <input
-                    id="city"
                     type="text"
-                    {...register('location.city')}
-                    className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
-                      errors.location?.city ? 'border-red-500' : 'border'
-                    }`}
+                    id="location.city"
+                    {...register("location.city", {
+                      required: "City is required",
+                    })}
+                    className={`mt-1 block w-full border ${
+                      errors.location?.city
+                        ? "border-red-300"
+                        : "border-gray-300"
+                    } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                   />
                   {errors.location?.city && (
-                    <p className="mt-1 text-sm text-red-600">{errors.location.city.message}</p>
+                    <p className="mt-2 text-sm text-red-600">
+                      {errors.location.city.message}
+                    </p>
                   )}
                 </div>
-              </div>
 
-              <div>
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700">
-                  Address
-                </label>
-                <input
-                  id="address"
-                  type="text"
-                  {...register('location.address')}
-                  className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                />
-              </div>
+                {/* Address */}
+                <div className="sm:col-span-6">
+                  <label
+                    htmlFor="location.address"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Address
+                  </label>
+                  <input
+                    type="text"
+                    id="location.address"
+                    {...register("location.address")}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="state" className="block text-sm font-medium text-gray-700">
+                {/* State */}
+                <div className="sm:col-span-2">
+                  <label
+                    htmlFor="location.state"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     State/Province
                   </label>
                   <input
-                    id="state"
                     type="text"
-                    {...register('location.state')}
-                    className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    id="location.state"
+                    {...register("location.state")}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   />
                 </div>
 
-                <div>
-                  <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700">
+                {/* Postal Code */}
+                <div className="sm:col-span-2">
+                  <label
+                    htmlFor="location.postalCode"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     Postal Code
                   </label>
                   <input
-                    id="postalCode"
                     type="text"
-                    {...register('location.postalCode')}
-                    className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    id="location.postalCode"
+                    {...register("location.postalCode")}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   />
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Submit Button */}
-            <div className="pt-6">
-              <button
-                type="submit"
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Complete Profile
-              </button>
-            </div>
-          </form>
-        </div>
+          {/* Submit Button */}
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? "Submitting..." : "Complete Profile"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
-};
-
-export default PatientProfileCompletion;
+}

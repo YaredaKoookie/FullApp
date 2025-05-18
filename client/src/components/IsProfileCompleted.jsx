@@ -2,7 +2,7 @@ import { useAuth } from '@/context/AuthContext'
 import { Navigate, Outlet } from 'react-router-dom';
 import Loading from './Loading';
 
-const ProtectedRoute = ({children}) => {
+const IsProfileCompleted = ({children}) => {
   const {user, isLoading} = useAuth();
 
   if(isLoading)
@@ -11,6 +11,8 @@ const ProtectedRoute = ({children}) => {
   if(!user)
     return <Navigate to="/auth/login" replace />
 
+  console.log(user);
+
   if(!user.isProfileCompleted){
     return <Navigate to="/patient/complete-profile" replace />
   }
@@ -18,4 +20,4 @@ const ProtectedRoute = ({children}) => {
   return children || <Outlet />
 }
 
-export default ProtectedRoute
+export default IsProfileCompleted

@@ -106,7 +106,7 @@ const DoctorSidebar = ({ isCollapsed, setIsCollapsed }) => {
         <div className="absolute bottom-6 left-6 right-6">
           <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-indigo-50 transition-colors cursor-pointer">
             <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-              <img src={user.avatar.name} alt="avatar" />
+              <img src={user.avatar} alt="avatar" />
             </div>
             <div className="overflow-hidden">
               {/* <p className="font-medium text-sm truncate">{`http://localhost:3000/${user.avatar}`}</p> */}

@@ -1,9 +1,9 @@
 import jwt from "jsonwebtoken";
 import { ServerError } from "../utils";
 import { env } from "../config";
-import Doctor from "../models/doctors/doctor.model";
 import User from "../models/user.model";
-
+import Patient from "../models/patient/patient.model";
+import Doctor from "../models/doctors/doctor.model";
 
 export const verifyJWT = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -55,11 +55,26 @@ export const isPatient = [
   },
 ];
 
-export const isProfileCompleted = (req, res, next) => {
-  if (!req.user.isProfileCompleted)
-    throw ServerError.forbidden(
-      "Access Denied! you need to complete your profile"
-    );
+export const isProfileCompleted = async (req, res, next) => {
+  try {
+    let hasProfile = false;
 
-  next();
+    if(!req.user.sub)
+      throw ServerError.badRequest("user not found");
+
+    if (req.user.role === "patient") {
+      hasProfile = await Patient.exists({ user: req.user.sub });
+    } else if (req.user.role === "doctor") {
+      hasProfile = await Doctor.exists({ userId: req.user.sub });
+    } else throw ServerError.forbidden("malformed credential");
+
+    if (!hasProfile)
+      throw ServerError.forbidden(
+        "Access Denied! you need to complete your profile"
+      );
+
+    next();
+  } catch (error) {
+    next(error);
+  }
 };

@@ -1,5 +1,6 @@
 import Appointment, {
   APPOINTMENT_STATUS,
+  APPOINTMENT_TYPES,
   RESCHEDULE_STATUS,
 } from "../models/appointment/appointment.model";
 import Doctor from "../models/doctors/doctor.model";
@@ -18,61 +19,82 @@ import { initiateRefund } from "../utils/payment.util";
 import appointmentModel from "../models/appointment/appointment.model";
 
 export const requestAppointment = async (req, res) => {
-  const doctorId = req.params.doctorId;
-  const { reason, appointmentType, slotId } = req.body;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  const doctor = await Doctor.findById(doctorId);
+  try {
+    const doctorId = req.params.doctorId;
+    const { reason, appointmentType, slotId } = req.body;
 
-  if (!doctor) throw ServerError.notFound("doctor not found");
+    // 1. Verify doctor exists (in transaction)
+    const doctor = await Doctor.findById(doctorId).session(session);
+    if (!doctor) throw ServerError.notFound("Doctor not found");
 
-  const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
+    // 2. Verify patient exists (in transaction)
+    const patient = await Patient.findOne({ user: req.user.sub })
+      .select("_id")
+      .session(session);
+    if (!patient) throw ServerError.notFound("Patient not found");
 
-  if (!patient) throw ServerError.notFound("patient not found");
+    // 3. Atomically reserve slot and check conflicts (with transaction)
+    const { start, end } = await slotUtils.handleSlotConflict(
+      slotId,
+      doctor._id,
+      patient._id,
+      session
+    );
 
-  const { start, end } = await slotUtils.handleSlotConflict(
-    slotId,
-    doctor._id,
-    patient._id
-  );
+    // 4. Create new appointment (in transaction)
+    const newAppointment = new Appointment({
+      patient: patient._id,
+      doctor: doctor._id,
+      appointmentType,
+      reason,
+      fee: doctor.consultationFee,
+      slot: { start, end, slotId },
+      status: APPOINTMENT_STATUS.PENDING,
+    });
 
-  // Create new appointment
-  const newAppointment = new Appointment({
-    patient: patient._id,
-    doctor: doctor._id,
-    appointmentType,
-    reason,
-    fee: doctor.consultationFee,
-    slot: { start, end, slotId },
-    status: APPOINTMENT_STATUS.PENDING,
-  });
+    await newAppointment.save({ session });
 
-  await newAppointment.save();
-  await Schedule.updateOne(
-    { doctorId: doctor._id, "availableSlots._id": slotId },
-    {
-      $set: {
-        "availableSlots.$.isBooked": true,
-        "availableSlots.$.bookedAt": new Date(),
+    // 5. Confirm slot booking (already done in handleSlotConflict)
+    // No need for separate update here
+
+    // 6. Commit the transaction
+    await session.commitTransaction();
+
+    // 7. Populate appointment details (outside transaction for better performance)
+    const populatedAppointment = await Appointment.populate(newAppointment, [
+      { path: "patient", select: "firstName lastName profileImage" },
+      {
+        path: "doctor",
+        select: "firstName lastName specialization profilePhoto",
       },
+    ]);
+
+    // 8. Send success response
+    res.status(201).json({
+      success: true,
+      message: "Appointment created successfully",
+      data: {
+        appointment: populatedAppointment,
+      },
+    });
+  } catch (error) {
+    // 9. If anything fails, abort the transaction
+    await session.abortTransaction();
+    
+    // Handle specific error types if needed
+    if (error.message.includes("Time slot not available")) {
+      throw ServerError.conflict("This time slot was just booked by another user");
     }
-  );
-
-  // Populate patient and doctor details in the response
-  const populatedAppointment = await Appointment.populate(newAppointment, [
-    { path: "patient", select: "firstName lastName profileImage" },
-    {
-      path: "doctor",
-      select: "firstName lastName specialization profilePhoto",
-    },
-  ]);
-
-  res.status(201).json({
-    success: true,
-    message: "Appointment created successfully",
-    data: {
-      appointment: populatedAppointment,
-    },
-  });
+    
+    // Re-throw other errors
+    throw error;
+  } finally {
+    // 10. End the session
+    session.endSession();
+  }
 };
 
 export const updatePendingAppointment = async (req, res) => {};
@@ -80,6 +102,8 @@ export const updatePendingAppointment = async (req, res) => {};
 export const patientCancelAppointment = async (req, res) => {
   const { cancellationReason } = req.body;
   const appointmentId = req.params?.appointmentId;
+
+  console.log("cancellationReason", cancellationReason);
 
   if (!appointmentId) throw ServerError.notFound("Appointment id is required");
 
@@ -200,40 +224,39 @@ export const patientCancelAppointment = async (req, res) => {
 };
 
 export const getAppointmentById = async (req, res) => {
-  const {appointmentId} = req.params;
-  
-  if(!appointmentId)
+  const { appointmentId } = req.params;
+
+  if (!appointmentId)
     throw ServerError.badRequest("Appointment id is required");
 
-  const patient = await Patient.findOne({user: req.user.sub}).select("_id email");
+  const patient = await Patient.findOne({ user: req.user.sub }).select(
+    "_id email"
+  );
 
-  if(!patient)
-    throw ServerError.badRequest("User not found");
+  if (!patient) throw ServerError.badRequest("User not found");
 
   const appointment = await Appointment.findOne({
     _id: appointmentId,
-    patient: patient._id
-  }).populate("patient").populate("doctor");
+    patient: patient._id,
+  })
+    .populate("patient")
+    .populate("doctor");
 
-  
-
-
-  if(!appointment)
-    throw ServerError.notFound("Appointment not found")
+  if (!appointment) throw ServerError.notFound("Appointment not found");
 
   res.json({
-    success: true, 
+    success: true,
     data: {
       appointment: {
         ...appointment.toObject(),
         patient: {
-          ...appointment.patient.toObject(), 
-          email: patient.email
-        }
-      }
-    }
-  })
-}
+          ...appointment.patient.toObject(),
+          email: patient.email,
+        },
+      },
+    },
+  });
+};
 
 export const getPatientAppointments = async (req, res) => {
   const userId = req.user.sub;
@@ -394,6 +417,78 @@ export const requestAppointmentReschedule = async (req, res) => {
 
 // doctor based controller
 
+
+
+export const completeAppointment = async (req, res) => {
+  const appointmentId = req.params;
+  const status = req.body.status;
+
+  if (!appointmentId) throw ServerError.notFound("Appointment id is required");
+
+  const appointment = await Appointment.findById(appointmentId);
+
+  if (!appointment) throw ServerError.notFound("Appointment not found");
+
+  if (appointment.status !== APPOINTMENT_STATUS.CONFIRMED)
+    throw ServerError.badRequest("Appointment is not confirmed yet");
+
+  const endTime = new Date(appointment.slot.end);
+
+  if (endTime > new Date())
+    throw ServerError.badRequest(
+      "Appointment's scheduled end date is not reached yet"
+    );
+
+  appointment.status = APPOINTMENT_STATUS.COMPLETED;
+
+  if (status.includes(APPOINTMENT_STATUS.NO_SHOW))
+    appointment.status = APPOINTMENT_STATUS.NO_SHOW;
+
+  await appointment.save();
+
+  res.json({
+    success: true,
+    message: "Appointment completed successfully",
+    data: {
+      appointment,
+    },
+  });
+};
+
+export const acceptAppointment = async (req, res) => {
+  const { appointmentId } = req.params;
+  const userId = req.user.sub;
+
+  const appointment = await Appointment.findById(appointmentId);
+
+  if (!appointment) {
+    throw ServerError.notFound("Appointment not found");
+  }
+
+  if (appointment.status !== APPOINTMENT_STATUS.PENDING)
+    throw ServerError.badRequest(
+      "Only pending appointments can set to confirmed"
+    );
+
+  const doctor = await Doctor.findOne({ userId });
+
+  if (!doctor) throw ServerError.notFound("doctor not found");
+
+  if (appointment.doctor.toString() !== doctor._id.toString())
+    throw ServerError.forbidden("Not authorized to accept this appointment");
+
+  appointment.status = APPOINTMENT_STATUS.ACCEPTED;
+  appointment.acceptedAt = new Date().toISOString();
+
+  await appointment.save();
+  res.json({
+    message: "Appointment accepted successfully",
+    data: {
+      appointment,
+    },
+  });
+};
+
 export const doctorCancelAppointment = async (req, res) => {
   const { appointmentId } = req.params;
   const { cancellationReason } = req.body;
@@ -486,76 +581,6 @@ export const doctorCancelAppointment = async (req, res) => {
   }
 };
 
-export const completeAppointment = async (req, res) => {
-  const appointmentId = req.params;
-  const status = req.body.status;
-
-  if (!appointmentId) throw ServerError.notFound("Appointment id is required");
-
-  const appointment = await Appointment.findById(appointmentId);
-
-  if (!appointment) throw ServerError.notFound("Appointment not found");
-
-  if (appointment.status !== APPOINTMENT_STATUS.CONFIRMED)
-    throw ServerError.badRequest("Appointment is not confirmed yet");
-
-  const endTime = new Date(appointment.slot.end);
-
-  if (endTime > new Date())
-    throw ServerError.badRequest(
-      "Appointment's scheduled end date is not reached yet"
-    );
-
-  appointment.status = APPOINTMENT_STATUS.COMPLETED;
-
-  if (status.includes(APPOINTMENT_STATUS.NO_SHOW))
-    appointment.status = APPOINTMENT_STATUS.NO_SHOW;
-
-  await appointment.save();
-
-  res.json({
-    success: true,
-    message: "Appointment completed successfully",
-    data: {
-      appointment,
-    },
-  });
-};
-
-export const acceptAppointment = async (req, res) => {
-  const { appointmentId } = req.params;
-  const userId = req.user.sub;
-
-  const appointment = await Appointment.findById(appointmentId);
-
-  if (!appointment) {
-    throw ServerError.notFound("Appointment not found");
-  }
-
-  if (appointment.status !== APPOINTMENT_STATUS.PENDING)
-    throw ServerError.badRequest(
-      "Only pending appointments can set to confirmed"
-    );
-
-  const doctor = await Doctor.findOne({ userId });
-
-  if (!doctor) throw ServerError.notFound("doctor not found");
-
-  if (appointment.doctor.toString() !== doctor._id.toString())
-    throw ServerError.forbidden("Not authorized to accept this appointment");
-
-  appointment.status = APPOINTMENT_STATUS.ACCEPTED;
-  appointment.acceptedAt = new Date().toISOString();
-
-  await appointment.save();
-  res.json({
-    message: "Appointment accepted successfully",
-    data: {
-      appointment,
-    },
-  });
-};
-
 // for all roles
 
 export const respondToReschedule = async (req, res) => {
@@ -615,3 +640,220 @@ export const respondToReschedule = async (req, res) => {
     message: "appointment rescheduled successfully",
   });
 };
+
+export const searchAppointments = async (req, res) => {
+  try {
+    const {
+      doctorId,
+      status,
+      type,
+      fromDate,
+      toDate,
+      createdFrom,
+      createdTo,
+      searchQuery,
+      page = 1,
+      limit = 10,
+    } = req.query;
+
+    // Build the filter object
+    const filter = {};
+
+    const patient = await Patient.findOne({ user: req.user.sub });
+
+    if (!patient) throw ServerError.notFound("Patient not found");
+
+    const patientId = patient._id;
+
+    // Basic filters
+    if (patientId && mongoose.Types.ObjectId.isValid(patientId)) {
+      filter.patient = new mongoose.Types.ObjectId(patientId);
+    }
+
+    if (doctorId && mongoose.Types.ObjectId.isValid(doctorId)) {
+      filter.patient = new mongoose.Types.ObjectId(doctorId);
+    }
+
+    // Status filter with special 'upcoming' case
+    if (status) {
+      if (status === "upcoming") {
+        filter.status = APPOINTMENT_STATUS.CONFIRMED;
+        filter["slot.start"] = { $gt: new Date() };
+      } else {
+        filter.status = status;
+      }
+    }
+
+    // Type filter
+    if (type && Object.values(APPOINTMENT_TYPES).includes(type)) {
+      filter.appointmentType = type;
+    }
+
+    // Date range filters
+    if (fromDate || toDate) {
+      filter["slot.start"] = {};
+      if (fromDate) filter["slot.start"].$gte = new Date(fromDate);
+      if (toDate) filter["slot.start"].$lte = new Date(toDate);
+    }
+
+    // Creation date filters
+    if (createdFrom || createdTo) {
+      filter.createdAt = {};
+      if (createdFrom) filter.createdAt.$gte = new Date(createdFrom);
+      if (createdTo) filter.createdAt.$lte = new Date(createdTo);
+    }
+
+    // Text search (across doctor name, specialization, and reason)
+    if (searchQuery) {
+      const doctors = await mongoose
+        .model("Doctor")
+        .find({
+          $or: [
+            { firstName: { $regex: searchQuery, $options: "i" } },
+            { lastName: { $regex: searchQuery, $options: "i" } },
+            { specialization: { $regex: searchQuery, $options: "i" } },
+          ],
+        })
+        .select("_id");
+
+      filter.$or = [
+        { reason: { $regex: searchQuery, $options: "i" } },
+        { "cancellation.reason": { $regex: searchQuery, $options: "i" } },
+        { doctor: { $in: doctors.map((d) => d._id) } },
+      ];
+    }
+
+    // Pagination
+    const pageNumber = parseInt(page);
+    const limitNumber = parseInt(limit);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // Get appointments with population
+    const [appointments, total, stats] = await Promise.all([
+      Appointment.find(filter)
+        .populate("patient", "firstName lastName profileImage")
+        .populate("doctor", "firstName lastName specialization profilePhoto")
+        .sort({ "slot.start": 1 })
+        .skip(skip)
+        .limit(limitNumber)
+        .lean(),
+
+      Appointment.countDocuments(filter),
+
+      // Get statistics
+      getAppointmentStats(filter, patientId, doctorId),
+    ]);
+
+    // Calculate upcoming appointments (separate from status filter)
+    if (status !== "upcoming") {
+      const upcomingFilter = {
+        ...filter,
+        status: APPOINTMENT_STATUS.CONFIRMED,
+      };
+      upcomingFilter["slot.start"] = { $gt: new Date() };
+      stats.upcoming = await Appointment.countDocuments(upcomingFilter);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        appointments,
+        stats,
+      },
+      pagination: {
+        total,
+        page: pageNumber,
+        pages: Math.ceil(total / limitNumber),
+        limit: limitNumber,
+      },
+    });
+  } catch (error) {
+    console.error("Error searching appointments:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to search appointments",
+      error: error.message,
+    });
+  }
+};
+
+// Helper function to get appointment statistics
+async function getAppointmentStats(
+  filter,
+  patientId,
+  doctorId
+){
+  const baseFilter= {};
+  if (patientId) baseFilter.patient = new mongoose.Types.ObjectId(patientId);
+  if (doctorId) baseFilter.doctor = new mongoose.Types.ObjectId(doctorId);
+
+  const now = new Date();
+
+  const [
+    total,
+    pending,
+    confirmed,
+    completed,
+    cancelled,
+    rescheduled,
+    noShow,
+    averageFee,
+    upcoming,
+  ] = await Promise.all([
+    // Total appointments
+    Appointment.countDocuments(baseFilter),
+
+    // Status counts
+    Appointment.countDocuments({
+      ...baseFilter,
+      status: APPOINTMENT_STATUS.PENDING,
+    }),
+    Appointment.countDocuments({
+      ...baseFilter,
+      status: APPOINTMENT_STATUS.CONFIRMED,
+    }),
+    Appointment.countDocuments({
+      ...baseFilter,
+      status: APPOINTMENT_STATUS.COMPLETED,
+    }),
+    Appointment.countDocuments({
+      ...baseFilter,
+      status: APPOINTMENT_STATUS.CANCELLED,
+    }),
+    Appointment.countDocuments({
+      ...baseFilter,
+      status: APPOINTMENT_STATUS.RESCHEDULED,
+    }),
+    Appointment.countDocuments({
+      ...baseFilter,
+      status: APPOINTMENT_STATUS.NO_SHOW,
+    }),
+
+    // Average fee
+    Appointment.aggregate([
+      { $match: baseFilter },
+      { $group: { _id: null, avgFee: { $avg: "$fee" } } },
+    ]),
+
+    // Upcoming appointments (confirmed and in future)
+    Appointment.countDocuments({
+      ...baseFilter,
+      status: APPOINTMENT_STATUS.CONFIRMED,
+      "slot.start": { $gt: now },
+    }),
+  ]);
+
+  return {
+    total,
+    upcoming,
+    pending,
+    confirmed,
+    completed,
+    cancelled,
+    rescheduled,
+    noShow,
+    averageFee: averageFee[0]?.avgFee
+      ? parseFloat(averageFee[0].avgFee.toFixed(2))
+      : 0,
+  };
+}

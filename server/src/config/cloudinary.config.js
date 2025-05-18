@@ -23,8 +23,10 @@ export const uploadImageCloud = async (imagePath, folder) => {
 
   try {
     const result = await cloudinary.uploader.upload(imagePath, options);
-    fs.unlink(imagePath, (error) => console.log("unable to delete a disk file"));
-    console.log("cloudinary upload result", result)
+    fs.unlink(imagePath, (error) => {
+      if (error) console.log("unable to delete a disk file");
+    });
+    console.log("cloudinary upload result", result);
     return result;
   } catch (error) {
     console.log("cloudinary upload error", error);

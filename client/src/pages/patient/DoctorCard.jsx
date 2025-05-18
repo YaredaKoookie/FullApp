@@ -1,22 +1,24 @@
 import { StarIcon } from "lucide-react";
 import React from "react";
+import { Link } from "react-router-dom";
 
 const DoctorCard = ({ doctor, children, ...rest }) => {
+  console.log(doctor);
   return (
     <div
       key={doctor._id}
       className={`shadow p-4 bg-white rounded ${rest.className}`}
     >
-      <div className="mb-4">
-        <img className="rounded-md" src="/doctor_profile_image.jpg" />
+      <div className="mb-4 min-h-[350px] shadow">
+        <img className="rounded-md" src={doctor.profilePhoto} />
       </div>
 
       <div className="mb-5">
-        <h3 className="font-bold text-lg mb-4 flex items-center gap-4">
+        <h3 className="font-bold text-lg mb-4 flex items-center justify-between gap-1 flex-wrap">
           <span>
             Dr. {doctor.firstName} {doctor.middleName}
           </span>
-          {doctor.languages?.length > 0 && <span className="text-xs p-px px-2 rounded-full bg-blue-500/10 text-blue-800 border ">{doctor.languages[0]}</span>}
+          {doctor.yearsOfExperience && <span className="text-xs p-px px-2 rounded-full bg-blue-500/10 text-blue-800 border">{doctor.yearsOfExperience} years exp.</span>}
         </h3>
 
         <div className="flex justify-between gap-4 mb-4">
@@ -40,9 +42,9 @@ const DoctorCard = ({ doctor, children, ...rest }) => {
         </div>
 
         <div className="flex items-center gap-4 mt-5">
-          <button className="text-xs font-medium py-2 px-5 bg-sky-500 border border-sky-500 rounded text-white hover:bg-sky-600/80">
+          <Link to={doctor._id+"/details"} className="text-xs font-medium py-2 px-5 bg-sky-500 border border-sky-500 rounded text-white hover:bg-sky-600/80">
             View Details
-          </button>
+          </Link>
         </div>
       </div>
     </div>

@@ -1,5 +1,8 @@
 import { model, Schema } from "mongoose";
 
+export const phoneRegex =
+  /^(\+251|0)(9|7)\d{8}$|^\+?\d{1,3}[-. ]?\(?\d{3}\)?[-. ]?\d{3}[-. ]?\d{4}$/;
+
 // Notification Preferences Schema
 const notificationPreferencesSchema = new Schema(
   {
@@ -80,10 +83,7 @@ const emergencyContactSchema = new Schema(
     phone: {
       type: String,
       required: true,
-      match: [
-        /^\+?[1-9]\d{1,14}$|^(\+?\d{1,3})?[\s\-]?\(?\d{1,4}\)?[\s\-]?\d{1,4}[\s\-]?\d{1,4}$/,
-        "Invalid phone number format",
-      ],
+      match: [phoneRegex, "Invalid phone number format"],
     },
     email: {
       type: String,
@@ -143,8 +143,8 @@ const patientSchema = new Schema(
       default: null,
     },
     profileImageId: {
-      type: String, 
-      default: ""
+      type: String,
+      default: "",
     },
     gender: {
       type: String,
@@ -155,10 +155,7 @@ const patientSchema = new Schema(
       type: String,
       required: true,
       unique: true,
-      match: [
-        /^\+?[1-9]\d{1,14}$|^(\+?\d{1,3})?[\s\-]?\(?\d{1,4}\)?[\s\-]?\d{1,4}[\s\-]?\d{1,4}$/,
-        "Invalid phone number format",
-      ],
+      match: [phoneRegex, "Invalid phone number format"],
     },
     notificationPreferences: {
       type: notificationPreferencesSchema,
@@ -179,7 +176,7 @@ const patientSchema = new Schema(
     },
     emergencyContact: {
       type: [emergencyContactSchema],
-      required: [],
+      required: true,
     },
     insurance: {
       type: [insuranceSchema],
@@ -192,7 +189,15 @@ const patientSchema = new Schema(
     },
     maritalStatus: {
       type: String,
-      enum: ["single", "married", "divorced", "widowed", "separated", "other", ""],
+      enum: [
+        "single",
+        "married",
+        "divorced",
+        "widowed",
+        "separated",
+        "other",
+        "",
+      ],
       default: "",
     },
     location: {
@@ -207,7 +212,7 @@ const patientSchema = new Schema(
 );
 
 patientSchema.virtual("fullName").get(function () {
-  return [this.firstName, this.middleName,  this.lastName]
+  return [this.firstName, this.middleName, this.lastName]
     .filter(Boolean)
     .join(" ");
 });

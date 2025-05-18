@@ -1,4 +1,4 @@
-import Patient from "../models/patient/patient.model.js";
+import Patient, { phoneRegex } from "../models/patient/patient.model.js";
 import User from "../models/user.model.js";
 import ServerError from "../utils/ServerError.js";
 import Doctor from "../models/doctors/doctor.model.js";
@@ -14,104 +14,163 @@ import { deleteImage, uploadImageCloud } from "../config/cloudinary.config.js";
  * @access Private (Requires user authentication)
  */
 export const createPatientProfile = async (req, res) => {
-  const {
-    firstName,
-    middleName,
-    lastName,
-    gender,
-    phone,
-    dateOfBirth,
-    location,
-    emergencyContact,
-    insurance,
-    preferredLanguage,
-    martialStatus,
-    bloodType,
-    notificationPreference,
-  } = req.body;
+  try {
+    // Validate required fields
+    const requiredFields = [
+      'firstName', 'middleName', 'lastName', 'gender', 
+      'phone', 'dateOfBirth', 'location', 'emergencyContact'
+    ];
+    
+    for (const field of requiredFields) {
+      if (!req.body[field]) {
+        throw ServerError.badRequest(`Missing required field: ${field}`);
+      }
+    }
 
-  const { sub: userId } = req.user;
+    const {
+      firstName,
+      middleName,
+      lastName,
+      gender,
+      phone,
+      dateOfBirth,
+      location,
+      emergencyContact,
+      insurance = [],
+      preferredLanguage = 'English',
+      martialStatus = '',
+      bloodType = '',
+      notificationPreference = {},
+    } = req.body;
 
-  // Check if the user exists
-  const user = await User.findById(userId);
-  if (!user) {
-    throw ServerError.conflict(`User with ID ${userId} not found.`);
-  }
+    const { sub: userId } = req.user;
 
-  // Check if a patient profile already exists for this user
-  const existingPatientProfile = await Patient.findOne({ user: userId });
+    // Validate user exists and doesn't have a profile
+    const [user, existingPatientProfile] = await Promise.all([
+      User.findById(userId),
+      Patient.findOne({ user: userId })
+    ]);
 
-  if (existingPatientProfile) {
-    throw ServerError.conflict(`Patient profile already exists.`);
-  }
+    if (!user) {
+      throw ServerError.notFound(`User with ID ${userId} not found.`);
+    }
 
-  // Basic date validation (more robust validation can be added)
-  const parsedDob = new Date(dateOfBirth);
-  console.log(parsedDob);
-  if (isNaN(parsedDob.getTime()) || parsedDob >= new Date()) {
-    throw ServerError.badRequest("Invalid date of birth.");
-  }
+    if (existingPatientProfile) {
+      throw ServerError.conflict('Patient profile already exists');
+    }
 
-  let profileImage = null;
+    // Validate date of birth
+    const parsedDob = new Date(dateOfBirth);
+    if (isNaN(parsedDob.getTime())) {
+      throw ServerError.badRequest('Invalid date format for date of birth');
+    }
 
-  if (req.file) {
-    const fileId = crypto.randomUUID().toString("hex");
-    const filePath = "/uploads/patients";
-    const fileName = `${fileId}.webp`;
-    const uploadPath = path.join("public", filePath, fileName);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (parsedDob >= today) {
+      throw ServerError.badRequest('Date of birth must be in the past');
+    }
 
-    await sharp(req.file.buffer)
-      .resize(500, 500)
-      .webp({ quality: 80 })
-      .toFile(uploadPath);
+    // Validate phone number format
+    if (!phoneRegex.test(phone)) {
+      throw ServerError.badRequest('Invalid phone number format');
+    }
 
-    profileImage = `${filePath}/${fileName}`;
-  }
+    // Validate emergency contacts
+    if (!Array.isArray(emergencyContact) || emergencyContact.length === 0) {
+      throw ServerError.badRequest('At least one emergency contact is required');
+    }
 
-  // Create the patient profile
-  const patientProfile = await Patient.create({
-    user: userId,
-    firstName,
-    middleName,
-    lastName,
-    gender,
-    phone,
-    dateOfBirth: parsedDob,
-    location: {
-      locationType: location.locationType,
-      country: location.country,
-      city: location.city,
-      address: location.address,
-      postalCode: location.postalCode,
-      state: location.state,
-      coordinates: location.coordinates,
-    },
-    emergencyContact: emergencyContact,
-    insurance: insurance,
-    preferredLanguage,
-    martialStatus,
-    bloodType,
-    profileImage,
-    notificationPreference: {
-      systemNotification: notificationPreference?.systemNotification ?? true,
-      emailNotification: notificationPreference?.emailNotification ?? false,
-      smsNotification: notificationPreference?.smsNotification ?? true,
-    },
-  });
+    // Process image upload if exists
+    let imageUrl = '';
+    let imagePublicId = '';
 
-  if (patientProfile) {
+    if (req.file) {
+        const uploadResult = await uploadImageCloud(req.file.path, "patientsProfile");
+        imageUrl = uploadResult.url;
+        imagePublicId = uploadResult.public_id;
+    }
+
+    // Create patient profile
+    const patientProfile = await Patient.create({
+      user: userId,
+      firstName,
+      middleName,
+      lastName,
+      gender,
+      phone,
+      dateOfBirth: parsedDob,
+      location: {
+        locationType: location.locationType || 'home',
+        country: location.country,
+        city: location.city,
+        address: location.address || '',
+        postalCode: location.postalCode || '',
+        state: location.state || '',
+        coordinates: {
+        type: "Point",
+        coordinates: location.coordinates || [0, 0],
+        }
+      },
+      emergencyContact: emergencyContact.map(contact => ({
+        name: contact.name,
+        relation: contact.relation,
+        phone: contact.phone,
+        email: contact.email || '',
+      })),
+      insurance: insurance.map(ins => ({
+        provider: ins.provider,
+        policyNumber: ins.policyNumber,
+        coverageDetails: ins.coverageDetails || '',
+        validTill: ins.validTill || null,
+        status: ins.status || 'active',
+      })),
+      preferredLanguage,
+      martialStatus,
+      bloodType,
+      profileImage: imageUrl,
+      profileImageId: imagePublicId,
+      notificationPreference: {
+        systemNotification: notificationPreference.systemNotification !== false, // default true
+        emailNotification: !!notificationPreference.emailNotification, // default false
+        smsNotification: notificationPreference.smsNotification !== false, // default true
+      },
+    });
+
+    // Update user profile completion status
     user.isProfileCompleted = true;
     await user.save();
 
-    await patientProfile.populate("user", "email isProfileCompleted");
+    // Prepare response
+    const responseProfile = patientProfile.toObject();
+    responseProfile.dateOfBirth = responseProfile.dateOfBirth.toISOString().split('T')[0];
 
     res.status(201).json({
-      ...patientProfile.toObject(),
-      dateOfBirth: patientProfile.dateOfBirth.toISOString().split("T")[0],
+      success: true, 
+      data: {
+        patient: responseProfile,
+       accessToken: generateAccessToken(user)
+      }
     });
-  } else {
-    res.status(500);
-    throw new Error("Failed to create patient profile.");
+
+  } catch (error) {
+    // Clean up uploaded file if error occurred after upload
+    if (req.file) {
+      try {
+        await fs.promises.unlink(req.file.path);
+      } catch (cleanupError) {
+        console.error('Failed to clean up temp file:', cleanupError);
+      }
+    }
+
+    // Handle known errors
+    if (error instanceof ServerError) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+
+    // Handle unexpected errors
+    console.error('Error creating patient profile:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -716,13 +775,14 @@ export const getApprovedDoctorById = async (req, res) => {
 
   const query = {
     _id: req.params.doctorId,
-    approvalStatus: "approved",
+    verificationStatus: "verified",
   };
+  console.log(query)
 
-  const doctor = await Doctor.findOne(query).select(
-    "-licenseNumber -licenseDocument -idProof -withdrawalBalance -adminRemarks -applicationNotes"
-  );
-
+  const doctor = await Doctor.findOne(query);
+  // .select(
+  //   "-licenseNumber -licenseDocument -idProof -withdrawalBalance -adminRemarks -applicationNotes"
+  // );
   if (!doctor) throw ServerError.notFound("Doctor doesn't exist");
 
   res.json({

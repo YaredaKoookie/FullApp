@@ -62,7 +62,7 @@ export const initiatePayment = async (req, res) => {
       );
     }
 
-    if (appointment.status !== APPOINTMENT_STATUS.ACCEPTED) {
+    if ((appointment.status !== APPOINTMENT_STATUS.ACCEPTED) && (appointment.status !== APPOINTMENT_STATUS.PAYMENT_PENDING)) {
       throw ServerError.badRequest(
         "Payment can only be initiated for accepted appointments"
       );
@@ -75,9 +75,15 @@ export const initiatePayment = async (req, res) => {
 
     if (existingPayment) {
       if (existingPayment.status === PAYMENT_STATUS.PAID) {
-        throw ServerError.badRequest("Payment already completed");
+        throw ServerError.badRequest("This appointment is already paid");
       }
-      throw ServerError.badRequest("Payment initiation already in progress");
+      return res.json({
+        success: true,
+        data: {
+          payment: existingPayment,
+          paymentInitiationUrl: `${env.SERVER_URL}/payment/${existingPayment._id}/initialize`, // Suggested next step
+        },
+      });
     }
 
     // Create new payment
@@ -175,6 +181,7 @@ export const initializeChapaPayment = async (req, res) => {
         throw ServerError.badRequest("Payment already processed");
       } catch (error) {
         console.log("chapa verification failed:", error);
+        throw error;
       }
     }
 
@@ -191,7 +198,7 @@ export const initializeChapaPayment = async (req, res) => {
       amount: payment.amount,
       tx_ref,
       callback_url: `${env.SERVER_URL}/payment/chapa/callback`,
-      return_url: `${env.FRONTEND_URL}/patient/payment/callback`,
+      return_url: `${env.FRONTEND_URL}/patient/payments`,
       customization: {
         title: "Appointment Fee",
         description: "Payment for appointment",

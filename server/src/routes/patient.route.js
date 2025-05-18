@@ -21,12 +21,30 @@ import { upload } from "../config/cloudinary.config";
 
 const router = Router();
 
+const parseFormDataJsonFields = (fields = []) => {
+  return (req, res, next) => {
+    try {
+      fields.forEach(field => {
+        if (req.body[field] && typeof req.body[field] === 'string') {
+          req.body[field] = JSON.parse(req.body[field]);
+        }
+      });
+      next();
+    } catch (error) {
+      res.status(400).json({ error: `Invalid ${field} format` });
+    }
+  };
+};
+
 router.post(
   "/profile",
-  uploadImage.single("profileImage"),
-  validate(patientChains.validatePatientCreation),
+  upload.single("profileImage"),
+  parseFormDataJsonFields(["emergencyContact", "location"]),
+  validate(patientChains.validateProfileCreation),
   patientController.createPatientProfile
 );
+
+router.get("/reviews", reviewController.getReviews)
 
 router.use(isProfileCompleted);
 
@@ -61,6 +79,7 @@ router.get(
 
 router.get("/doctors/:doctorId", patientController.getApprovedDoctorById);
 
+
 router.post(
   "/review",
   validate(validateCreateReview),
@@ -73,6 +92,7 @@ router.put(
   reviewController.updateReview
 );
 
+
 router.delete("/reviews/:reviewId", reviewController.deleteReview);
 
 //*############# Appointment related routes #############
@@ -82,6 +102,8 @@ router.post(
   validate(appointmentChains.validateAppointmentCreation),
   appointmentController.requestAppointment
 );
+
+router.get("/appointments/search", appointmentController.searchAppointments)
 
 router.get(
   "/appointments",

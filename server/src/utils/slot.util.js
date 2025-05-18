@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import Appointment from "../models/appointment/appointment.model";
+import Appointment, { APPOINTMENT_STATUS } from "../models/appointment/appointment.model";
 import Schedule from "../models/schedule/Schedule.model";
 import ServerError from "./ServerError";
 
@@ -11,50 +11,131 @@ import ServerError from "./ServerError";
  * @returns {Promise<{start: Date, end: Date}>}
  */
 
-export const handleSlotConflict = async (slotId, doctorId, patientId) => {
-  const schedule = await Schedule.findOne({
-    doctorId,
-    availableSlots: {
-      $elemMatch: {
-        _id: slotId,
-        isBooked: false,
-      },
+export const handleSlotConflict = async (slotId, doctorId, patientId, session = null) => {
+  // Options for query (include session if provided)
+  const queryOptions = session ? { session } : {};
+  
+  // 1. Verify and atomically reserve the slot
+  const schedule = await Schedule.findOneAndUpdate(
+    {
+      doctorId,
+      'availableSlots._id': slotId,
+      'availableSlots.isBooked': false
     },
-  });
+    {
+      $set: {
+        'availableSlots.$.isBooked': true,
+        'availableSlots.$.bookedAt': new Date(),
+        'availableSlots.$.patientId': patientId
+      }
+    },
+    { 
+      new: true,
+      ...queryOptions 
+    }
+  );
 
   if (!schedule) {
-    throw ServerError.notFound("Schedule not found or already booked slot");
+    throw ServerError.conflict("Time slot not available or already booked");
   }
 
-  const bookedSlot = schedule.availableSlots.find(
-    (slot) => slot._id.toString() === slotId
+  // 2. Extract the specific slot details
+  const bookedSlot = schedule.availableSlots.find(slot => 
+    slot._id.toString() === slotId
   );
 
+  if (!bookedSlot) {
+    throw ServerError.notFound("Specified time slot not found");
+  }
 
-  const start = new Date(
-    `${bookedSlot.date.toISOString().split("T")[0]}T${bookedSlot.startTime}:00`
-  );
-  const end = new Date(
-    `${bookedSlot.date.toISOString().split("T")[0]}T${bookedSlot.endTime}:00`
-  );
+  // 3. Create precise Date objects for the requested time slot
+  const slotDateStr = bookedSlot.date.toISOString().split('T')[0];
+  const requestedStart = new Date(`${slotDateStr}T${bookedSlot.startTime}`);
+  const requestedEnd = new Date(`${slotDateStr}T${bookedSlot.endTime}`);
 
+  const allowedStatus = [
+    APPOINTMENT_STATUS.CANCELLED, 
+    APPOINTMENT_STATUS.EXPIRED, 
+    APPOINTMENT_STATUS.NO_SHOW
+  ];
 
-  const slotQuery = {
-    "slot.start": { $lt: end },
-    "slot.end": { $gt: start },
-  };
-
-  const existingAppointment = await Appointment.findOne({
+  // 4. Check for any existing appointments for this patient that overlap
+  const patientConflicts = await Appointment.exists({
     patient: patientId,
-    $or: [{ slotQuery }],
-  });
+    status: { $nin: allowedStatus },
+    $or: [
+      { 'slot.start': { $lt: requestedEnd, $gte: requestedStart } },
+      { 'slot.end': { $gt: requestedStart, $lte: requestedEnd } },
+      { 
+        'slot.start': { $lte: requestedStart },
+        'slot.end': { $gte: requestedEnd }
+      }
+    ]
+  }).session(session);
 
-  if (existingAppointment)
-    throw ServerError.badRequest(
-      "Appointment has been allocated during this time"
+  if (patientConflicts) {
+    // Rollback the slot reservation if there's a conflict
+    await Schedule.updateOne(
+      { 
+        doctorId,
+        'availableSlots._id': slotId
+      },
+      {
+        $set: {
+          'availableSlots.$.isBooked': false,
+          'availableSlots.$.bookedAt': null,
+          'availableSlots.$.patientId': null
+        }
+      },
+      queryOptions
     );
+    
+    throw ServerError.badRequest(
+      "You already have an appointment during this time period"
+    );
+  }
 
-  return { start, end };
+  // 5. Check if doctor has any conflicting appointments
+  const doctorConflicts = await Appointment.exists({
+    doctor: doctorId,
+    status: { $nin: allowedStatus },
+    $or: [
+      { 'slot.start': { $lt: requestedEnd, $gte: requestedStart } },
+      { 'slot.end': { $gt: requestedStart, $lte: requestedEnd } },
+      { 
+        'slot.start': { $lte: requestedStart },
+        'slot.end': { $gte: requestedEnd }
+      }
+    ]
+  }).session(session);
+
+  if (doctorConflicts) {
+    // Rollback the slot reservation if there's a conflict
+    await Schedule.updateOne(
+      { 
+        doctorId,
+        'availableSlots._id': slotId
+      },
+      {
+        $set: {
+          'availableSlots.$.isBooked': false,
+          'availableSlots.$.bookedAt': null,
+          'availableSlots.$.patientId': null
+        }
+      },
+      queryOptions
+    );
+    
+    throw ServerError.badRequest(
+      "Doctor already has an appointment during this time"
+    );
+  }
+
+  return { 
+    start: requestedStart, 
+    end: requestedEnd,
+    date: bookedSlot.date
+  };
 };
 
 const checkSlots = async () => {

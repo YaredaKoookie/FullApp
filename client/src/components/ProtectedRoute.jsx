@@ -27,6 +27,10 @@ const ProtectedRoute = ({
     return <Navigate to="/" replace />;
   }
 
+  if (!user.isProfileCompleted) {
+    return <Navigate to={`/${user.role}/complete-profile`} replace />;
+  }
+
   // If authenticated and has required role (if specified)
   return children || <Outlet />;
 };
