@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, ChevronDown, Upload, X } from "lucide-react";
 import {
   Description,
@@ -13,6 +13,8 @@ import {
 } from "@headlessui/react";
 import apiClient from "@/lib/apiClient";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import queryClient from "@/lib/queryClient";
 
 const genderOptions = [
   { id: 1, name: "Male", value: "male" },
@@ -44,6 +46,7 @@ export default function ProfileCompletion() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const {
     register,
@@ -91,10 +94,12 @@ export default function ProfileCompletion() {
     onSuccess: () => {
       setIsSubmitting(false);
       setShowSuccess(true);
+      queryClient.clear();
       setTimeout(() => setShowSuccess(true), 3000);
     },
     onError: (error) => {
       setIsSubmitting(false);
+      toast.error(error.message)
       console.error("Error submitting profile:", error);
       // Handle error (show toast, etc.)
     },
@@ -185,7 +190,7 @@ export default function ProfileCompletion() {
             </Description>
             <div className="flex justify-center gap-4">
               <button
-                to={() => navigate("/patient/dashboard", { replace: true })}
+                onClick={() => navigate("/patient/dashboard", { replace: true })}
                 className="px-5 py-2 bg-green-500 hover:bg-green-400 rounded text-sm font-semibold text-white"
               >
                 Ok

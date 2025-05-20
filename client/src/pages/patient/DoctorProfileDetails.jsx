@@ -713,11 +713,14 @@ const DoctorProfilePage = () => {
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
+                        const reason = e.currentTarget.reason?.value;
+                        console.log("reason", reason)
+                        if(!reason) return;
                         bookingMutation.mutate({
                           doctorId,
                           slotId: selectedSlot,
                           date: format(selectedDate, "yyyy-MM-dd"),
-                          reason: e.target.notes.value,
+                          reason,
                           appointmentType: consultationType,
                         });
                       }}
@@ -727,11 +730,11 @@ const DoctorProfilePage = () => {
                           htmlFor="notes"
                           className="block text-sm font-medium text-gray-700 mb-1"
                         >
-                          Reason for visit (optional)
+                          Reason for visit *
                         </label>
                         <textarea
-                          id="notes"
-                          name="notes"
+                          id="reason"
+                          name="reason"
                           rows={3}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                           placeholder="Briefly describe the reason for your visit..."

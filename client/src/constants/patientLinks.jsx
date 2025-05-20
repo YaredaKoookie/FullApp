@@ -33,8 +33,8 @@ const patientLinks = [
     },
     {
         id: 5,
-        name: "Medical Records",
-        url: "/patient/records",
+        name: "Medical Histories",
+        url: "/patient/medical-history",
         icon: HistoryIcon
     },
     {

@@ -93,9 +93,17 @@ apiClient.interceptors.response.use(
         isRefreshing = false;
       }
     }
+    let message = "";
+    if(error.response.status === 400 && error?.response?.data?.details){
+       message= error?.response?.data?.details[0]?.message;
+    } else if (error?.response?.data?.message){
+      message = error?.response?.data?.message;
+    } else {
+      message = error.message;
+    }
 
     const errorMessage = {
-      message: error?.response?.data?.message || error.message,
+      message: message,
       status: error.status,
       statusText: error.statusText,
       code: error.code,

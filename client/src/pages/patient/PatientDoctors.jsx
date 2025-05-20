@@ -85,6 +85,7 @@ const DoctorsPage = () => {
     const statisticsData = statistics?.data;
     specializations = statisticsData?.specializations.map(s => s._id) || [];
     languages = statisticsData?.languageDistribution?.map(l => l.language) || [];
+    console.log("stats", statisticsData);
   }
 
 

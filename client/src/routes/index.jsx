@@ -53,6 +53,7 @@ import DoctorPatientPage from "@/pages/doctor/DoctorPatientPage";
 import DoctorProfileDetails from "@/pages/patient/DoctorProfileDetails";
 import IsProfileCompleted from "@/components/IsProfileCompleted";
 import PatientProfileCompletion from "@/pages/patient/PatientProfileComplete";
+import MedicalHistoryPage from "@/pages/patient/MedicalHistory";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -167,6 +168,14 @@ const router = createBrowserRouter(
           }
         />
         <Route
+          path="medical-history"
+          element={
+            <ProtectedRoute>
+              <MedicalHistoryPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="profile"
           element={
             <ProtectedRoute>
@@ -189,8 +198,6 @@ const router = createBrowserRouter(
         path="/patient/complete-profile"
         element={<PatientProfileComplete />}
       />
-
-      
 
       <Route path="auth" element={<RedirectIfLoggedIn />}>
         <Route index element={<Navigate to="/auth/login" replace />} />
