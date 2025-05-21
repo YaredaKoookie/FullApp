@@ -1,53 +1,79 @@
-import express from 'express';
-const router = express.Router();
+import { Router } from 'express';
+import { isAdmin } from '../middlewares/auth.middleware.js';
+import { validateRequest, validateParams, validateQuery } from '../middlewares/validateRequest.js';
+import { upload } from '../config/cloudinary.config.js';
+import {
+  addDoctorValidation,
+  updateDoctorValidation,
+  doctorIdValidation,
+  toggleDoctorStatusValidation,
+  listDoctorsValidation
+} from '../validations/doctor.validation.js';
+import {
+  listDoctors,
+  addNewDoctor,
+  getDoctorForEdit,
+  updateDoctor,
+  toggleDoctorStatus,
+  viewDoctorProfile,
+  deleteDoctor
+} from '../controllers/admin.controller.js';
 
-import { isAdmin } from '../middlewares/auth.middleware';
-import { adminController } from '../controllers/index.js';
-import { withdrawController } from '../controllers/index.js';
+const router = Router();
 
-router.get(
-  '/doctor/',
-  isAdmin,
-//   authorizePermissions('admin'),
-  adminController.getAllDoctors
+// Doctor Management Routes
+router.get('/doctors', 
+  isAdmin, 
+  validateQuery(listDoctorsValidation),
+  listDoctors
 );
 
-router.get(
-  '/doctor/:doctorId',
+router.post('/doctors',
   isAdmin,
-//   authorizePermissions('admin'),
-  adminController.getDoctorById
+  upload.fields([
+    { name: 'profilePhoto', maxCount: 1 },
+    { name: 'boardCertificationsDocument', maxCount: 1 },
+    { name: 'educationDocument', maxCount: 1 }
+  ]),
+  addNewDoctor
+);
+  // validateRequest(addDoctorValidation),
+
+router.get('/doctors/:id',
+  isAdmin,
+  validateParams(doctorIdValidation),
+  getDoctorForEdit
 );
 
-router.patch(
-  '/doctor/:doctorId/approve',
+router.put('/doctors/:id',
   isAdmin,
-//   authorizePermissions('admin'),
-  adminController.approveDoctor
+  validateParams(doctorIdValidation),
+  upload.fields([
+    { name: 'profilePhoto', maxCount: 1 },
+    { name: 'boardCertificationsDocument', maxCount: 1 },
+    { name: 'educationDocument', maxCount: 1 }
+  ]),
+  validateRequest(updateDoctorValidation),
+  updateDoctor
 );
 
-router.patch(
-  '/doctor/:doctorId/reject',
+router.delete('/doctors/:id',
   isAdmin,
-//   authorizePermissions('admin'),
-  adminController.rejectDoctor
+  validateParams(doctorIdValidation),
+  deleteDoctor
 );
 
+router.patch('/doctors/:id/status',
+  isAdmin,
+  validateParams(doctorIdValidation),
+  validateRequest(toggleDoctorStatusValidation),
+  toggleDoctorStatus
+);
 
-// Admin routes
-router.get('/patient', isAdmin, adminController.getAllPatients);
-router.get('/patient/:id', isAdmin, adminController.getPatientById);
-router.patch('/patient/:id/toggle-status', isAdmin, adminController.togglePatientStatus);
-
-
-
-router.get('/payments', isAdmin, withdrawController.getAllPayments);
-router.get('/payments/:id', isAdmin, withdrawController.getPaymentDetails);
-// router.get('/payments/summary' ,isAdmin , withdrawController.getAllPayments)
-
-
-router.get('/getWithdraw', isAdmin, withdrawController.getAllWithdrawals);
-router.patch('/withdraw/:doctorId/approve', isAdmin, withdrawController.approveWithdrawal);
-router.patch('/withdraw/:doctorId/reject', isAdmin, withdrawController.rejectWithdrawal);
+router.get('/doctors/:id/profile',
+  isAdmin,
+  validateParams(doctorIdValidation),
+  viewDoctorProfile
+);
 
 export default router;

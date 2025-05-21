@@ -7,8 +7,20 @@ import { env } from "./config";
 import path from "path"
 
 const app = express();
+const allowedOrigins = [env.FRONTEND_URL, "http://localhost:5174", "http://localhost:5173"];
+    
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (allowedOrigins.includes(origin) || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+};
 
-app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(
   express.urlencoded({

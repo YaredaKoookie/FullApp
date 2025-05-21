@@ -8,6 +8,7 @@ import fs from "fs";
 import sharp from "sharp";
 import logger from "../utils/logger.util.js";
 import { deleteImage, uploadImageCloud } from "../config/cloudinary.config.js";
+import { generateAccessToken } from "../utils/token.util.js";
 /**
  * @desc Create a new patient profile linked to an existing user.
  * @route POST /api/patients/profiles
@@ -17,10 +18,16 @@ export const createPatientProfile = async (req, res) => {
   try {
     // Validate required fields
     const requiredFields = [
-      'firstName', 'middleName', 'lastName', 'gender', 
-      'phone', 'dateOfBirth', 'location', 'emergencyContact'
+      "firstName",
+      "middleName",
+      "lastName",
+      "gender",
+      "phone",
+      "dateOfBirth",
+      "location",
+      "emergencyContact",
     ];
-    
+
     for (const field of requiredFields) {
       if (!req.body[field]) {
         throw ServerError.badRequest(`Missing required field: ${field}`);
@@ -37,9 +44,9 @@ export const createPatientProfile = async (req, res) => {
       location,
       emergencyContact,
       insurance = [],
-      preferredLanguage = 'English',
-      martialStatus = '',
-      bloodType = '',
+      preferredLanguage = "English",
+      martialStatus = "",
+      bloodType = "",
       notificationPreference = {},
     } = req.body;
 
@@ -48,7 +55,7 @@ export const createPatientProfile = async (req, res) => {
     // Validate user exists and doesn't have a profile
     const [user, existingPatientProfile] = await Promise.all([
       User.findById(userId),
-      Patient.findOne({ user: userId })
+      Patient.findOne({ $or: [{ user: userId }, { phone }] }),
     ]);
 
     if (!user) {
@@ -56,39 +63,46 @@ export const createPatientProfile = async (req, res) => {
     }
 
     if (existingPatientProfile) {
-      throw ServerError.conflict('Patient profile already exists');
+      throw ServerError.conflict(
+        "Patient profile already exists with that phone number or email"
+      );
     }
 
     // Validate date of birth
     const parsedDob = new Date(dateOfBirth);
     if (isNaN(parsedDob.getTime())) {
-      throw ServerError.badRequest('Invalid date format for date of birth');
+      throw ServerError.badRequest("Invalid date format for date of birth");
     }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (parsedDob >= today) {
-      throw ServerError.badRequest('Date of birth must be in the past');
+      throw ServerError.badRequest("Date of birth must be in the past");
     }
 
     // Validate phone number format
     if (!phoneRegex.test(phone)) {
-      throw ServerError.badRequest('Invalid phone number format');
+      throw ServerError.badRequest("Invalid phone number format");
     }
 
     // Validate emergency contacts
     if (!Array.isArray(emergencyContact) || emergencyContact.length === 0) {
-      throw ServerError.badRequest('At least one emergency contact is required');
+      throw ServerError.badRequest(
+        "At least one emergency contact is required"
+      );
     }
 
     // Process image upload if exists
-    let imageUrl = '';
-    let imagePublicId = '';
+    let imageUrl = "";
+    let imagePublicId = "";
 
     if (req.file) {
-        const uploadResult = await uploadImageCloud(req.file.path, "patientsProfile");
-        imageUrl = uploadResult.url;
-        imagePublicId = uploadResult.public_id;
+      const uploadResult = await uploadImageCloud(
+        req.file.path,
+        "patientsProfile"
+      );
+      imageUrl = uploadResult.url;
+      imagePublicId = uploadResult.public_id;
     }
 
     // Create patient profile
@@ -101,29 +115,29 @@ export const createPatientProfile = async (req, res) => {
       phone,
       dateOfBirth: parsedDob,
       location: {
-        locationType: location.locationType || 'home',
+        locationType: location.locationType || "home",
         country: location.country,
         city: location.city,
-        address: location.address || '',
-        postalCode: location.postalCode || '',
-        state: location.state || '',
+        address: location.address || "",
+        postalCode: location.postalCode || "",
+        state: location.state || "",
         coordinates: {
-        type: "Point",
-        coordinates: location.coordinates || [0, 0],
-        }
+          type: "Point",
+          coordinates: location.coordinates || [0, 0],
+        },
       },
-      emergencyContact: emergencyContact.map(contact => ({
+      emergencyContact: emergencyContact.map((contact) => ({
         name: contact.name,
         relation: contact.relation,
         phone: contact.phone,
-        email: contact.email || '',
+        email: contact.email || "",
       })),
-      insurance: insurance.map(ins => ({
+      insurance: insurance.map((ins) => ({
         provider: ins.provider,
         policyNumber: ins.policyNumber,
-        coverageDetails: ins.coverageDetails || '',
+        coverageDetails: ins.coverageDetails || "",
         validTill: ins.validTill || null,
-        status: ins.status || 'active',
+        status: ins.status || "active",
       })),
       preferredLanguage,
       martialStatus,
@@ -143,23 +157,24 @@ export const createPatientProfile = async (req, res) => {
 
     // Prepare response
     const responseProfile = patientProfile.toObject();
-    responseProfile.dateOfBirth = responseProfile.dateOfBirth.toISOString().split('T')[0];
+    responseProfile.dateOfBirth = responseProfile.dateOfBirth
+      .toISOString()
+      .split("T")[0];
 
     res.status(201).json({
-      success: true, 
+      success: true,
       data: {
         patient: responseProfile,
-       accessToken: generateAccessToken(user)
-      }
+        accessToken: generateAccessToken(user),
+      },
     });
-
   } catch (error) {
     // Clean up uploaded file if error occurred after upload
     if (req.file) {
       try {
         await fs.promises.unlink(req.file.path);
       } catch (cleanupError) {
-        console.error('Failed to clean up temp file:', cleanupError);
+        console.error("Failed to clean up temp file:", cleanupError);
       }
     }
 
@@ -169,8 +184,8 @@ export const createPatientProfile = async (req, res) => {
     }
 
     // Handle unexpected errors
-    console.error('Error creating patient profile:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Error creating patient profile:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -523,11 +538,11 @@ export const getApprovedDoctors = async (req, res) => {
       query.gender = gender.toLowerCase();
     }
 
+    console.log(languages);
+
     // Language filter (array - can match any of provided languages)
     if (languages) {
-      const langArray = languages
-        .split(",")
-        .map((lang) => lang.trim().toLowerCase());
+      const langArray = languages.split(",");
       query.languages = { $in: langArray };
     }
 
@@ -689,7 +704,22 @@ export const getDoctorStatistics = async (req, res) => {
       Doctor.aggregate([
         { $match: matchStage },
         { $unwind: "$languages" },
-        { $group: { _id: "$languages", count: { $sum: 1 } } },
+        // Group by doctor first to deduplicate languages per doctor
+        {
+          $group: {
+            _id: {
+              doctorId: "$_id",
+              language: "$languages",
+            },
+          },
+        },
+        // Then group by language to count
+        {
+          $group: {
+            _id: "$_id.language",
+            count: { $sum: 1 },
+          },
+        },
         { $sort: { count: -1 } },
         { $limit: 10 },
       ]),
@@ -777,7 +807,7 @@ export const getApprovedDoctorById = async (req, res) => {
     _id: req.params.doctorId,
     verificationStatus: "verified",
   };
-  console.log(query)
+  console.log(query);
 
   const doctor = await Doctor.findOne(query);
   // .select(
