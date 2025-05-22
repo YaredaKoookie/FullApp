@@ -10,13 +10,13 @@ import ErrorBoundary from "@/ErrorBoundary";
 import NotFound from "@/NotFound";
 import Login from "@/pages/auth/Login";
 import RegistrationTab from "@/pages/auth/RegistrationTab";
-import AppointmentDetails from "@/pages/patient/AppointmentDetails";
-import Appointments from "@/pages/patient/Appointments";
-import PatientDashboard from "@/pages/patient/PatientDashboard";
-import PatientDoctors from "@/pages/patient/PatientDoctors";
+import AppointmentDetails from "@/pages/patient/appointments/AppointmentDetails";
+import Appointments from "@/pages/patient/appointments";
+import PatientDashboard from "@/pages/patient/overview/index";
+import PatientDoctors from "@/pages/patient/doctors";
 import PatientLayout from "@/pages/patient/PatientLayout";
-import PatientProfileComplete from "@/pages/patient/PatientProfileComplete";
-import PatientProfile from "@/pages/patient/Profile";
+import PatientProfileComplete from "@/pages/patient/profile/PatientProfileComplete";
+import PatientProfile from "@/pages/patient/profile";
 import {
   createBrowserRouter,
   createRoutesFromElements,
@@ -24,11 +24,11 @@ import {
   Route,
 } from "react-router-dom";
 import CureLogicHomepage from "@/pages/public/Home";
-import AppointmentDetailsPage from "@/pages/patient/AppointmentDetailsPage";
-import Payments from "@/pages/patient/Payments";
+import AppointmentDetailsPage from "@/pages/patient/appointments/AppointmentDetailsPage";
+import Payments from "@/pages/patient/payments";
 import AppProtector from "@/components/AppProtector";
-import DoctorProfileDetails from "@/pages/patient/DoctorProfileDetails";
-import MedicalHistoryPage from "@/pages/patient/MedicalHistory";
+import DoctorProfileDetails from "@/pages/patient/doctors/DoctorProfileDetails";
+import MedicalHistoryPage from "@/pages/patient/medical-history";
 import VideoCall from "@/pages/patient/VideoCall";
 
 const router = createBrowserRouter(

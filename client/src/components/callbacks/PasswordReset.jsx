@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import apiClient from "@/lib/apiClient";
+import apiClient from "@api/apiClient";
 import { toast } from "react-toastify";
 import { useForm } from "react-hook-form";
 import { useMutation } from "@tanstack/react-query";

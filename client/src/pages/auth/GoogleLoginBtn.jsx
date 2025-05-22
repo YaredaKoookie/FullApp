@@ -1,6 +1,6 @@
 import { GoogleLogin } from "@react-oauth/google";
 import React from "react";
-import useGoogleSignIn from "@/hooks/useGoogleSignIn";
+import {useGoogleSignIn} from "@api/auth"
 
 const GoogleLoginBtn = ({ role }) => {
   const googleMutation = useGoogleSignIn();

@@ -1,7 +1,7 @@
 // context/auth-context.tsx
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import useGetUser from '@/hooks/useGetUser';
+import { useGetUser } from '@api/auth';
 
 
 const AuthContext = createContext();

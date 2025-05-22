@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import apiClient from '@/lib/apiClient';
+import apiClient from '@api/apiClient';
 
 const BLOOD_TYPES = [
   "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "Unknown"

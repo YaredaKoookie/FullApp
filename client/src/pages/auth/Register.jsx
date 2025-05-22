@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { Link as RouterLink } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import GoogleLoginBtn from "./GoogleLoginBtn";
-import useRegister from "@/hooks/useRegister";
+import { useRegister } from "@api/auth";
 
 const checkPasswordStrength = (password) => {
   let strengthValue = 0;

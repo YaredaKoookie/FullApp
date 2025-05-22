@@ -1,5 +1,5 @@
 import Loading from '@/components/Loading';
-import apiClient from '@/lib/apiClient';
+import apiClient from '@api/apiClient';
 import { useQuery } from '@tanstack/react-query';
 import AgoraRTC from 'agora-rtc-sdk-ng';
 import React, { useEffect, useRef, useState } from 'react';
