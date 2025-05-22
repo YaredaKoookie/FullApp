@@ -4,13 +4,6 @@ import { useSearchParams, Navigate } from "react-router-dom";
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@headlessui/react";
 
 const RegistrationTab = () => {
-  const [params] = useSearchParams();
-  const role = params.get("role");
-
-  if (!role || (role !== "doctor" && role !== "patient")) {
-    return <Navigate to="/auth/select-role" replace />;
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center">
         <TabGroup className="min-w-lg">
@@ -20,10 +13,10 @@ const RegistrationTab = () => {
           </TabList>
           <TabPanels className="w-full">
             <TabPanel>
-              <Register role={role} />
+              <Register role={"patient"} />
             </TabPanel>
             <TabPanel>
-              <EmailSign role={role} />
+              <EmailSign role={"patient"} />
             </TabPanel>
           </TabPanels>
         </TabGroup>

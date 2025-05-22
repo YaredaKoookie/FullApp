@@ -10,14 +10,20 @@ import { toast } from 'react-toastify';
 const familyHistorySchema = z.object({
   relation: z.string().min(1, 'Relationship is required'),
   condition: z.string().min(1, 'Medical condition is required'),
-  ageOfOnset: z.string().optional(),
+  ageAtDiagnosis: z.string()
+    .transform((val) => (val === '' ? undefined : Number(val)))
+    .pipe(z.number().min(0).max(120).optional()),
   status: z.enum(['alive', 'deceased', 'unknown']).default('alive'),
   notes: z.string().optional(),
 });
 
+const RELATIONSHIPS = ['Mother', 'Father', 'Sister', 'Brother', 'Maternal Grandmother', 'Maternal Grandfather',
+  'Paternal Grandmother', 'Paternal Grandfather', 'Aunt', 'Uncle', 'Cousin', 'Other'];
+
+
 const EditFamilyHistoryModal = ({ isOpen, onClose, onSuccess, familyHistory }) => {
   const queryClient = useQueryClient();
-  
+
   const {
     register,
     handleSubmit,
@@ -28,22 +34,24 @@ const EditFamilyHistoryModal = ({ isOpen, onClose, onSuccess, familyHistory }) =
     defaultValues: {
       relation: familyHistory?.relation || '',
       condition: familyHistory?.condition || '',
-      ageOfOnset: familyHistory?.ageOfOnset || '',
+      ageAtDiagnosis: familyHistory?.ageAtDiagnosis || '',
       status: familyHistory?.status || 'alive',
       notes: familyHistory?.notes || '',
     },
   });
 
+
+  console.log("familyHistory", familyHistory);
+
   const { mutate } = useMutation({
     mutationFn: async (data) => {
-      const response = await apiClient.put(`/medical-history/family-history/${familyHistory.id}`, data);
+      const response = await apiClient.put(`/medical-history/family-history/${familyHistory._id}`, data);
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['medicalHistory']);
       reset();
       onSuccess();
-      toast.success('Family history record updated successfully');
     },
     onError: (error) => {
       toast.error(error.message || 'Failed to update family history record');
@@ -59,7 +67,7 @@ const EditFamilyHistoryModal = ({ isOpen, onClose, onSuccess, familyHistory }) =
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="mx-auto max-w-lg rounded-lg bg-white p-6">
+        <Dialog.Panel className="mx-auto w-full max-w-2xl rounded-lg bg-white p-6">
           <div className="flex items-center justify-between mb-4">
             <Dialog.Title className="text-lg font-medium text-gray-900">
               Edit Family Medical History
@@ -85,19 +93,9 @@ const EditFamilyHistoryModal = ({ isOpen, onClose, onSuccess, familyHistory }) =
                 {...register('relation')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               >
-                <option value="">Select relationship</option>
-                <option value="mother">Mother</option>
-                <option value="father">Father</option>
-                <option value="sister">Sister</option>
-                <option value="brother">Brother</option>
-                <option value="maternal_grandmother">Maternal Grandmother</option>
-                <option value="maternal_grandfather">Maternal Grandfather</option>
-                <option value="paternal_grandmother">Paternal Grandmother</option>
-                <option value="paternal_grandfather">Paternal Grandfather</option>
-                <option value="aunt">Aunt</option>
-                <option value="uncle">Uncle</option>
-                <option value="cousin">Cousin</option>
-                <option value="other">Other</option>
+                {RELATIONSHIPS.map((relationship) => (
+                  <option key={relationship} value={relationship}>{relationship}</option>
+                ))}
               </select>
               {errors.relation && (
                 <p className="mt-1 text-sm text-red-600">{errors.relation.message}</p>
@@ -126,22 +124,22 @@ const EditFamilyHistoryModal = ({ isOpen, onClose, onSuccess, familyHistory }) =
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label
-                  htmlFor="ageOfOnset"
+                  htmlFor="ageAtDiagnosis"
                   className="block text-sm font-medium text-gray-700"
                 >
                   Age of Onset (Optional)
                 </label>
                 <input
                   type="number"
-                  id="ageOfOnset"
-                  {...register('ageOfOnset')}
+                  id="ageAtDiagnosis"
+                  {...register('ageAtDiagnosis')}
                   min="0"
                   max="120"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                   placeholder="Age in years"
                 />
-                {errors.ageOfOnset && (
-                  <p className="mt-1 text-sm text-red-600">{errors.ageOfOnset.message}</p>
+                {errors.ageAtDiagnosis && (
+                  <p className="mt-1 text-sm text-red-600">{errors.ageAtDiagnosis.message}</p>
                 )}
               </div>
 

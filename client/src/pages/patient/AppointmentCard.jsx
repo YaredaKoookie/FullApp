@@ -14,7 +14,7 @@ import {
 import { format, isPast, isToday } from "date-fns";
 import apiClient from "@/lib/apiClient";
 import AppointmentStatusBadge from "./AppointmentStatusBadge";
-import {Link} from "react-router-dom"
+import { Link } from "react-router-dom"
 
 const AppointmentCard = ({ appointment, refetch }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -78,70 +78,70 @@ const AppointmentCard = ({ appointment, refetch }) => {
     <div className="bg-white rounded-lg shadow mb-4">
       {/* Appointment Header */}
       <div className="p-6">
-      <div className="flex items-start justify-between">
-        <div className="flex items-start space-x-4">
-          {appointment.doctor.profilePhoto ? (
+        <div className="flex items-start justify-between">
+          <div className="flex items-start space-x-4">
+            {appointment.doctor.profilePhoto ? (
               <img
-              src={appointment.doctor.profilePhoto}
-              alt={`${appointment.doctor.firstName} ${appointment.doctor.lastName}`}
-              className="h-12 w-12 rounded-full object-cover"
+                src={appointment.doctor.profilePhoto}
+                alt={`${appointment.doctor.firstName} ${appointment.doctor.lastName}`}
+                className="h-12 w-12 rounded-full object-cover"
               />
-          ) : (
-            <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-              <Stethoscope className="h-5 w-5" />
-            </div>
-          )}
+            ) : (
+              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                <Stethoscope className="h-5 w-5" />
+              </div>
+            )}
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 truncate">
-                <Link
-                  className="text-blue-800 hover:underline"
-                  to={"../doctors/" + appointment.doctor._id + "/details"}
-                >
-                  Dr. {appointment.doctor.firstName}{" "}
-                  {appointment.doctor.lastName}
-                </Link>
-              </h3>
-              <AppointmentStatusBadge status={appointment.status} />
-            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900 truncate">
+                  <Link
+                    className="text-blue-800 hover:underline"
+                    to={"../doctors/" + appointment.doctor._id + "/details"}
+                  >
+                    Dr. {appointment.doctor.firstName}{" "}
+                    {appointment.doctor.lastName}
+                  </Link>
+                </h3>
+                <AppointmentStatusBadge status={appointment.status} />
+              </div>
 
-            <p className="text-sm text-blue-600 font-medium mt-1">
-              {appointment.doctor.specialization}
-            </p>
+              <p className="text-sm text-blue-600 font-medium mt-1">
+                {appointment.doctor.specialization}
+              </p>
 
-            <div className="mt-2 flex flex-wrap gap-2">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                {format(startDate, "MMM d, yyyy")}
-              </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                {format(startDate, "h:mm a")} - {format(endDate, "h:mm a")}
-              </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                {appointment.appointmentType === "virtual"
-                  ? "Virtual"
-                  : "In-person"}
-              </span>
-              {isTodayAppointment && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                  Today
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                  {format(startDate, "MMM d, yyyy")}
                 </span>
-              )}
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                  {format(startDate, "h:mm a")} - {format(endDate, "h:mm a")}
+                </span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                  {appointment.appointmentType === "virtual"
+                    ? "Virtual"
+                    : "In-person"}
+                </span>
+                {isTodayAppointment && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    Today
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="p-1 rounded-full text-gray-400 hover:text-gray-500 hover:bg-gray-100"
-        >
-          {isExpanded ? (
-            <ChevronUp className="h-5 w-5" />
-          ) : (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="p-1 rounded-full text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+          >
+            {isExpanded ? (
+              <ChevronUp className="h-5 w-5" />
+            ) : (
               <ChevronDown className="h-5 w-5" />
             )}
-        </button>
-            </div>
+          </button>
+        </div>
       </div>
 
       {/* Expanded Details */}
@@ -165,7 +165,7 @@ const AppointmentCard = ({ appointment, refetch }) => {
                 <button
                   onClick={() => setIsCancelOpen(true)}
                   className="px-3 py-1 border border-red-300 text-red-600 rounded"
-                  >
+                >
                   Cancel
                 </button>
                 <button
@@ -178,6 +178,16 @@ const AppointmentCard = ({ appointment, refetch }) => {
             )}
 
             {appointment.status === "ACCEPTED" && (
+              <button
+                onClick={() => setIsPaymentOpen(true)}
+                className="px-3 py-1 bg-green-600 text-white rounded flex items-center"
+              >
+                <CreditCard className="mr-1 h-4 w-4" />
+                Pay Now
+              </button>
+            )}
+
+            {appointment.status === "confirmed" && (
               <button
                 onClick={() => setIsPaymentOpen(true)}
                 className="px-3 py-1 bg-green-600 text-white rounded flex items-center"
@@ -334,11 +344,10 @@ const RescheduleDialog = ({
                 {availableSlots.map((slot) => (
                   <div
                     key={slot._id}
-                    className={`p-2 mb-2 cursor-pointer ${
-                      selectedSlot?._id === slot._id
+                    className={`p-2 mb-2 cursor-pointer ${selectedSlot?._id === slot._id
                         ? "bg-blue-50"
                         : "hover:bg-gray-50"
-                    }`}
+                      }`}
                     onClick={() => setSelectedSlot(slot)}
                   >
                     {format(new Date(slot.start), "MMM d, h:mm a")}

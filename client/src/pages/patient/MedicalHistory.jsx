@@ -21,7 +21,8 @@ import {
   Syringe,
   Stethoscope,
   Building2,
-  Users
+  Users,
+  RefreshCw
 } from 'lucide-react';
 import apiClient from '@/lib/apiClient';
 import MedicalHistorySkeleton from '@/components/skeletons/MedicalHistorySkeleton';
@@ -71,6 +72,11 @@ const MedicalHistory = () => {
   const [discontinuingMedication, setDiscontinuingMedication] = useState(null);
   const queryClient = useQueryClient();
   
+  const calculateBMI = (weight, height) => {
+    if (!weight || !height) return null;
+    const heightInMeters = height / 100;
+    return (weight / (heightInMeters ** 2)).toFixed(2);
+  };
 
   const { data: medicalHistory, isLoading, error, refetch } = useQuery({
     queryKey: ['medicalHistory'],
@@ -79,6 +85,9 @@ const MedicalHistory = () => {
       return response.data;
     },
   });
+
+  // Calculate BMI if not provided in response
+  const bmi = medicalHistory?.bmi || calculateBMI(medicalHistory?.weight, medicalHistory?.height);
 
   const { data: medicationTimeline } = useQuery({
     queryKey: ['medicationTimeline'],
@@ -135,7 +144,34 @@ const MedicalHistory = () => {
 
   if (isLoading) return <MedicalHistorySkeleton />;
 
-  console.error("error", error);
+  // Show error message if there's an error fetching medical history
+  if (error && error.status !== 404) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <AlertTriangle className="mx-auto h-24 w-24 text-red-500" />
+            <h2 className="mt-6 text-3xl font-bold text-gray-900">
+              Unable to Load Medical History
+            </h2>
+            <p className="mt-2 text-lg text-gray-600">
+              {error.message || "We encountered an error while trying to load your medical history. Please try again later."}
+            </p>
+            <div className="mt-8">
+              <button
+                onClick={() => refetch()}
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                <RefreshCw className="mr-3 h-5 w-5" />
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Show create medical history UI if none exists
   if (error?.status === 404) {
     return (
@@ -222,52 +258,52 @@ const MedicalHistory = () => {
         </div>
 
         {/* Overview Section */}
-        <div className="mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Vital Stats Card */}
-            <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border border-blue-100">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-blue-900">Vital Statistics</h3>
-                <div className="flex items-center space-x-2">
-                  <Activity className="h-6 w-6 text-blue-500" />
+            <div className="bg-white rounded-lg p-4 shadow-md hover:shadow-lg transition-shadow duration-300 border border-blue-100">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-blue-900">Vital Statistics</h3>
+                <div className="flex items-center space-x-1">
+                  <Activity className="h-4 w-4 text-blue-500" />
                   <button
                     onClick={() => setIsUpdateVitalsOpen(true)}
                     className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
                   >
-                    <Settings className="h-4 w-4" />
+                    <Settings className="h-3 w-3" />
                   </button>
                 </div>
               </div>
               {medicalHistory.height || medicalHistory.weight || medicalHistory.bloodType ? (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
                     <span className="text-gray-600">Height</span>
                     <span className="font-medium text-blue-900">{medicalHistory.height || 'Not set'} cm</span>
                   </div>
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center text-xs">
                     <span className="text-gray-600">Weight</span>
                     <span className="font-medium text-blue-900">{medicalHistory.weight || 'Not set'} kg</span>
                   </div>
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center text-xs">
                     <span className="text-gray-600">Blood Type</span>
                     <span className="font-medium text-blue-900">{medicalHistory.bloodType || 'Not set'}</span>
                   </div>
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center text-xs">
                     <span className="text-gray-600">BMI</span>
-                    <span className="font-medium text-blue-900">{medicalHistory.bmi || 'Not set'}</span>
+                    <span className="font-medium text-blue-900">{bmi || 'Not set'}</span>
                   </div>
                 </div>
               ) : (
                 <EmptyState
                   icon={Activity}
-                  title="No vital statistics recorded"
-                  description="Add your vital statistics to track your health metrics"
+                  title="No vital statistics"
+                  description="Add your vital statistics"
                   action={
                     <button
                       onClick={() => setIsUpdateVitalsOpen(true)}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     >
-                      Add Vital Statistics
+                      Add Vitals
                     </button>
                   }
                 />
@@ -275,17 +311,17 @@ const MedicalHistory = () => {
             </div>
 
             {/* Active Conditions Card */}
-            <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border border-red-100">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-red-900">Active Conditions</h3>
-                <Heart className="h-6 w-6 text-red-500" />
+            <div className="bg-white rounded-lg p-4 shadow-md hover:shadow-lg transition-shadow duration-300 border border-red-100">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-red-900">Active Conditions</h3>
+                <Heart className="h-4 w-4 text-red-500" />
               </div>
               {medicalHistory.activeConditions?.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
                   {medicalHistory.activeConditions.map((condition) => (
-                    <div key={condition._id} className="flex items-center justify-between bg-red-50 p-2 rounded-lg">
-                      <span className="text-gray-700">{condition.name}</span>
-                      <span className="text-sm font-medium text-red-600 bg-red-100 px-2 py-1 rounded-full">Active</span>
+                    <div key={condition._id} className="flex items-center justify-between bg-red-50 p-1.5 rounded">
+                      <span className="text-xs text-gray-700 truncate max-w-[120px]">{condition.name}</span>
+                      <span className="text-xs font-medium text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">Active</span>
                     </div>
                   ))}
                 </div>
@@ -293,11 +329,11 @@ const MedicalHistory = () => {
                 <EmptyState
                   icon={Heart}
                   title="No active conditions"
-                  description="Add your medical conditions to keep track of your health"
+                  description="Add your conditions"
                   action={
                     <button
                       onClick={() => setIsAddConditionOpen(true)}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                      className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                     >
                       Add Condition
                     </button>
@@ -307,17 +343,17 @@ const MedicalHistory = () => {
             </div>
 
             {/* Critical Allergies Card */}
-            <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border border-yellow-100">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-yellow-900">Critical Allergies</h3>
-                <AlertTriangle className="h-6 w-6 text-yellow-500" />
+            <div className="bg-white rounded-lg p-4 shadow-md hover:shadow-lg transition-shadow duration-300 border border-yellow-100">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-yellow-900">Critical Allergies</h3>
+                <AlertTriangle className="h-4 w-4 text-yellow-500" />
               </div>
               {medicalHistory.criticalAllergies?.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
                   {medicalHistory.criticalAllergies.map((allergy) => (
-                    <div key={allergy._id} className="flex items-center justify-between bg-yellow-50 p-2 rounded-lg">
-                      <span className="text-gray-700">{allergy.substance}</span>
-                      <span className="text-sm font-medium text-yellow-600 bg-yellow-100 px-2 py-1 rounded-full">Critical</span>
+                    <div key={allergy._id} className="flex items-center justify-between bg-yellow-50 p-1.5 rounded">
+                      <span className="text-xs text-gray-700 truncate max-w-[120px]">{allergy.substance}</span>
+                      <span className="text-xs font-medium text-yellow-600 bg-yellow-100 px-1.5 py-0.5 rounded-full">Critical</span>
                     </div>
                   ))}
                 </div>
@@ -325,11 +361,11 @@ const MedicalHistory = () => {
                 <EmptyState
                   icon={AlertTriangle}
                   title="No critical allergies"
-                  description="Add your allergies to ensure proper medical care"
+                  description="Add your allergies"
                   action={
                     <button
                       onClick={() => setIsAddAllergyOpen(true)}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                      className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
                     >
                       Add Allergy
                     </button>
@@ -339,32 +375,32 @@ const MedicalHistory = () => {
             </div>
 
             {/* Quick Actions Card */}
-            <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border border-green-100">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-green-900">Quick Actions</h3>
-                <Plus className="h-6 w-6 text-green-500" />
+            <div className="bg-white rounded-lg p-4 shadow-md hover:shadow-lg transition-shadow duration-300 border border-green-100">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-green-900">Quick Actions</h3>
+                <Plus className="h-4 w-4 text-green-500" />
               </div>
-              <div className="space-y-3">
+              <div className="space-y-1.5">
                 <button
                   onClick={() => setIsAddConditionOpen(true)}
-                  className="w-full flex items-center justify-between p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors duration-200"
+                  className="w-full flex items-center justify-between p-1.5 bg-green-50 rounded hover:bg-green-100 transition-colors duration-200"
                 >
-                  <span className="text-gray-700">Add Condition</span>
-                  <ChevronRight className="h-5 w-5 text-green-600" />
+                  <span className="text-xs text-gray-700">Add Condition</span>
+                  <ChevronRight className="h-3 w-3 text-green-600" />
                 </button>
                 <button
                   onClick={() => setIsAddMedicationOpen(true)}
-                  className="w-full flex items-center justify-between p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors duration-200"
+                  className="w-full flex items-center justify-between p-1.5 bg-green-50 rounded hover:bg-green-100 transition-colors duration-200"
                 >
-                  <span className="text-gray-700">Add Medication</span>
-                  <ChevronRight className="h-5 w-5 text-green-600" />
+                  <span className="text-xs text-gray-700">Add Medication</span>
+                  <ChevronRight className="h-3 w-3 text-green-600" />
                 </button>
                 <button
                   onClick={() => setIsAddAllergyOpen(true)}
-                  className="w-full flex items-center justify-between p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors duration-200"
+                  className="w-full flex items-center justify-between p-1.5 bg-green-50 rounded hover:bg-green-100 transition-colors duration-200"
                 >
-                  <span className="text-gray-700">Add Allergy</span>
-                  <ChevronRight className="h-5 w-5 text-green-600" />
+                  <span className="text-xs text-gray-700">Add Allergy</span>
+                  <ChevronRight className="h-3 w-3 text-green-600" />
                 </button>
               </div>
             </div>
@@ -415,7 +451,7 @@ const MedicalHistory = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Chronic Conditions */}
                     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-300">
-                      <h4 className="text-lg font-medium text-gray-900 mb-4">Chronic Conditions</h4>
+                      <h4 className="text-lg font-medium text-gray-900 mb-4">Chronic and Active Conditions</h4>
                       {medicalHistory.chronicConditions?.length > 0 ? (
                         <div className="space-y-4">
                           {medicalHistory.chronicConditions.map((condition) => (
@@ -425,6 +461,16 @@ const MedicalHistory = () => {
                                 <p className="text-sm text-gray-500">
                                   Diagnosed: {format(new Date(condition.diagnosisDate), 'MMM d, yyyy')}
                                 </p>
+                                <div className="mt-1 flex items-center">
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {condition.status}
+                                  </span>
+                                  {condition.isChronic && (
+                                    <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                      Chronic
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               <div className="flex space-x-2">
                                 <button
@@ -461,11 +507,33 @@ const MedicalHistory = () => {
                         <div className="space-y-4">
                           {medicalHistory.pastConditions.map((condition) => (
                             <div key={condition._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200">
-                              <div>
+                              <div className="">
                                 <p className="font-medium text-gray-900">{condition.name}</p>
                                 <p className="text-sm text-gray-500">
-                                  Resolved: {format(new Date(condition.resolvedDate), 'MMM d, yyyy')}
+                                  Diagnosed: {format(new Date(condition.diagnosisDate), 'MMM d, yyyy')}
                                 </p>
+                                <div className="mt-1  gap-2">
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                    condition.status === 'Resolved' 
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                    {condition.status}
+                                  </span>
+                                  {condition.resolvedDate && (
+                                    <span className="ml-2 text-sm text-gray-500">
+                                      Resolved: {format(new Date(condition.resolvedDate), 'MMM d, yyyy')}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => setEditingItem({ type: 'condition', data: condition })}
+                                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </button>
                               </div>
                             </div>
                           ))}
@@ -961,6 +1029,7 @@ const MedicalHistory = () => {
         onSuccess={() => {
           refetch();
           toast.success('Condition added successfully');
+          setIsAddConditionOpen(false);
         }}
       />
 
@@ -970,6 +1039,7 @@ const MedicalHistory = () => {
         onSuccess={() => {
           refetch();
           toast.success('Medication added successfully');
+          setIsAddMedicationOpen(false);
         }}
       />
 
@@ -979,6 +1049,7 @@ const MedicalHistory = () => {
         onSuccess={() => {
           refetch();
           toast.success('Allergy added successfully');
+          setIsAddAllergyOpen(false);
         }}
       />
 
@@ -1089,6 +1160,11 @@ const MedicalHistory = () => {
         isOpen={isUpdateVitalsOpen}
         onClose={() => setIsUpdateVitalsOpen(false)}
         initialData={medicalHistory}
+        onSuccess={() => {
+          refetch();
+          toast.success('Vitals updated successfully');
+          setIsUpdateVitalsOpen(false);
+        }}
       />
 
       <AddImmunizationModal
@@ -1097,6 +1173,7 @@ const MedicalHistory = () => {
         onSuccess={() => {
           refetch();
           toast.success('Immunization added successfully');
+          setIsAddImmunizationOpen(false);
         }}
       />
 
@@ -1106,6 +1183,7 @@ const MedicalHistory = () => {
         onSuccess={() => {
           refetch();
           toast.success('Surgery added successfully');
+          setIsAddSurgeryOpen(false);
         }}
       />
 
@@ -1115,6 +1193,7 @@ const MedicalHistory = () => {
         onSuccess={() => {
           refetch();
           toast.success('Hospitalization added successfully');
+          setIsAddHospitalizationOpen(false);
         }}
       />
 
@@ -1124,6 +1203,7 @@ const MedicalHistory = () => {
         onSuccess={() => {
           refetch();
           toast.success('Family history added successfully');
+          setIsAddFamilyHistoryOpen(false);
         }}
       />
     </div>

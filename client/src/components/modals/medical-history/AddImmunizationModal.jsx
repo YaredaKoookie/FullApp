@@ -46,7 +46,6 @@ const AddImmunizationModal = ({ isOpen, onClose, onSuccess }) => {
       queryClient.invalidateQueries(['medicalHistory']);
       reset();
       onSuccess();
-      toast.success('Immunization added successfully');
     },
     onError: (error) => {
       toast.error(error.message || 'Failed to add immunization');

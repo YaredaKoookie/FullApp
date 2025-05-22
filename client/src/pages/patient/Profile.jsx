@@ -31,65 +31,10 @@ const PatientProfile = () => {
     reset,
     formState: { errors },
   } = useForm();
+
   const updateProfileImageMutation = useUpdateProfileImage();
   const updateProfileMutation = useUpdateProfile();
-  const { isLoading: isProfileLoading, data: response } =
-    useGetPatientProfile();
-
-  // Fetch patient data (replace with your API call)
-  useEffect(() => {
-    // Mock data - replace with actual API call
-    const fetchPatientData = async () => {
-      const mockData = {
-        name: "John Doe",
-        profileImage: null,
-        gender: "male",
-        phone: "+1234567890",
-        dateOfBirth: "1985-04-15",
-        bloodType: "A+",
-        preferredLanguage: "English",
-        maritalStatus: "married",
-        notificationPreferences: {
-          systemNotification: true,
-          emailNotification: false,
-          smsNotification: true,
-        },
-        emergencyContact: [
-          {
-            name: "Jane Doe",
-            relation: "Spouse",
-            phone: "+1987654321",
-            email: "jane@example.com",
-          },
-        ],
-        insurance: [
-          {
-            provider: "Blue Cross",
-            policyNumber: "BC123456789",
-            coverageDetails: "Full coverage",
-            validTill: "2025-12-31",
-            status: "active",
-          },
-        ],
-        location: {
-          locationType: "home",
-          country: "United States",
-          city: "New York",
-          address: "123 Main St",
-          postalCode: "10001",
-          state: "NY",
-          coordinates: {
-            type: "Point",
-            coordinates: [-74.006, 40.7128],
-          },
-        },
-      };
-      setPatientData(mockData);
-      reset(mockData); // Initialize form with data
-    };
-
-    fetchPatientData();
-  }, [reset]);
+  const { isLoading: isProfileLoading, data: response } = useGetPatientProfile();
 
   if (isProfileLoading) return <Loading />;
 
@@ -103,6 +48,7 @@ const PatientProfile = () => {
   if (profile && !profile.emergencyContact?.length) {
     profile.emergencyContact = [
       {
+
         name: "Not provided",
         relation: "Not Provided",
         phone: "Not Provided",
@@ -113,11 +59,11 @@ const PatientProfile = () => {
   if (profile && !profile.insurance?.length) {
     profile.insurance = [
       {
-        provider: "Not Provided yet",
-        policyNumber: "Not Provided yet",
-        coverageDetails: "Not Provided yet",
-        validTill: "Not Provided yet",
-        status: "Not Provided yet",
+        provider: "",
+        policyNumber: "",
+        coverageDetails: "",
+        validTill: "",
+        status: "",
       },
     ];
   }
@@ -271,7 +217,7 @@ const PatientProfile = () => {
                     {...register("firstName", { required: "Name is required" })}
                     type="text"
                     defaultValue={profile.firstName}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
                 ) : (
                   <p className="text-gray-900">{profile.fullName}</p>
@@ -288,7 +234,7 @@ const PatientProfile = () => {
                   <select
                     {...register("gender")}
                     defaultValue={profile.gender.toLowerCase()}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   >
                     <option value="male">Male</option>
                     <option value="female">Female</option>
@@ -316,7 +262,7 @@ const PatientProfile = () => {
                     })}
                     defaultValue={profile.phone}
                     type="tel"
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
                 ) : (
                   <p className="text-gray-900">{profile.phone}</p>
@@ -345,7 +291,7 @@ const PatientProfile = () => {
                     })}
                     defaultValue={profile.dateOfBirth}
                     type="date"
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
                 ) : (
                   <p className="text-gray-900">
@@ -358,35 +304,7 @@ const PatientProfile = () => {
                   </p>
                 )}
               </div>
-
-              {/* Blood Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                  <Droplet className="w-4 h-4 mr-2 text-gray-400" />
-                  Blood Type
-                </label>
-                {isEditing ? (
-                  <select
-                    {...register("bloodType")}
-                    defaultValue={profile.bloodType}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  >
-                    <option value="">Unknown</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                  </select>
-                ) : (
-                  <p className="text-gray-900">
-                    {profile.bloodType || "Unknown"}
-                  </p>
-                )}
-              </div>
+          
 
               {/* Marital Status */}
               <div>
@@ -398,7 +316,7 @@ const PatientProfile = () => {
                   <select
                     {...register("maritalStatus")}
                     defaultValue={profile.maritalStatus}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   >
                     <option value="">Prefer not to say</option>
                     <option value="single">Single</option>
@@ -425,7 +343,7 @@ const PatientProfile = () => {
                   <select
                     {...register("preferredLanguage")}
                     defaultValue={profile.phone}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   >
                     <option value="English">English</option>
                     <option value="Spanish">Spanish</option>
@@ -456,7 +374,7 @@ const PatientProfile = () => {
                         })}
                         defaultValue={profile.location?.country}
                         type="text"
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
                       <p className="text-gray-900">
@@ -475,7 +393,7 @@ const PatientProfile = () => {
                         })}
                         defaultValue={profile.location?.city}
                         type="text"
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
                       <p className="text-gray-900">{profile.location.city}</p>
@@ -490,7 +408,7 @@ const PatientProfile = () => {
                         {...register("location.address")}
                         type="text"
                         defaultValue={profile.location?.address}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
                       <p className="text-gray-900">
@@ -507,7 +425,7 @@ const PatientProfile = () => {
                         {...register("location.postalCode")}
                         defaultValue={profile.postalCode}
                         type="text"
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
                       <p className="text-gray-900">
@@ -525,7 +443,7 @@ const PatientProfile = () => {
                         defaultValue={profile.location.state}
                         
                         type="text"
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
                       <p className="text-gray-900">
@@ -561,7 +479,7 @@ const PatientProfile = () => {
                         })}
                         defaultValue={contact.name}
                         type="text"
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
                       <p className="text-gray-900">{contact.name}</p>
@@ -578,7 +496,7 @@ const PatientProfile = () => {
                         })}
                         defaultValue={contact.relation}
                         type="text"
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
                       <p className="text-gray-900">{contact.relation}</p>
@@ -599,7 +517,7 @@ const PatientProfile = () => {
                         })}
                         defaultValue={contact.phone}
                         type="tel"
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
                       <p className="text-gray-900">{contact.phone}</p>
@@ -614,7 +532,7 @@ const PatientProfile = () => {
                         {...register(`emergencyContact.${index}.email`)}
                         type="email"
                         defaultValue={contact.email}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
                       <p className="text-gray-900">
@@ -668,7 +586,7 @@ const PatientProfile = () => {
                         })}
                         defaultValue={insurance.provider}
                         type="text"
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
                       <p className="text-gray-900">{insurance.provider}</p>
@@ -685,7 +603,7 @@ const PatientProfile = () => {
                         })}
                         defaultValue={insurance.policyNumber}
                         type="text"
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
                       <p className="text-gray-900">{insurance.policyNumber}</p>
@@ -700,7 +618,7 @@ const PatientProfile = () => {
                         {...register(`insurance.${index}.coverageDetails`)}
                         rows={3}
                         defaultValue={insurance.coverageDetails}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
                       <p className="text-gray-900">
@@ -717,7 +635,7 @@ const PatientProfile = () => {
                         {...register(`insurance.${index}.validTill`)}
                         type="date"
                         defaultValue={insurance.validTill}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     ) : (
                       <p className="text-gray-900">
@@ -735,7 +653,7 @@ const PatientProfile = () => {
                       <select
                         {...register(`insurance.${index}.status`)}
                         defaultValue={insurance.status}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       >
                         <option value="active">Active</option>
                         <option value="expired">Expired</option>
@@ -897,41 +815,7 @@ const PatientProfile = () => {
         )}
       </form>
 
-      {/* Security Section (always visible) */}
-      <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 md:p-8">
-          <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-            <Lock className="w-5 h-5 mr-2 text-indigo-600" />
-            Security
-          </h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-700">Password</p>
-                <p className="text-sm text-gray-500">
-                  Last changed 3 months ago
-                </p>
-              </div>
-              <button className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
-                Change Password
-              </button>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-700">
-                  Two-Factor Authentication
-                </p>
-                <p className="text-sm text-gray-500">
-                  Add an extra layer of security
-                </p>
-              </div>
-              <button className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
-                Enable 2FA
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+  
     </div>
   );
 };

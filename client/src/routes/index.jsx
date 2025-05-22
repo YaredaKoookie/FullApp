@@ -4,19 +4,12 @@ import GoogleCallback from "@/components/callbacks/GoogleCallback";
 import MagicLinkVerify from "@/components/callbacks/MagicLinkVerify";
 import PasswordReset from "@/components/callbacks/PasswordReset";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import {
-  DoctorProtectedRoute,
-  DoctorProfileRoute,
-} from "@/components/doctorProtectedRoute";
 
 import RedirectIfLoggedIn from "@/components/RedirectIfLoggedIn";
 import ErrorBoundary from "@/ErrorBoundary";
 import NotFound from "@/NotFound";
 import Login from "@/pages/auth/Login";
 import RegistrationTab from "@/pages/auth/RegistrationTab";
-import SelectRole from "@/pages/auth/SelectRole";
-import DoctorLayout from "@/pages/doctor/DoctorLayout";
-import DoctorProfileCompletion from "@/pages/doctor/CompleteDoctorProfile";
 import AppointmentDetails from "@/pages/patient/AppointmentDetails";
 import Appointments from "@/pages/patient/Appointments";
 import PatientDashboard from "@/pages/patient/PatientDashboard";
@@ -24,91 +17,29 @@ import PatientDoctors from "@/pages/patient/PatientDoctors";
 import PatientLayout from "@/pages/patient/PatientLayout";
 import PatientProfileComplete from "@/pages/patient/PatientProfileComplete";
 import PatientProfile from "@/pages/patient/Profile";
-import Home from "@/pages/public/Home";
 import {
   createBrowserRouter,
   createRoutesFromElements,
   Navigate,
   Route,
 } from "react-router-dom";
-import DoctorDashboard from "@/pages/doctor/DoctorDashboard";
-import DoctorSchedule from "@/pages/doctor/DoctorSchedule";
 import CureLogicHomepage from "@/pages/public/Home";
-import CompleteDoctorProfile from "@/pages/doctor/CompleteDoctorProfile";
-import DoctorProfilePage from "@/pages/doctor/DoctorProfilePage";
 import AppointmentDetailsPage from "@/pages/patient/AppointmentDetailsPage";
 import Payments from "@/pages/patient/Payments";
-// import DoctorPatientsPage from "@/pages/doctor/DoctorAppointmentsDashboard";
-import AccountSetting from "@/pages/doctor/AccountSetting";
-// import DoctorAppointmentsDashboard from "@/pages/doctor/DoctorAppointmentsDashboard";
-import DoctorListContent from "@/Admin/AdminDoctorListPage";
-import AdminPatientListContent from "@/Admin/AdminPatinet";
-import PaymentsWithdrawalsContent from "@/Admin/PaymentsWithdrawalsContent";
-import DoctorPaymentStatPage from "@/pages/doctor/DoctorPatientStatPage";
-import { AdminProfileRoute } from "@/components/AdminProtectedRoute";
-import AdminLayout from "@/Admin/AdminLayout";
 import AppProtector from "@/components/AppProtector";
-import DoctorAppointments from "@/pages/doctor/DoctorAppointments";
-import DoctorPatientPage from "@/pages/doctor/DoctorPatientPage";
 import DoctorProfileDetails from "@/pages/patient/DoctorProfileDetails";
-import IsProfileCompleted from "@/components/IsProfileCompleted";
-import PatientProfileCompletion from "@/pages/patient/PatientProfileComplete";
 import MedicalHistoryPage from "@/pages/patient/MedicalHistory";
+import VideoCall from "@/pages/patient/VideoCall";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route errorElement={<ErrorBoundary />}>
-      <Route
-        path="admin"
-        element={
-          <AppProtector allowedRoles={["admin"]}>
-            <AdminLayout>
-              <AdminProfileRoute />
-            </AdminLayout>
-          </AppProtector>
-        }
-      >
-        <Route path="doctors" element={<DoctorListContent />} />
-        <Route path="payments" element={<PaymentsWithdrawalsContent />} />
-        <Route path="patients" element={<AdminPatientListContent />} />
-      </Route>
 
       <Route path="/" element={<App />}>
         <Route index element={<CureLogicHomepage />} />
       </Route>
 
-      <Route path="doctor" element={<DoctorProfileRoute />}>
-        <Route path="complete-profile" element={<CompleteDoctorProfile />} />
-      </Route>
-      <Route
-        path="doctor"
-        element={
-          <AppProtector allowedRoles={["doctor"]}>
-            <DoctorProtectedRoute>
-              <DoctorLayout />
-            </DoctorProtectedRoute>
-          </AppProtector>
-        }
-      >
-        <Route index path="dashboard" element={<DoctorDashboard />} />
-        <Route path="schedule" element={<DoctorSchedule />} />
-        <Route path="profile" element={<DoctorProfilePage />} />
-        <Route path="patient" element={<DoctorPatientPage />} />
-        <Route path="appointments" element={<DoctorAppointments />} />
-        <Route path="setting" element={<AccountSetting />} />
-        <Route path="payments" element={<DoctorPaymentStatPage />} />
-      </Route>
-
-      {/* <Route
-        path="doctor"
-        element={
-          <ProtectedRoute role="doctor">
-            <DoctorLayout />
-          </ProtectedRoute>
-        }
-      ></Route> */}
-
-      {/* this is my space */}
+    
 
       <Route
         path="/patient"
@@ -132,6 +63,14 @@ const router = createBrowserRouter(
           element={
             <ProtectedRoute>
               <Appointments />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="appointments/:appointmentId/join"
+          element={
+            <ProtectedRoute>
+              <VideoCall />
             </ProtectedRoute>
           }
         />
@@ -201,7 +140,6 @@ const router = createBrowserRouter(
 
       <Route path="auth" element={<RedirectIfLoggedIn />}>
         <Route index element={<Navigate to="/auth/login" replace />} />
-        <Route path="select-role" element={<SelectRole />} />
         <Route path="register" element={<RegistrationTab />} />
         <Route path="login" element={<Login />} />
         <Route path="google/callback" element={<GoogleCallback />} />

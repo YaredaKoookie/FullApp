@@ -1,4 +1,4 @@
-import { AppWindowIcon, HeartPlusIcon, CurrencyIcon ,NewspaperIcon, HistoryIcon, MessageCircleIcon, UserIcon } from "lucide-react"
+import { AppWindowIcon, HeartPlusIcon, CurrencyIcon ,NewspaperIcon, HistoryIcon, MessageCircleIcon, UserIcon, Shield } from "lucide-react"
 
 const patientLinks = [
     {
@@ -27,9 +27,9 @@ const patientLinks = [
     },
     {
         id: 4,
-        name: "Chat and Messages",
-        url: "/patient/chats",
-        icon: MessageCircleIcon
+        name: "Security and Privacy",
+        url: "/patient/security",
+        icon: Shield
     },
     {
         id: 5,

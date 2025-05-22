@@ -1,7 +1,16 @@
 import mongoose from "mongoose";
 
-export const ALLERGY_SEVERITY = ["Mild", "Moderate", "Severe", "Life-threatening"];
-const CONDITION_STATUS = ["Active", "In Remission", "Resolved", "Chronic"];
+export const ALLERGY_SEVERITY = {
+  MILD: "Mild",
+  MODERATE: "Moderate",
+  SEVERE: "Severe",
+  LIFE_THREATENING: "Life-threatening",
+}
+export const CONDITION_STATUS = {
+  ACTIVE: "Active",
+  IN_REMISSION: "In Remission",
+  RESOLVED: "Resolved",
+}
 export const BLOOD_TYPES = [
   "A+",
   "A-",
@@ -13,13 +22,15 @@ export const BLOOD_TYPES = [
   "O-",
   "Unknown",
 ];
-const DATA_SOURCES = [
-  "Patient Reported",
-  "EHR Import",
-  "Doctor Added",
-  "Clinic Records",
-];
+
+export const DATA_SOURCE = {
+  PATIENT: "Patient",
+  DOCTOR: "Doctor",
+  SYSTEM: "System"
+}
 export const FREQUENCY_OPTIONS = ["Never", "Occasionally", "Weekly", "Daily"];
+export const RELATIONSHIPS = ['Mother', 'Father', 'Sister', 'Brother', 'Maternal Grandmother', 'Maternal Grandfather',
+  'Paternal Grandmother', 'Paternal Grandfather', 'Aunt', 'Uncle', 'Cou1sin', 'Other'];
 
 const medicalHistorySchema = new mongoose.Schema(
   {
@@ -32,9 +43,11 @@ const medicalHistorySchema = new mongoose.Schema(
     },
 
     // === Medical Conditions ===
-    pastConditions: [
+    conditions: [
       {
         name: { type: String, required: true },
+        status: { type: String, enum: Object.values(CONDITION_STATUS), default: CONDITION_STATUS.ACTIVE },
+        isChronic: { type: Boolean, default: false },
         diagnosisDate: {
           type: Date,
           validate: {
@@ -48,36 +61,22 @@ const medicalHistorySchema = new mongoose.Schema(
           type: Date,
           validate: {
             validator: function (v) {
-              return !v || v >= this.diagnosisDate;
+              if (this.status === "Resolved") {
+                return !v || v >= this.diagnosisDate;
+              }
+              return true
             },
             message: "Resolved date must be after diagnosis date",
           },
         },
-      },
-    ],
-
-    chronicConditions: [
-      {
-        name: { type: String, required: true },
-        diagnosisDate: {
-          type: Date,
-          required: true,
-          validate: {
-            validator: function (v) {
-              return v <= new Date();
-            },
-            message: "Diagnosis date cannot be in the future",
-          },
+        source: {
+          type: String,
+          enum: Object.values(DATA_SOURCE),
+          default: DATA_SOURCE.PATIENT,
         },
-        status: { type: String, enum: CONDITION_STATUS, default: "Active" },
-        lastFlareUp: {
-          type: Date,
-          validate: {
-            validator: function (v) {
-              return !v || v <= new Date();
-            },
-            message: "Last flare-up date cannot be in the future",
-          },
+        addedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          refPath: "source",
         },
       },
     ],
@@ -97,7 +96,22 @@ const medicalHistorySchema = new mongoose.Schema(
         },
         outcome: { type: String },
         hospital: { type: String },
-        surgeon: { type: String },
+        surgeon: {
+          doctorId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Doctor",
+          }, 
+          name: String
+        },
+        source: {
+          type: String,
+          enum: Object.values(DATA_SOURCE),
+          default: DATA_SOURCE.PATIENT,
+        },
+        addedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          refPath: "source",
+        },
       },
     ],
 
@@ -114,8 +128,18 @@ const medicalHistorySchema = new mongoose.Schema(
             message: "Discharge date must be after admission",
           },
         },
-        hospitalName: { type: String, required: true },
-        dischargeSummary: String,
+        hospitalName: { type: String },
+        dischargeSummary: { type: String },
+        source: {
+          type: String,
+          enum: Object.values(DATA_SOURCE),
+          default: DATA_SOURCE.PATIENT,
+        },
+        addedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          refPath: "source",
+        },
+
       },
     ],
 
@@ -129,6 +153,15 @@ const medicalHistorySchema = new mongoose.Schema(
         prescribedBy: { type: String },
         purpose: { type: String },
         isActive: { type: Boolean, default: true },
+        source: {
+          type: String,
+          enum: Object.values(DATA_SOURCE),
+          default: DATA_SOURCE.PATIENT,
+        },
+        addedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          refPath: "source",
+        },
       },
     ],
 
@@ -150,6 +183,15 @@ const medicalHistorySchema = new mongoose.Schema(
             message: "End date cannot be before start date",
           },
         },
+        source: {
+          type: String,
+          enum: Object.values(DATA_SOURCE),
+          default: DATA_SOURCE.PATIENT,
+        },
+        addedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          refPath: "source",
+        },
       },
     ],
 
@@ -161,7 +203,7 @@ const medicalHistorySchema = new mongoose.Schema(
         severity: {
           type: String,
           required: true,
-          enum: ALLERGY_SEVERITY,
+          enum: Object.values(ALLERGY_SEVERITY),
         },
         isCritical: { type: Boolean, default: false },
         firstObserved: {
@@ -173,6 +215,15 @@ const medicalHistorySchema = new mongoose.Schema(
             message: "Observation date cannot be in the future",
           },
         },
+        source: {
+          type: String,
+          enum: Object.values(DATA_SOURCE),
+          default: DATA_SOURCE.PATIENT,
+        },
+        addedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          refPath: "source",
+        },
       },
     ],
 
@@ -182,7 +233,7 @@ const medicalHistorySchema = new mongoose.Schema(
         relation: {
           type: String,
           required: true,
-          enum: ["Father", "Mother", "Sibling", "Grandparent", "Other"],
+          enum: RELATIONSHIPS,
         },
         condition: { type: String, required: true },
         ageAtDiagnosis: {
@@ -191,6 +242,16 @@ const medicalHistorySchema = new mongoose.Schema(
           max: 120,
         },
         deceased: Boolean,
+        notes: { type: String},
+        source: {
+          type: String,
+          enum: Object.values(DATA_SOURCE),
+          default: DATA_SOURCE.PATIENT,
+        },
+        addedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          refPath: "source",
+        },
       },
     ],
 
@@ -208,6 +269,15 @@ const medicalHistorySchema = new mongoose.Schema(
       exerciseFrequency: { type: String },
       diet: { type: String },
       occupation: { type: String },
+      source: {
+        type: String,
+        enum: Object.values(DATA_SOURCE),
+        default: DATA_SOURCE.PATIENT,
+      },
+      addedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        refPath: "source",
+      },
     },
 
     // === Vital Health Data ===
@@ -218,14 +288,37 @@ const medicalHistorySchema = new mongoose.Schema(
     height: { type: Number }, // in cm
     weight: { type: Number }, // in kg
     lastPhysicalExam: Date,
-
     // === Immunizations ===
     immunizations: [
       {
         vaccine: { type: String, required: true },
-        date: { type: Date, required: true },
-        boosterDue: Date,
+        date: {
+          type: Date,
+          required: true,
+          validate: {
+            validator: (v) => v <= new Date(),
+            message: "Vaccination date cannot be in the future",
+          },
+        },
+        boosterDue: {
+          type: Date,
+          validate: {
+            validator: function (v) {
+              return !v || v > this.date;
+            },
+            message: "Booster due date must be after vaccination date",
+          },
+        },
         administeredBy: String,
+        source: {
+          type: String,
+          enum: Object.values(DATA_SOURCE),
+          default: DATA_SOURCE.PATIENT,
+        },
+        addedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          refPath: "source",
+        },
       },
     ],
 
@@ -236,35 +329,6 @@ const medicalHistorySchema = new mongoose.Schema(
       lastMenstrualPeriod: Date,
       contraceptiveUse: Boolean,
       menstrualCycleRegular: Boolean,
-    },
-
-    // === Metadata ===
-    metadata: {
-      lastReviewed: {
-        type: Date,
-        validate: {
-          validator: function (v) {
-            return !v || v <= new Date();
-          },
-          message: "Review date cannot be in the future",
-        },
-      },
-      reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Doctor" },
-      source: {
-        type: String,
-        enum: DATA_SOURCES,
-        default: "Patient Reported",
-      },
-      updates: {
-        type: [
-          {
-            date: { type: Date, required: true },
-            changedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Patient", required: true },
-            changes: { type: [String], required: true },
-          },
-        ],
-      },
-      notes: String,
     },
   },
   {

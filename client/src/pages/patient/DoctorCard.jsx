@@ -15,7 +15,7 @@ const DoctorCard = ({ doctor, children, ...rest }) => {
     >
       {/* ----- Premium Badge & Like Button ----- */}
       <div className="absolute top-3 left-3 z-10">
-        {doctor.verificationStatus === "verified" && (
+        {doctor.isActive && (
           <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs px-3 py-1 rounded-full shadow-md flex items-center">
             <span className="relative flex h-2 w-2 mr-1">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
@@ -36,11 +36,11 @@ const DoctorCard = ({ doctor, children, ...rest }) => {
       </button>
 
       {/* ----- Animated Doctor Image ----- */}
-      <div className="relative h-72 overflow-hidden group">
+      <div className="relative h-82 overflow-hidden group">
         <img
           className={`w-full h-full object-cover transition-transform duration-500 ${isHovered ? "scale-105" : "scale-100"}`}
           src={doctor.profilePhoto}
-          alt={`Dr. ${doctor.firstName} ${doctor.lastName}`}
+          alt={`Dr. ${doctor.firstName} ${doctor.middleName}`}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
       </div>
@@ -50,7 +50,7 @@ const DoctorCard = ({ doctor, children, ...rest }) => {
         {/* Name & Experience */}
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-2xl font-bold text-gray-800">
-            Dr. {doctor.firstName} {doctor.lastName}
+            Dr. {doctor.firstName} {doctor.middleName}
           </h3>
           {doctor.yearsOfExperience && (
             <span className="text-xs px-3 py-1 bg-blue-100/80 text-blue-800 rounded-full border border-blue-200">

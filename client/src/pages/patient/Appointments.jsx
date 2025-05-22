@@ -34,6 +34,7 @@ import {
   X,
   Sliders,
   CreditCard,
+  VideoIcon,
 } from "lucide-react";
 import {
   format,
@@ -189,10 +190,9 @@ const AppointmentsPage = () => {
                   <Tab
                     key={filter.value}
                     className={({ selected }) =>
-                      `whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                        selected
-                          ? "bg-white shadow text-blue-600"
-                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                      `whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${selected
+                        ? "bg-white shadow text-blue-600"
+                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                       }`
                     }
                     onClick={() => {
@@ -254,19 +254,17 @@ const AppointmentsPage = () => {
                             key={filter.value}
                             value={filter}
                             className={({ active }) =>
-                              `relative cursor-default select-none py-2 pl-3 pr-9 ${
-                                active
-                                  ? "bg-blue-100 text-blue-900"
-                                  : "text-gray-900"
+                              `relative cursor-default select-none py-2 pl-3 pr-9 ${active
+                                ? "bg-blue-100 text-blue-900"
+                                : "text-gray-900"
                               }`
                             }
                           >
                             {({ selected }) => (
                               <>
                                 <span
-                                  className={`block truncate ${
-                                    selected ? "font-medium" : "font-normal"
-                                  }`}
+                                  className={`block truncate ${selected ? "font-medium" : "font-normal"
+                                    }`}
                                 >
                                   {filter.name}
                                 </span>
@@ -452,11 +450,10 @@ const AppointmentsPage = () => {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className={`px-4 py-2 border border-gray-300 rounded-md text-sm font-medium ${
-                    page === 1
+                  className={`px-4 py-2 border border-gray-300 rounded-md text-sm font-medium ${page === 1
                       ? "text-gray-400 bg-gray-50 cursor-not-allowed"
                       : "text-gray-700 bg-white hover:bg-gray-50"
-                  }`}
+                    }`}
                 >
                   Previous
                 </button>
@@ -469,18 +466,17 @@ const AppointmentsPage = () => {
                         if (
                           pageNumber === 1 ||
                           pageNumber ===
-                            Math.ceil(result?.pagination.total / limit) ||
+                          Math.ceil(result?.pagination.total / limit) ||
                           (pageNumber >= page - 2 && pageNumber <= page + 2)
                         ) {
                           return (
                             <button
                               key={pageNumber}
                               onClick={() => setPage(pageNumber)}
-                              className={`px-3 py-1 rounded-md text-sm font-medium ${
-                                page === pageNumber
+                              className={`px-3 py-1 rounded-md text-sm font-medium ${page === pageNumber
                                   ? "bg-blue-600 text-white"
                                   : "text-gray-700 hover:bg-gray-100"
-                              }`}
+                                }`}
                             >
                               {pageNumber}
                             </button>
@@ -490,7 +486,7 @@ const AppointmentsPage = () => {
                           (pageNumber === page - 3 && page > 4) ||
                           (pageNumber === page + 3 &&
                             page <
-                              Math.ceil(result?.pagination.total / limit) - 3)
+                            Math.ceil(result?.pagination.total / limit) - 3)
                         ) {
                           return (
                             <span
@@ -518,11 +514,10 @@ const AppointmentsPage = () => {
                   disabled={
                     page === Math.ceil(result?.pagination.total / limit)
                   }
-                  className={`px-4 py-2 border border-gray-300 rounded-md text-sm font-medium ${
-                    page === Math.ceil(result?.pagination.total / limit)
+                  className={`px-4 py-2 border border-gray-300 rounded-md text-sm font-medium ${page === Math.ceil(result?.pagination.total / limit)
                       ? "text-gray-400 bg-gray-50 cursor-not-allowed"
                       : "text-gray-700 bg-white hover:bg-gray-50"
-                  }`}
+                    }`}
                 >
                   Next
                 </button>
@@ -549,9 +544,8 @@ const StatCard = ({ icon, iconBg, title, value, change }) => (
             <div className="text-2xl font-semibold text-gray-900">{value}</div>
             {change !== null && (
               <span
-                className={`ml-2 text-sm font-medium ${
-                  change >= 0 ? "text-green-600" : "text-red-600"
-                }`}
+                className={`ml-2 text-sm font-medium ${change >= 0 ? "text-green-600" : "text-red-600"
+                  }`}
               >
                 {change >= 0 ? "+" : ""}
                 {change}%
@@ -563,6 +557,122 @@ const StatCard = ({ icon, iconBg, title, value, change }) => (
     </div>
   </div>
 );
+
+// Add CountdownTimer component before AppointmentCard
+const CountdownTimer = ({ startDate }) => {
+  const [timeInfo, setTimeInfo] = useState({
+    remaining: '',
+    elapsed: '',
+    status: 'upcoming' // 'upcoming', 'ongoing', 'ended'
+  });
+  const [isUrgent, setIsUrgent] = useState(false);
+
+  useEffect(() => {
+    const calculateTimeInfo = () => {
+      const now = new Date();
+      const start = new Date(startDate);
+      const difference = start - now;
+      const end = new Date(startDate);
+      end.setMinutes(end.getMinutes() + 30); // Assuming 30-minute appointments
+      const isEnded = now > end;
+
+      // Check if appointment is within 30 minutes
+      setIsUrgent(difference <= 30 * 60 * 1000 && difference > 0);
+
+      if (difference <= 0) {
+        if (isEnded) {
+          setTimeInfo({
+            remaining: '',
+            elapsed: formatDistanceToNow(start, { addSuffix: true }),
+            status: 'ended'
+          });
+        } else {
+          setTimeInfo({
+            remaining: '',
+            elapsed: formatDistanceToNow(start, { addSuffix: true }),
+            status: 'ongoing'
+          });
+        }
+        return;
+      }
+
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((difference / 1000 / 60) % 60);
+      const seconds = Math.floor((difference / 1000) % 60);
+
+      const parts = [];
+      if (days > 0) parts.push(`${days}d`);
+      if (hours > 0) parts.push(`${hours}h`);
+      if (minutes > 0) parts.push(`${minutes}m`);
+      if (seconds > 0) parts.push(`${seconds}s`);
+
+      setTimeInfo({
+        remaining: parts.join(' '),
+        elapsed: '',
+        status: 'upcoming'
+      });
+    };
+
+    calculateTimeInfo();
+    const timer = setInterval(calculateTimeInfo, 1000);
+
+    return () => clearInterval(timer);
+  }, [startDate]);
+
+  const getStatusColor = () => {
+    switch (timeInfo.status) {
+      case 'ongoing':
+        return 'bg-green-50 border-green-200 text-green-600';
+      case 'ended':
+        return 'bg-gray-50 border-gray-200 text-gray-600';
+      default:
+        return isUrgent 
+          ? 'bg-red-50 border-red-200 text-red-600' 
+          : 'bg-blue-50 border-blue-200 text-blue-600';
+    }
+  };
+
+  return (
+    <div className={`flex flex-col gap-1 px-3 py-2 rounded-lg border transition-all duration-300 ${getStatusColor()}`}>
+      <div className="flex items-center gap-2">
+        <Clock className="h-4 w-4" />
+        {timeInfo.status === 'upcoming' && (
+          <span className="text-sm font-medium">
+            Starts in: {timeInfo.remaining}
+          </span>
+        )}
+        {timeInfo.status === 'ongoing' && (
+          <span className="text-sm font-medium">
+            Started {timeInfo.elapsed}
+          </span>
+        )}
+        {timeInfo.status === 'ended' && (
+          <span className="text-sm font-medium">
+            Ended {timeInfo.elapsed}
+          </span>
+        )}
+      </div>
+      {isUrgent && timeInfo.status === 'upcoming' && (
+        <div className="flex items-center gap-1 text-xs font-medium">
+          <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-600">
+            Join Soon
+          </span>
+          <span className="text-red-600">
+            Session starts at {format(new Date(startDate), 'h:mm a')}
+          </span>
+        </div>
+      )}
+      {timeInfo.status === 'ongoing' && (
+        <div className="flex items-center gap-1 text-xs font-medium text-green-600">
+          <span className="px-2 py-0.5 rounded-full bg-green-100">
+            Session in Progress
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Appointment Card Component (enhanced)
 const AppointmentCard = ({ appointment, onAction }) => {
@@ -592,7 +702,6 @@ const AppointmentCard = ({ appointment, onAction }) => {
         alert(`Rescheduling failed: ${error.message}`);
       },
     });
-
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all duration-200 hover:shadow-md">
@@ -645,6 +754,11 @@ const AppointmentCard = ({ appointment, onAction }) => {
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                     Today
                   </span>
+                )}
+                {appointment.status === "confirmed" && (
+                  <div className="flex-shrink-0">
+                    <CountdownTimer startDate={startDate} />
+                  </div>
                 )}
               </div>
             </div>
@@ -778,29 +892,37 @@ const AppointmentCard = ({ appointment, onAction }) => {
                   </button>
                 </>
               )}
-              
+
               {(appointment.status === "accepted" || appointment.status === "payment_pending") && (
-                  <>
-                    <button
-                      onClick={() => setIsPaymentOpen(true)}
-                      className="px-3 py-1 bg-green-600 text-white rounded flex items-center"
-                    >
-                      <CreditCard className="mr-1 h-4 w-4" />
-                      Pay Now
-                    </button>
-                    <button
-                      onClick={() => setIsCancelOpen(true)}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-                  </>
-                )}
+                <>
+                  <button
+                    onClick={() => setIsPaymentOpen(true)}
+                    className="px-3 py-1 bg-green-600 text-white rounded flex items-center"
+                  >
+                    <CreditCard className="mr-1 h-4 w-4" />
+                    Pay Now
+                  </button>
+                  <button
+                    onClick={() => setIsCancelOpen(true)}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
 
               {appointment.status === "completed" && (
                 <button className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
                   View Details
                 </button>
+              )}
+
+
+              {appointment.status === "confirmed" && (
+                <Link to={`${appointment._id}/join`} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 flex items-center justify-center gap-2">
+                  <VideoIcon className="h-4 w-4" />
+                  Join Session
+                </Link>
               )}
             </div>
           </div>
@@ -865,11 +987,10 @@ const RescheduleDialog = ({
                 {availableSlots.map((slot) => (
                   <div
                     key={slot._id}
-                    className={`p-2 mb-2 cursor-pointer ${
-                      selectedSlot?._id === slot._id
+                    className={`p-2 mb-2 cursor-pointer ${selectedSlot?._id === slot._id
                         ? "bg-blue-50"
                         : "hover:bg-gray-50"
-                    }`}
+                      }`}
                     onClick={() => setSelectedSlot(slot)}
                   >
                     {format(new Date(slot.start), "MMM d, h:mm a")}

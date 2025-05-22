@@ -17,7 +17,10 @@ const surgerySchema = z.object({
     }),
   outcome: z.string().optional(),
   hospital: z.string().optional(),
-  surgeon: z.string().optional(),
+  surgeon: z.object({
+    name: z.string().optional(),
+    // doctorId: z.string().optional(),
+  })
 });
 
 const EditSurgeryModal = ({ isOpen, onClose, onSuccess, surgery }) => {
@@ -32,23 +35,24 @@ const EditSurgeryModal = ({ isOpen, onClose, onSuccess, surgery }) => {
     resolver: zodResolver(surgerySchema),
     defaultValues: {
       name: surgery?.name || '',
-      date: surgery?.date || '',
+      date: surgery?.date ? new Date(surgery.date).toISOString().split('T')[0] : '',
       outcome: surgery?.outcome || '',
       hospital: surgery?.hospital || '',
-      surgeon: surgery?.surgeon || '',
+      surgeon: {
+        name: surgery?.surgeon?.name || '',
+      },
     },
   });
 
   const { mutate } = useMutation({
     mutationFn: async (data) => {
-      const response = await apiClient.put(`/medical-history/surgeries/${surgery.id}`, data);
+      const response = await apiClient.put(`/medical-history/surgeries/${surgery._id}`, data);
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['medicalHistory']);
       reset();
       onSuccess();
-      toast.success('Surgery record updated successfully');
     },
     onError: (error) => {
       toast.error(error.message || 'Failed to update surgery record');
@@ -155,7 +159,7 @@ const EditSurgeryModal = ({ isOpen, onClose, onSuccess, surgery }) => {
 
             <div>
               <label
-                htmlFor="surgeon"
+                htmlFor="surgeonName"
                 className="block text-sm font-medium text-gray-700"
               >
                 Surgeon (Optional)
@@ -163,12 +167,12 @@ const EditSurgeryModal = ({ isOpen, onClose, onSuccess, surgery }) => {
               <input
                 type="text"
                 id="surgeon"
-                {...register('surgeon')}
+                {...register('surgeon.name')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., Dr. John Smith"
               />
-              {errors.surgeon && (
-                <p className="mt-1 text-sm text-red-600">{errors.surgeon.message}</p>
+              {errors.surgeon?.name && (
+                <p className="mt-1 text-sm text-red-600">{errors.surgeon?.name?.message}</p>
               )}
             </div>
 

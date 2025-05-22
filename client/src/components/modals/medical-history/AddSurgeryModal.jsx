@@ -17,7 +17,10 @@ const surgerySchema = z.object({
     }),
   outcome: z.string().optional(),
   hospital: z.string().optional(),
-  surgeon: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid surgeon ID format').optional(),
+  surgeon: z.object({
+    name: z.string().optional(),
+    // doctorId: z.string().optional(),
+  })
 });
 
 const AddSurgeryModal = ({ isOpen, onClose, onSuccess }) => {
@@ -35,7 +38,9 @@ const AddSurgeryModal = ({ isOpen, onClose, onSuccess }) => {
       date: '',
       outcome: '',
       hospital: '',
-      surgeon: '',
+      surgeon: {
+        name: '',
+      },
     },
   });
 
@@ -48,7 +53,6 @@ const AddSurgeryModal = ({ isOpen, onClose, onSuccess }) => {
       queryClient.invalidateQueries(['medicalHistory']);
       reset();
       onSuccess();
-      toast.success('Surgery record added successfully');
     },
     onError: (error) => {
       toast.error(error.message || 'Failed to add surgery record');
@@ -56,6 +60,7 @@ const AddSurgeryModal = ({ isOpen, onClose, onSuccess }) => {
   });
 
   const onSubmit = (data) => {
+    console.log("surgery data", data);
     mutate(data);
   };
 
@@ -163,12 +168,12 @@ const AddSurgeryModal = ({ isOpen, onClose, onSuccess }) => {
               <input
                 type="text"
                 id="surgeon"
-                {...register('surgeon')}
+                {...register('surgeon.name')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., Dr. John Smith"
               />
-              {errors.surgeon && (
-                <p className="mt-1 text-sm text-red-600">{errors.surgeon.message}</p>
+              {errors.surgeon?.name && (
+                <p className="mt-1 text-sm text-red-600">{errors.surgeon.name.message}</p>
               )}
             </div>
 

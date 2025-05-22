@@ -1,4 +1,4 @@
-import MedicalHistory from "../models/patient/medicalHistory.model";
+import MedicalHistory, { CONDITION_STATUS, DATA_SOURCE } from "../models/patient/medicalHistory.model";
 import Patient from "../models/patient/patient.model";
 import Doctor from "../models/doctors/doctor.model";
 import { validationResult } from "express-validator";
@@ -19,28 +19,28 @@ export const getMedicalHistory = async (req, res) => {
 
   const medicalHistory = await MedicalHistory.findOne({ patient: patientId })
     .populate("patient", "firstName gender")
-    .populate("metadata.reviewedBy", "name specialty")
     .populate("currentMedications.prescribedBy", "name")
-    .populate("surgeries.surgeon", "name specialty")
+    .populate("surgeries.surgeon.doctorId", "name specialty")
     .lean();
 
   if (!medicalHistory) {
     throw ServerError.notFound("Medical history not found");
   }
+  const pastConditions = medicalHistory.conditions.filter(c => (c.status === "Resolved" && c.isChronic === true) || (c.status === "In Remission" && c.isChronic === false));
+  const chronicConditions = medicalHistory.conditions.filter(c => c.status === "Active"  || (c.isChronic === true && c.status !== "Resolved"));
 
   // Calculate additional virtual fields
   const enhancedHistory = {
     ...medicalHistory,
-    activeConditions: medicalHistory.chronicConditions.filter(
+    pastConditions,
+    chronicConditions,
+    activeConditions: medicalHistory.conditions.filter(
       (c) => c.status === "Active"
     ),
     criticalAllergies: medicalHistory.allergies.filter(
       (a) => a.isCritical || a.severity === "Life-threatening"
     ),
-  };
-
-
-
+  }
   res.status(200).json({ success: true, data: enhancedHistory });
 };
 
@@ -100,6 +100,7 @@ export const updateMedicalHistory = async (req, res) => {
     const medicalHistory = await MedicalHistory.findOne({
       patient: patient._id,
     });
+
     if (!medicalHistory) {
       return res
         .status(404)
@@ -111,16 +112,6 @@ export const updateMedicalHistory = async (req, res) => {
     if (weight) medicalHistory.weight = weight;
     if (bloodType) medicalHistory.bloodType = bloodType;
     if (lifestyle) medicalHistory.lifestyle = lifestyle;
-
-    // Track update
-    medicalHistory.metadata.lastReviewed = new Date();
-    medicalHistory.metadata.reviewedBy = patient._id;
-    medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-    medicalHistory.metadata.updates.push({
-      date: new Date(),
-      changedBy: patient._id,
-      changes: ["Updated core health metrics"],
-    });
 
     await medicalHistory.save();
 
@@ -139,62 +130,65 @@ export const updateMedicalHistory = async (req, res) => {
  * @access  Private (Doctor)
  */
 export const addCondition = async (req, res) => {
-  try {
-    const {
-      name,
-      diagnosisDate,
-      resolvedDate,
-      isChronic,
-      status,
-      lastFlareUp,
-    } = req.body;
+  const {
+    name,
+    diagnosisDate,
+    resolvedDate,
+    status,
+    isChronic,
+  } = req.body;
 
-    const patient = await Patient.findOne({ user: req.user.sub });
+  const patient = await Patient.findOne({ user: req.user.sub });
 
-    if (!patient) throw ServerError.notFound("patient not found");
-    const medicalHistory = await MedicalHistory.findOne({
-      patient: patient._id,
-    });
-    if (!medicalHistory) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Medical history not found" });
-    }
+  if (!patient) throw ServerError.notFound("patient not found");
 
-    const conditionData = {
-      name,
-      diagnosisDate: diagnosisDate || new Date(),
-    };
+  const medicalHistory = await MedicalHistory.findOne({
+    patient: patient._id,
+  });
 
-    if (isChronic) {
-      conditionData.status = status || "Active";
-      if (lastFlareUp) conditionData.lastFlareUp = lastFlareUp;
-      medicalHistory.chronicConditions.push(conditionData);
-    } else {
-      if (resolvedDate) conditionData.resolvedDate = resolvedDate;
-      medicalHistory.pastConditions.push(conditionData);
-    }
+  if (!medicalHistory)
+    throw ServerError.notFound("Medical history not found");
 
-    // Track update
-    medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-    medicalHistory.metadata.updates.push({
-      date: new Date(),
-      changedBy: patient._id,
-      changes: [`Added ${isChronic ? "chronic" : "past"} condition: ${name}`],
-    });
-
-    await medicalHistory.save();
-
-    res.status(201).json({
-      success: true,
-      data: {
-        medicalHistory,
-      },
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Server Error" });
+  // Validate condition status and dates
+  if (status === CONDITION_STATUS.RESOLVED && !resolvedDate) {
+    throw ServerError.badRequest("Resolved date is required for resolved conditions");
   }
+
+  if (resolvedDate && new Date(resolvedDate) < new Date(diagnosisDate)) {
+    throw ServerError.badRequest("Resolved date cannot be before diagnosis date");
+  }
+
+  if (status === CONDITION_STATUS.ACTIVE && resolvedDate) {
+    throw ServerError.badRequest("Active conditions cannot have a resolved date");
+  }
+
+  if (status === CONDITION_STATUS.IN_REMISSION && !isChronic) {
+    throw ServerError.badRequest("Only chronic conditions can be in remission");
+  }
+
+  const conditionData = {
+    name,
+    diagnosisDate: diagnosisDate || new Date(),
+    isChronic,
+    status: status || CONDITION_STATUS.ACTIVE,
+    source: DATA_SOURCE.PATIENT,
+    addedBy: patient._id
+  };
+
+  if (status === CONDITION_STATUS.RESOLVED) {
+    conditionData.resolvedDate = resolvedDate;
+  }
+
+  medicalHistory.conditions.push(conditionData);
+
+  await medicalHistory.save();
+
+  res.status(201).json({
+    success: true,
+    data: {
+      medicalHistory,
+    },
+  });
 };
 
 /**
@@ -203,70 +197,82 @@ export const addCondition = async (req, res) => {
  * @access  Private (Doctor)
  */
 export const updateCondition = async (req, res) => {
-  try {
-    const { conditionType, ...updateData } = req.body;
-    const { id, conditionId } = req.params;
-    console.log(conditionId);
+  const { status, ...updateData } = req.body;
+  const { conditionId } = req.params;
 
-    if (!["chronic", "past"].includes(conditionType)) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Invalid condition type" });
-    }
+  if (!Object.values(CONDITION_STATUS).includes(status))
+    throw ServerError.badRequest("Invalid Condition Status");
 
-    const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
+  const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
 
-    if (!patient) throw ServerError.notFound("Patient not found");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    const medicalHistory = await MedicalHistory.findOne({
-      patient: patient._id,
-    });
-    if (!medicalHistory) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Medical history not found" });
-    }
+  const medicalHistory = await MedicalHistory.findOne({
+    patient: patient._id,
+  });
 
-    const conditionArray =
-      conditionType === "chronic"
-        ? medicalHistory.chronicConditions
-        : medicalHistory.pastConditions;
-
-    const conditionIndex = conditionArray.findIndex(
-      (c) => c._id.toString() === conditionId
-    );
-
-    if (conditionIndex === -1) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Condition not found" });
-    }
-
-    // Update condition
-    const originalName = conditionArray[conditionIndex].name;
-    conditionArray[conditionIndex] = {
-      ...conditionArray[conditionIndex].toObject(),
-      ...updateData,
-    };
-
-    // Track update
-    medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-    medicalHistory.metadata.updates.push({
-      date: new Date(),
-      changedBy: patient._id,
-      changes: [`Updated ${conditionType} condition: ${originalName}`],
-    });
-
-    await medicalHistory.save();
-
-    res.status(200).json({
-      success: true,
-      data: conditionArray[conditionIndex],
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Server Error" });
+  if (!medicalHistory) {
+    return res
+      .status(404)
+      .json({ success: false, error: "Medical history not found" });
   }
+
+  const conditionArray = medicalHistory.conditions;
+  const conditionIndex = conditionArray.findIndex(
+    (c) => c._id.toString() === conditionId
+  );
+
+  if (conditionIndex === -1) {
+    return res
+      .status(404)
+      .json({ success: false, error: "Condition not found" });
+  }
+
+  if (conditionArray[conditionIndex]?.source !== DATA_SOURCE.PATIENT)
+    throw ServerError.badRequest("cannot update condition added by the doctor");
+
+  // Validate status transitions and dates
+  const currentCondition = conditionArray[conditionIndex];
+  
+  if (status === CONDITION_STATUS.RESOLVED) {
+    if (!updateData.resolvedDate) {
+      throw ServerError.badRequest("Resolved date is required when marking a condition as resolved");
+    }
+    if (new Date(updateData.resolvedDate) < new Date(currentCondition.diagnosisDate)) {
+      throw ServerError.badRequest("Resolved date cannot be before diagnosis date");
+    }
+  }
+
+  if (status === CONDITION_STATUS.ACTIVE) {
+    if (updateData.resolvedDate) {
+      throw ServerError.badRequest("Active conditions cannot have a resolved date");
+    }
+    updateData.resolvedDate = null;
+  }
+
+  if (status === CONDITION_STATUS.IN_REMISSION) {
+    if (!currentCondition.isChronic) {
+      throw ServerError.badRequest("Only chronic conditions can be in remission");
+    }
+    // Keep existing resolved date if any
+    if (!updateData.resolvedDate) {
+      delete updateData.resolvedDate;
+    }
+  }
+
+  // Update condition
+  conditionArray[conditionIndex] = {
+    ...conditionArray[conditionIndex].toObject(),
+    status,
+    ...updateData,
+  };
+
+  await medicalHistory.save();
+
+  res.status(200).json({
+    success: true,
+    data: conditionArray[conditionIndex],
+  });
 };
 
 // ===== Medication Management =====
@@ -298,17 +304,11 @@ export const addCurrentMedication = async (req, res) => {
     prescribedBy: prescribedBy || patient._id,
     purpose,
     isActive: true,
+    source: DATA_SOURCE.PATIENT,
+    addedBy: patient._id
   };
 
   medicalHistory.currentMedications.push(newMedication);
-
-  // Track update
-  medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-  medicalHistory.metadata.updates.push({
-    date: new Date(),
-    changedBy: patient._id,
-    changes: [`Added current medication: ${name}`],
-  });
 
   await medicalHistory.save();
 
@@ -325,7 +325,7 @@ export const addCurrentMedication = async (req, res) => {
  */
 export const discontinueMedication = async (req, res) => {
   const { reasonStopped, endDate } = req.body;
-  const { id, medicationId } = req.params;
+  const { medicationId } = req.params;
 
   const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
 
@@ -359,18 +359,12 @@ export const discontinueMedication = async (req, res) => {
     purpose,
     reasonStopped,
     endDate: endDate || new Date(),
+    source: DATA_SOURCE.PATIENT,
+    addedBy: patient._id
   });
 
   // Remove from current medications
   medicalHistory.currentMedications.splice(medicationIndex, 1);
-
-  // Track update
-  medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-  medicalHistory.metadata.updates.push({
-    date: new Date(),
-    changedBy: patient._id,
-    changes: [`Discontinued medication: ${name}`],
-  });
 
   await medicalHistory.save();
 
@@ -387,51 +381,38 @@ export const discontinueMedication = async (req, res) => {
  * @access  Private (Doctor, Patient)
  */
 export const addAllergy = async (req, res) => {
-  try {
-    const { substance, reaction, severity, isCritical, firstObserved } =
-      req.body;
+  const { substance, reaction, severity, isCritical, firstObserved } =
+    req.body;
 
-    const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
+  const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
 
-    if (!patient) throw ServerError.notFound("Patient not found");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    const medicalHistory = await MedicalHistory.findOne({
-      patient: patient._id,
-    });
-    if (!medicalHistory) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Medical history not found" });
-    }
+  const medicalHistory = await MedicalHistory.findOne({
+    patient: patient._id,
+  });
+  if (!medicalHistory)
+    throw ServerError.notFound("Medical history not found");
 
-    const newAllergy = {
-      substance,
-      reaction,
-      severity,
-      isCritical: isCritical || severity === "Life-threatening",
-      firstObserved: firstObserved || new Date(),
-    };
+  const newAllergy = {
+    substance,
+    reaction,
+    severity,
+    isCritical: isCritical || severity === "Life-threatening",
+    firstObserved: firstObserved || new Date(),
+    source: DATA_SOURCE.PATIENT,
+    addedBy: patient._id
+  };
 
-    medicalHistory.allergies.push(newAllergy);
+  medicalHistory.allergies.push(newAllergy);
 
-    // Track update
-    medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-    medicalHistory.metadata.updates.push({
-      date: new Date(),
-      changedBy: patient._id,
-      changes: [`Added allergy: ${substance}`],
-    });
 
-    await medicalHistory.save();
+  await medicalHistory.save();
 
-    res.status(201).json({
-      success: true,
-      data: medicalHistory.allergies.slice(-1)[0],
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Server Error" });
-  }
+  res.status(201).json({
+    success: true,
+    data: medicalHistory.allergies.slice(-1)[0],
+  });
 };
 
 // ===== Advanced Features =====
@@ -498,13 +479,13 @@ export const getHealthSummary = async (req, res) => {
       bmi:
         medicalHistory.height && medicalHistory.weight
           ? (
-              medicalHistory.weight /
-              (medicalHistory.height / 100) ** 2
-            ).toFixed(2)
+            medicalHistory.weight /
+            (medicalHistory.height / 100) ** 2
+          ).toFixed(2)
           : null,
     },
     activeConditions: medicalHistory.chronicConditions
-      .filter((c) => c.status === "Active")
+      .filter((c) => c.status === CONDITION_STATUS.ACTIVE)
       .map((c) => c.name),
     criticalAllergies: medicalHistory.allergies
       .filter((a) => a.isCritical || a.severity === "Life-threatening")
@@ -531,57 +512,54 @@ export const getHealthSummary = async (req, res) => {
  */
 
 export const updateAllergy = async (req, res) => {
-    const { isCritical, ...updateData } =
-      req.body;
-    const {allergyId} = req.params;
+  const updateData =
+    req.body;
+  const { allergyId } = req.params;
 
-    console.log(isCritical, updateData)
 
-    const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
+  const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
 
-    if (!patient) throw ServerError.notFound("Patient not found");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    const medicalHistory = await MedicalHistory.findOne({
-      patient: patient._id,
-    });
+  const medicalHistory = await MedicalHistory.findOne({
+    patient: patient._id,
+  });
 
-    if (!medicalHistory) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Medical history not found" });
-    }
+  if (!medicalHistory)
+    throw ServerError.notFound("Medical history not found")
 
-    const existingAllergyIndex = medicalHistory.allergies.findIndex(allergy => allergy._id.toString() === allergyId);
+  const existingAllergyIndex = medicalHistory.allergies.findIndex(allergy => allergy._id.toString() === allergyId);
 
-    if(existingAllergyIndex === -1)
-      throw ServerError.notFound("Allergy not found");
+  if (existingAllergyIndex === -1)
+    throw ServerError.notFound("Allergy not found");
 
-    console.log("existingAllergyIndex", existingAllergyIndex);
+  console.log("existingAllergyIndex", existingAllergyIndex);
 
-    if(isCritical)
-      updateData.isCritical = isCritical || severity === "Life-threatening";
 
-    console.log("index", existingAllergyIndex);
-    console.log("selected allergy", medicalHistory.allergies[existingAllergyIndex]);
-    medicalHistory.allergies[existingAllergyIndex] = {
-      ...medicalHistory.allergies[existingAllergyIndex].toObject(),
-      ...updateData
-    }
+  if (medicalHistory.allergies[existingAllergyIndex].source !== DATA_SOURCE.PATIENT) {
+    throw ServerError.badRequest("Cannot update allergy added by doctor");
+  }
 
-    // Track update
-    medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-    medicalHistory.metadata.updates.push({
-      date: new Date(),
-      changedBy: patient._id,
-      changes: [`Update allergy: ${allergyId}`],
-    });
+  if (!updateData.isCritical)
+    updateData.isCritical = updateData?.severity === "Life-threatening";
 
-    await medicalHistory.save();
+  console.log("updated data", updateData)
 
-    res.status(201).json({
-      success: true,
-      data: medicalHistory.allergies.slice(-1)[0],
-    });
+  console.log("index", existingAllergyIndex);
+  console.log("selected allergy", medicalHistory.allergies[existingAllergyIndex]);
+  medicalHistory.allergies[existingAllergyIndex] = {
+    ...medicalHistory.allergies[existingAllergyIndex].toObject(),
+    ...updateData
+  }
+
+  // Track update
+
+  await medicalHistory.save();
+
+  res.status(201).json({
+    success: true,
+    data: medicalHistory.allergies.slice(-1)[0],
+  });
 };
 
 /**
@@ -686,42 +664,31 @@ export const searchMedicalHistory = async (req, res) => {
  * @access  Private (Doctor)
  */
 export const addImmunization = async (req, res) => {
-  try {
-    const { vaccine, date, boosterDue, administeredBy } = req.body;
+  const { vaccine, date, boosterDue, administeredBy } = req.body;
 
-    const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
-    if (!patient) throw ServerError.notFound("Patient not found");
+  const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    const medicalHistory = await MedicalHistory.findOne({ patient: patient._id });
-    if (!medicalHistory) throw ServerError.notFound("Medical history not found");
+  const medicalHistory = await MedicalHistory.findOne({ patient: patient._id });
+  if (!medicalHistory) throw ServerError.notFound("Medical history not found");
 
-    const newImmunization = {
-      vaccine,
-      date: date || new Date(),
-      boosterDue,
-      administeredBy: administeredBy || req.user.sub
-    };
+  const newImmunization = {
+    vaccine,
+    date: date || new Date(),
+    boosterDue,
+    administeredBy: administeredBy || req.user.sub,
+    source: DATA_SOURCE.PATIENT,
+    addedBy: patient._id
+  };
 
-    medicalHistory.immunizations.push(newImmunization);
+  medicalHistory.immunizations.push(newImmunization);
 
-    // Track update
-    medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-    medicalHistory.metadata.updates.push({
-      date: new Date(),
-      changedBy: patient._id,
-      changes: [`Added immunization: ${vaccine}`],
-    });
+  await medicalHistory.save();
 
-    await medicalHistory.save();
-
-    res.status(201).json({
-      success: true,
-      data: medicalHistory.immunizations.slice(-1)[0],
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Server Error" });
-  }
+  res.status(201).json({
+    success: true,
+    data: medicalHistory.immunizations.slice(-1)[0],
+  });
 };
 
 /**
@@ -745,18 +712,14 @@ export const updateImmunization = async (req, res) => {
     );
     if (immunizationIndex === -1) throw ServerError.notFound("Immunization not found");
 
+    if (medicalHistory.immunizations[immunizationIndex].source !== DATA_SOURCE.PATIENT) {
+      throw ServerError.badRequest("Cannot update immunization added by doctor");
+    }
+
     medicalHistory.immunizations[immunizationIndex] = {
       ...medicalHistory.immunizations[immunizationIndex].toObject(),
       ...updateData
     };
-
-    // Track update
-    medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-    medicalHistory.metadata.updates.push({
-      date: new Date(),
-      changedBy: patient._id,
-      changes: [`Updated immunization: ${medicalHistory.immunizations[immunizationIndex].vaccine}`],
-    });
 
     await medicalHistory.save();
 
@@ -776,26 +739,21 @@ export const updateImmunization = async (req, res) => {
  * @access  Private (Doctor, Patient)
  */
 export const getImmunizationHistory = async (req, res) => {
-  try {
-    const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
-    if (!patient) throw ServerError.notFound("Patient not found");
+  const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    const medicalHistory = await MedicalHistory.findOne({ patient: patient._id })
-      .select("immunizations")
-      .lean();
+  const medicalHistory = await MedicalHistory.findOne({ patient: patient._id })
+    .select("immunizations")
+    .lean();
 
-    if (!medicalHistory) throw ServerError.notFound("Medical history not found");
+  if (!medicalHistory) throw ServerError.notFound("Medical history not found");
 
-    // Sort by date descending
-    const sortedImmunizations = [...medicalHistory.immunizations].sort(
-      (a, b) => new Date(b.date) - new Date(a.date)
-    );
+  // Sort by date descending
+  const sortedImmunizations = [...medicalHistory.immunizations].sort(
+    (a, b) => new Date(b.date) - new Date(a.date)
+  );
 
-    res.status(200).json({ success: true, data: sortedImmunizations });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Server Error" });
-  }
+  res.status(200).json({ success: true, data: sortedImmunizations });
 };
 
 /**
@@ -804,26 +762,22 @@ export const getImmunizationHistory = async (req, res) => {
  * @access  Private (Doctor, Patient)
  */
 export const getDueImmunizations = async (req, res) => {
-  try {
-    const patient = await Patient.findOne({ user: req.user.sub }).select("_id dob");
-    if (!patient) throw ServerError.notFound("Patient not found");
 
-    const medicalHistory = await MedicalHistory.findOne({ patient: patient._id })
-      .select("immunizations")
-      .lean();
+  const patient = await Patient.findOne({ user: req.user.sub }).select("_id dob");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    if (!medicalHistory) throw ServerError.notFound("Medical history not found");
+  const medicalHistory = await MedicalHistory.findOne({ patient: patient._id })
+    .select("immunizations")
+    .lean();
 
-    const today = new Date();
-    const dueImmunizations = medicalHistory.immunizations.filter(immunization => {
-      return immunization.boosterDue && new Date(immunization.boosterDue) <= today;
-    });
+  if (!medicalHistory) throw ServerError.notFound("Medical history not found");
 
-    res.status(200).json({ success: true, data: dueImmunizations });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Server Error" });
-  }
+  const today = new Date();
+  const dueImmunizations = medicalHistory.immunizations.filter(immunization => {
+    return immunization.boosterDue && new Date(immunization.boosterDue) <= today;
+  });
+
+  res.status(200).json({ success: true, data: dueImmunizations });
 };
 
 /**
@@ -832,45 +786,35 @@ export const getDueImmunizations = async (req, res) => {
  * @access  Private (Doctor)
  */
 export const updateSurgery = async (req, res) => {
-  try {
-    const { surgeryId } = req.params;
-    const updateData = req.body;
+  const { surgeryId } = req.params;
+  const updateData = req.body;
 
-    const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
-    if (!patient) throw ServerError.notFound("Patient not found");
+  const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    const medicalHistory = await MedicalHistory.findOne({ patient: patient._id });
-    if (!medicalHistory) throw ServerError.notFound("Medical history not found");
+  const medicalHistory = await MedicalHistory.findOne({ patient: patient._id });
+  if (!medicalHistory) throw ServerError.notFound("Medical history not found");
 
-    const surgeryIndex = medicalHistory.surgeries.findIndex(
-      s => s._id.toString() === surgeryId
-    );
-    if (surgeryIndex === -1) throw ServerError.notFound("Surgery not found");
+  const surgeryIndex = medicalHistory.surgeries.findIndex(
+    s => s._id.toString() === surgeryId
+  );
+  if (surgeryIndex === -1) throw ServerError.notFound("Surgery not found");
 
-    const originalName = medicalHistory.surgeries[surgeryIndex].name;
-    medicalHistory.surgeries[surgeryIndex] = {
-      ...medicalHistory.surgeries[surgeryIndex].toObject(),
-      ...updateData
-    };
-
-    // Track update
-    medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-    medicalHistory.metadata.updates.push({
-      date: new Date(),
-      changedBy: patient._id,
-      changes: [`Updated surgery: ${originalName}`],
-    });
-
-    await medicalHistory.save();
-
-    res.status(200).json({
-      success: true,
-      data: medicalHistory.surgeries[surgeryIndex],
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Server Error" });
+  if (medicalHistory.surgeries[surgeryIndex].source !== DATA_SOURCE.PATIENT) {
+    throw ServerError.badRequest("Cannot update surgery added by doctor");
   }
+
+  medicalHistory.surgeries[surgeryIndex] = {
+    ...medicalHistory.surgeries[surgeryIndex].toObject(),
+    ...updateData
+  };
+
+  await medicalHistory.save();
+
+  res.status(200).json({
+    success: true,
+    data: medicalHistory.surgeries[surgeryIndex],
+  });
 };
 
 /**
@@ -893,15 +837,11 @@ export const deleteSurgery = async (req, res) => {
     );
     if (surgeryIndex === -1) throw ServerError.notFound("Surgery not found");
 
-    const deletedSurgery = medicalHistory.surgeries.splice(surgeryIndex, 1)[0];
+    if (medicalHistory.surgeries[surgeryIndex].source !== DATA_SOURCE.PATIENT) {
+      throw ServerError.badRequest("Cannot delete surgery added by doctor");
+    }
 
-    // Track update
-    medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-    medicalHistory.metadata.updates.push({
-      date: new Date(),
-      changedBy: patient._id,
-      changes: [`Deleted surgery: ${deletedSurgery.name}`],
-    });
+    const deletedSurgery = medicalHistory.surgeries.splice(surgeryIndex, 1)[0];
 
     await medicalHistory.save();
 
@@ -968,19 +908,14 @@ export const updateHospitalization = async (req, res) => {
     );
     if (hospIndex === -1) throw ServerError.notFound("Hospitalization not found");
 
-    const originalReason = medicalHistory.hospitalizations[hospIndex].reason;
+    if (medicalHistory.hospitalizations[hospIndex].source !== DATA_SOURCE.PATIENT) {
+      throw ServerError.badRequest("Cannot update hospitalization added by doctor");
+    }
+
     medicalHistory.hospitalizations[hospIndex] = {
       ...medicalHistory.hospitalizations[hospIndex].toObject(),
       ...updateData
     };
-
-    // Track update
-    medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-    medicalHistory.metadata.updates.push({
-      date: new Date(),
-      changedBy: patient._id,
-      changes: [`Updated hospitalization: ${originalReason}`],
-    });
 
     await medicalHistory.save();
 
@@ -1000,40 +935,31 @@ export const updateHospitalization = async (req, res) => {
  * @access  Private (Doctor, Admin)
  */
 export const deleteHospitalization = async (req, res) => {
-  try {
-    const { hospitalizationId } = req.params;
+  const { hospitalizationId } = req.params;
 
-    const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
-    if (!patient) throw ServerError.notFound("Patient not found");
+  const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    const medicalHistory = await MedicalHistory.findOne({ patient: patient._id });
-    if (!medicalHistory) throw ServerError.notFound("Medical history not found");
+  const medicalHistory = await MedicalHistory.findOne({ patient: patient._id });
+  if (!medicalHistory) throw ServerError.notFound("Medical history not found");
 
-    const hospIndex = medicalHistory.hospitalizations.findIndex(
-      h => h._id.toString() === hospitalizationId
-    );
-    if (hospIndex === -1) throw ServerError.notFound("Hospitalization not found");
+  const hospIndex = medicalHistory.hospitalizations.findIndex(
+    h => h._id.toString() === hospitalizationId
+  );
+  if (hospIndex === -1) throw ServerError.notFound("Hospitalization not found");
 
-    const deletedHosp = medicalHistory.hospitalizations.splice(hospIndex, 1)[0];
-
-    // Track update
-    medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-    medicalHistory.metadata.updates.push({
-      date: new Date(),
-      changedBy: patient._id,
-      changes: [`Deleted hospitalization: ${deletedHosp.reason}`],
-    });
-
-    await medicalHistory.save();
-
-    res.status(200).json({
-      success: true,
-      data: { message: "Hospitalization record deleted successfully" },
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Server Error" });
+  if (medicalHistory.hospitalizations[hospIndex].source !== DATA_SOURCE.PATIENT) {
+    throw ServerError.badRequest("Cannot delete hospitalization added by doctor");
   }
+
+  const deletedHosp = medicalHistory.hospitalizations.splice(hospIndex, 1)[0];
+
+  await medicalHistory.save();
+
+  res.status(200).json({
+    success: true,
+    data: { message: "Hospitalization record deleted successfully" },
+  });
 };
 
 /**
@@ -1042,26 +968,22 @@ export const deleteHospitalization = async (req, res) => {
  * @access  Private (Doctor, Patient)
  */
 export const getHospitalizationTimeline = async (req, res) => {
-  try {
-    const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
-    if (!patient) throw ServerError.notFound("Patient not found");
+  const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    const medicalHistory = await MedicalHistory.findOne({ patient: patient._id })
-      .select("hospitalizations")
-      .lean();
+  const medicalHistory = await MedicalHistory.findOne({ patient: patient._id })
+    .select("hospitalizations")
+    .lean();
 
-    if (!medicalHistory) throw ServerError.notFound("Medical history not found");
+  if (!medicalHistory) throw ServerError.notFound("Medical history not found");
 
-    // Sort by admission date descending
-    const sortedHospitalizations = [...medicalHistory.hospitalizations].sort(
-      (a, b) => new Date(b.admissionDate) - new Date(a.admissionDate)
-    );
+  // Sort by admission date descending
+  const sortedHospitalizations = [...medicalHistory.hospitalizations].sort(
+    (a, b) => new Date(b.admissionDate) - new Date(a.admissionDate)
+  );
 
-    res.status(200).json({ success: true, data: sortedHospitalizations });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Server Error" });
-  }
+  res.json({ success: true, data: sortedHospitalizations });
+
 };
 
 
@@ -1071,42 +993,32 @@ export const getHospitalizationTimeline = async (req, res) => {
  * @access  Private (Doctor, Patient)
  */
 export const addFamilyHistory = async (req, res) => {
-  try {
-    const { relation, condition, ageAtDiagnosis, deceased } = req.body;
+  const { relation, condition, ageAtDiagnosis, deceased } = req.body;
 
-    const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
-    if (!patient) throw ServerError.notFound("Patient not found");
+  const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    const medicalHistory = await MedicalHistory.findOne({ patient: patient._id });
-    if (!medicalHistory) throw ServerError.notFound("Medical history not found");
+  const medicalHistory = await MedicalHistory.findOne({ patient: patient._id });
+  if (!medicalHistory) throw ServerError.notFound("Medical history not found");
 
-    const newFamilyHistory = {
-      relation,
-      condition,
-      ageAtDiagnosis,
-      deceased
-    };
+  const newFamilyHistory = {
+    relation,
+    condition,
+    ageAtDiagnosis,
+    deceased,
+    source: DATA_SOURCE.PATIENT,
+    addedBy: patient._id
+  };
 
-    medicalHistory.familyHistory.push(newFamilyHistory);
+  medicalHistory.familyHistory.push(newFamilyHistory);
 
-    // Track update
-    medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-    medicalHistory.metadata.updates.push({
-      date: new Date(),
-      changedBy: patient._id,
-      changes: [`Added family history: ${condition} in ${relation}`],
-    });
 
-    await medicalHistory.save();
+  await medicalHistory.save();
 
-    res.status(201).json({
-      success: true,
-      data: medicalHistory.familyHistory.slice(-1)[0],
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Server Error" });
-  }
+  res.status(201).json({
+    success: true,
+    data: medicalHistory.familyHistory.slice(-1)[0],
+  });
 };
 
 /**
@@ -1115,45 +1027,35 @@ export const addFamilyHistory = async (req, res) => {
  * @access  Private (Doctor)
  */
 export const updateFamilyHistory = async (req, res) => {
-  try {
-    const { recordId } = req.params;
-    const updateData = req.body;
+  const { recordId } = req.params;
+  const updateData = req.body;
 
-    const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
-    if (!patient) throw ServerError.notFound("Patient not found");
+  const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    const medicalHistory = await MedicalHistory.findOne({ patient: patient._id });
-    if (!medicalHistory) throw ServerError.notFound("Medical history not found");
+  const medicalHistory = await MedicalHistory.findOne({ patient: patient._id });
+  if (!medicalHistory) throw ServerError.notFound("Medical history not found");
 
-    const recordIndex = medicalHistory.familyHistory.findIndex(
-      fh => fh._id.toString() === recordId
-    );
-    if (recordIndex === -1) throw ServerError.notFound("Family history record not found");
+  const recordIndex = medicalHistory.familyHistory.findIndex(
+    fh => fh._id.toString() === recordId
+  );
+  if (recordIndex === -1) throw ServerError.notFound("Family history record not found");
 
-    const originalCondition = medicalHistory.familyHistory[recordIndex].condition;
-    medicalHistory.familyHistory[recordIndex] = {
-      ...medicalHistory.familyHistory[recordIndex].toObject(),
-      ...updateData
-    };
-
-    // Track update
-    medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-    medicalHistory.metadata.updates.push({
-      date: new Date(),
-      changedBy: patient._id,
-      changes: [`Updated family history: ${originalCondition}`],
-    });
-
-    await medicalHistory.save();
-
-    res.status(200).json({
-      success: true,
-      data: medicalHistory.familyHistory[recordIndex],
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Server Error" });
+  if (medicalHistory.familyHistory[recordIndex].source !== DATA_SOURCE.PATIENT) {
+    throw ServerError.badRequest("Cannot update family history record added by doctor");
   }
+
+  medicalHistory.familyHistory[recordIndex] = {
+    ...medicalHistory.familyHistory[recordIndex].toObject(),
+    ...updateData
+  };
+
+  await medicalHistory.save();
+
+  res.status(200).json({
+    success: true,
+    data: medicalHistory.familyHistory[recordIndex],
+  });
 };
 
 /**
@@ -1162,40 +1064,27 @@ export const updateFamilyHistory = async (req, res) => {
  * @access  Private (Doctor, Patient)
  */
 export const deleteFamilyHistory = async (req, res) => {
-  try {
-    const { recordId } = req.params;
+  const { recordId } = req.params;
 
-    const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
-    if (!patient) throw ServerError.notFound("Patient not found");
+  const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    const medicalHistory = await MedicalHistory.findOne({ patient: patient._id });
-    if (!medicalHistory) throw ServerError.notFound("Medical history not found");
+  const medicalHistory = await MedicalHistory.findOne({ patient: patient._id });
+  if (!medicalHistory) throw ServerError.notFound("Medical history not found");
 
-    const recordIndex = medicalHistory.familyHistory.findIndex(
-      fh => fh._id.toString() === recordId
-    );
-    if (recordIndex === -1) throw ServerError.notFound("Family history record not found");
+  const recordIndex = medicalHistory.familyHistory.findIndex(
+    fh => fh._id.toString() === recordId
+  );
+  if (recordIndex === -1) throw ServerError.notFound("Family history record not found");
 
-    const deletedRecord = medicalHistory.familyHistory.splice(recordIndex, 1)[0];
+  const deletedRecord = medicalHistory.familyHistory.splice(recordIndex, 1)[0];
 
-    // Track update
-    medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-    medicalHistory.metadata.updates.push({
-      date: new Date(),
-      changedBy: patient._id,
-      changes: [`Deleted family history: ${deletedRecord.condition} in ${deletedRecord.relation}`],
-    });
+  await medicalHistory.save();
 
-    await medicalHistory.save();
-
-    res.status(200).json({
-      success: true,
-      data: { message: "Family history record deleted successfully" },
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Server Error" });
-  }
+  res.status(200).json({
+    success: true,
+    data: { message: "Family history record deleted successfully" },
+  });
 };
 
 /**
@@ -1204,46 +1093,41 @@ export const deleteFamilyHistory = async (req, res) => {
  * @access  Private (Doctor)
  */
 export const getGeneticRiskReport = async (req, res) => {
-  try {
-    const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
-    if (!patient) throw ServerError.notFound("Patient not found");
+  const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    const medicalHistory = await MedicalHistory.findOne({ patient: patient._id })
-      .select("familyHistory")
-      .lean();
+  const medicalHistory = await MedicalHistory.findOne({ patient: patient._id })
+    .select("familyHistory")
+    .lean();
 
-    if (!medicalHistory) throw ServerError.notFound("Medical history not found");
+  if (!medicalHistory) throw ServerError.notFound("Medical history not found");
 
-    // Group conditions by relation and count occurrences
-    const riskReport = medicalHistory.familyHistory.reduce((acc, record) => {
-      if (!acc[record.condition]) {
-        acc[record.condition] = {
-          condition: record.condition,
-          relations: [],
-          totalCount: 0
-        };
-      }
-      
-      acc[record.condition].relations.push({
-        relation: record.relation,
-        ageAtDiagnosis: record.ageAtDiagnosis,
-        deceased: record.deceased
-      });
-      acc[record.condition].totalCount++;
-      
-      return acc;
-    }, {});
+  // Group conditions by relation and count occurrences
+  const riskReport = medicalHistory.familyHistory.reduce((acc, record) => {
+    if (!acc[record.condition]) {
+      acc[record.condition] = {
+        condition: record.condition,
+        relations: [],
+        totalCount: 0
+      };
+    }
 
-    // Convert to array and sort by highest risk (most occurrences)
-    const sortedReport = Object.values(riskReport).sort(
-      (a, b) => b.totalCount - a.totalCount
-    );
+    acc[record.condition].relations.push({
+      relation: record.relation,
+      ageAtDiagnosis: record.ageAtDiagnosis,
+      deceased: record.deceased
+    });
+    acc[record.condition].totalCount++;
 
-    res.status(200).json({ success: true, data: sortedReport });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Server Error" });
-  }
+    return acc;
+  }, {});
+
+  // Convert to array and sort by highest risk (most occurrences)
+  const sortedReport = Object.values(riskReport).sort(
+    (a, b) => b.totalCount - a.totalCount
+  );
+
+  res.json({ success: true, data: sortedReport });
 };
 
 
@@ -1253,64 +1137,47 @@ export const getGeneticRiskReport = async (req, res) => {
  * @access  Private (Doctor)
  */
 export const addSurgery = async (req, res) => {
-  try {
-    const {
-      name,
-      date,
-      outcome,
-      hospital,
-      surgeon
-    } = req.body;
+  const {
+    name,
+    date,
+    outcome,
+    hospital,
+    surgeon
+  } = req.body;
 
-    const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
-    if (!patient) throw ServerError.notFound("Patient not found");
+  const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    const medicalHistory = await MedicalHistory.findOne({ patient: patient._id });
-    if (!medicalHistory) throw ServerError.notFound("Medical history not found");
+  const medicalHistory = await MedicalHistory.findOne({ patient: patient._id });
+  if (!medicalHistory) throw ServerError.notFound("Medical history not found");
 
-    // Validate surgeon exists if provided
-    if (surgeon) {
-      const surgeonExists = await Doctor.exists({ _id: surgeon });
-      if (!surgeonExists) throw ServerError.badRequest("Surgeon not found");
-    }
-
-    const newSurgery = {
-      name,
-      date: date || new Date(),
-      outcome,
-      hospital,
-      surgeon
-    };
-
-    // Validate surgery date is not in the future
-    if (new Date(newSurgery.date) > new Date()) {
-      throw ServerError.badRequest("Surgery date cannot be in the future");
-    }
-
-    medicalHistory.surgeries.push(newSurgery);
-
-    // Track update
-    medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-    medicalHistory.metadata.updates.push({
-      date: new Date(),
-      changedBy: patient._id,
-      changes: [`Added surgical procedure: ${name}`],
-    });
-
-    await medicalHistory.save();
-
-    res.status(201).json({
-      success: true,
-      data: medicalHistory.surgeries.slice(-1)[0],
-    });
-  } catch (err) {
-    console.error(err);
-    if (err instanceof ServerError) {
-      res.status(err.statusCode).json({ success: false, error: err.message });
-    } else {
-      res.status(500).json({ success: false, error: "Server Error" });
-    }
+  if (surgeon?.doctorId) {
+    const surgeonExists = await Doctor.exists({ _id: surgeon.doctorId });
+    if (!surgeonExists) throw ServerError.badRequest("Surgeon not found");
   }
+
+  const newSurgery = {
+    name,
+    date: date || new Date(),
+    outcome,
+    hospital,
+    surgeon,
+    source: DATA_SOURCE.PATIENT,
+    addedBy: patient._id
+  };
+
+  if (new Date(newSurgery.date) > new Date()) {
+    throw ServerError.badRequest("Surgery date cannot be in the future");
+  }
+
+  medicalHistory.surgeries.push(newSurgery);
+
+  await medicalHistory.save();
+
+  res.status(201).json({
+    success: true,
+    data: medicalHistory.surgeries.slice(-1)[0],
+  })
 };
 
 
@@ -1320,56 +1187,40 @@ export const addSurgery = async (req, res) => {
  * @access  Private (Doctor)
  */
 export const addHospitalization = async (req, res) => {
-  try {
-    const {
-      reason,
-      admissionDate,
-      dischargeDate,
-      hospitalName,
-      dischargeSummary
-    } = req.body;
+  const {
+    reason,
+    admissionDate,
+    dischargeDate,
+    hospitalName,
+    dischargeSummary
+  } = req.body;
 
-    const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
-    if (!patient) throw ServerError.notFound("Patient not found");
+  const patient = await Patient.findOne({ user: req.user.sub }).select("_id");
+  if (!patient) throw ServerError.notFound("Patient not found");
 
-    const medicalHistory = await MedicalHistory.findOne({ patient: patient._id });
-    if (!medicalHistory) throw ServerError.notFound("Medical history not found");
+  const medicalHistory = await MedicalHistory.findOne({ patient: patient._id });
+  if (!medicalHistory) throw ServerError.notFound("Medical history not found");
 
-    const newHospitalization = {
-      reason,
-      admissionDate: admissionDate || new Date(),
-      dischargeDate,
-      hospitalName,
-      dischargeSummary
-    };
+  const newHospitalization = {
+    reason,
+    admissionDate: admissionDate || new Date(),
+    dischargeDate,
+    hospitalName,
+    dischargeSummary,
+    source: DATA_SOURCE.PATIENT,
+    addedBy: patient._id
+  };
 
-    // Validate discharge date is after admission if both exist
-    if (dischargeDate && new Date(dischargeDate) < new Date(newHospitalization.admissionDate)) {
-      throw ServerError.badRequest("Discharge date must be after admission date");
-    }
-
-    medicalHistory.hospitalizations.push(newHospitalization);
-
-    // Track update
-    medicalHistory.metadata.updates = medicalHistory.metadata.updates || [];
-    medicalHistory.metadata.updates.push({
-      date: new Date(),
-      changedBy: patient._id,
-      changes: [`Added hospitalization at ${hospitalName} for ${reason}`],
-    });
-
-    await medicalHistory.save();
-
-    res.status(201).json({
-      success: true,
-      data: medicalHistory.hospitalizations.slice(-1)[0],
-    });
-  } catch (err) {
-    console.error(err);
-    if (err instanceof ServerError) {
-      res.status(err.statusCode).json({ success: false, error: err.message });
-    } else {
-      res.status(500).json({ success: false, error: "Server Error" });
-    }
+  if (dischargeDate && new Date(dischargeDate) < new Date(newHospitalization.admissionDate)) {
+    throw ServerError.badRequest("Discharge date must be after admission date");
   }
+
+  medicalHistory.hospitalizations.push(newHospitalization);
+
+  await medicalHistory.save();
+
+  res.status(201).json({
+    success: true,
+    data: medicalHistory.hospitalizations.slice(-1)[0],
+  });
 };

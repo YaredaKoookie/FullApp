@@ -15,6 +15,7 @@ import apiClient from "@/lib/apiClient";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import queryClient from "@/lib/queryClient";
+import { useAuth } from "@/context/AuthContext";
 
 const genderOptions = [
   { id: 1, name: "Male", value: "male" },
@@ -47,6 +48,7 @@ export default function ProfileCompletion() {
   const [showSuccess, setShowSuccess] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const {login} = useAuth();
 
   const {
     register,
@@ -91,10 +93,12 @@ export default function ProfileCompletion() {
           "Content-Type": "multipart/form-data",
         },
       }),
-    onSuccess: () => {
+    onSuccess: (response) => {
       setIsSubmitting(false);
       setShowSuccess(true);
       queryClient.clear();
+      const {user, accessToken} = response?.data;
+      login(accessToken, user);
       setTimeout(() => setShowSuccess(true), 3000);
     },
     onError: (error) => {

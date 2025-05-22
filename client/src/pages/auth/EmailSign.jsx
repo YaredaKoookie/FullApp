@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import useMagicLinkSignIn from '@/hooks/useMagicLinkSignIn';
 
-const EmailSign = ({ role }) => {
+const EmailSign = ({ role = "patient" }) => {
   const {
     register,
     handleSubmit,

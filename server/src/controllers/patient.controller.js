@@ -165,6 +165,7 @@ export const createPatientProfile = async (req, res) => {
       success: true,
       data: {
         patient: responseProfile,
+        user, 
         accessToken: generateAccessToken(user),
       },
     });
@@ -499,10 +500,7 @@ export const getApprovedDoctors = async (req, res) => {
     } = req.query;
 
     // Build the base query for approved doctors
-    let query = {
-      verificationStatus: "verified",
-      isActive: true,
-    };
+    let query = {};
 
     // Text search (across name fields)
     if (search) {
@@ -576,14 +574,16 @@ export const getApprovedDoctors = async (req, res) => {
     const pageNumber = parseInt(page);
     const limitNumber = parseInt(limit);
     const skip = (pageNumber - 1) * limitNumber;
-
+  console.log("query", query)
     // Execute query with pagination and sorting
-    const doctors = await Doctor.find(query)
+    let doctors = await Doctor.find(query)
       .sort(sortOption)
       .skip(skip)
       .limit(limitNumber)
-      .populate("userId", "email") // Include basic user info
+      .populate("userId", "email isActive") // Include basic user info
       .populate("schedule"); // Include schedule info
+
+    doctors = doctors.filter(doctor => doctor.userId.isActive === true);
 
     // Get total count for pagination info
     const total = await Doctor.countDocuments(query);
@@ -614,8 +614,12 @@ export const getApprovedDoctors = async (req, res) => {
 export const getDoctorStatistics = async (req, res) => {
   try {
     const matchStage = {
-      verificationStatus: "verified",
-      isActive: true,
+      $lookup: {
+        from: "users",
+        localField: "userId",
+        foreignField: "_id",
+        as: "user"
+      }
     };
 
     const [
@@ -626,18 +630,30 @@ export const getDoctorStatistics = async (req, res) => {
       languageDistribution,
       locationDistribution,
       totalCounts,
-      verifiedCounts,
+      activeCounts,
       averages,
     ] = await Promise.all([
       Doctor.aggregate([
-        { $match: matchStage },
+        { $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user"
+        }},
+        { $match: { "user.isActive": true } },
         { $group: { _id: "$specialization", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 20 },
       ]),
 
       Doctor.aggregate([
-        { $match: matchStage },
+        { $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user"
+        }},
+        { $match: { "user.isActive": true } },
         {
           $bucket: {
             groupBy: "$yearsOfExperience",
@@ -656,7 +672,13 @@ export const getDoctorStatistics = async (req, res) => {
         },
       ]),
       Doctor.aggregate([
-        { $match: matchStage },
+        { $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user"
+        }},
+        { $match: { "user.isActive": true } },
         {
           $bucket: {
             groupBy: "$consultationFee",
@@ -686,7 +708,13 @@ export const getDoctorStatistics = async (req, res) => {
         },
       ]),
       Doctor.aggregate([
-        { $match: matchStage },
+        { $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user"
+        }},
+        { $match: { "user.isActive": true } },
         {
           $project: {
             roundedRating: {
@@ -702,7 +730,13 @@ export const getDoctorStatistics = async (req, res) => {
       ]),
 
       Doctor.aggregate([
-        { $match: matchStage },
+        { $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user"
+        }},
+        { $match: { "user.isActive": true } },
         { $unwind: "$languages" },
         // Group by doctor first to deduplicate languages per doctor
         {
@@ -725,17 +759,48 @@ export const getDoctorStatistics = async (req, res) => {
       ]),
 
       Doctor.aggregate([
-        { $match: matchStage },
+        { $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user"
+        }},
+        { $match: { "user.isActive": true } },
         { $group: { _id: "$location.city", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 15 },
       ]),
 
-      Doctor.countDocuments(matchStage),
-      Doctor.countDocuments({ verificationStatus: "verified" }),
+      Doctor.aggregate([
+        { $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user"
+        }},
+        { $match: { "user.isActive": true } },
+        { $count: "total" }
+      ]).then(result => result[0]?.total || 0),
 
       Doctor.aggregate([
-        { $match: matchStage },
+        { $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user"
+        }},
+        { $match: { "user.isActive": true } },
+        { $count: "total" }
+      ]).then(result => result[0]?.total || 0),
+
+      Doctor.aggregate([
+        { $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user"
+        }},
+        { $match: { "user.isActive": true } },
         {
           $group: {
             _id: null,
@@ -773,7 +838,7 @@ export const getDoctorStatistics = async (req, res) => {
         count: l.count,
       })),
       totalDoctors: totalCounts,
-      verifiedDoctors: verifiedCounts,
+      activeDoctors: activeCounts,
       averageRating: averages[0]?.avgRating
         ? parseFloat(averages[0].avgRating.toFixed(2))
         : 0,
@@ -805,7 +870,7 @@ export const getApprovedDoctorById = async (req, res) => {
 
   const query = {
     _id: req.params.doctorId,
-    verificationStatus: "verified",
+    isActive: true,
   };
   console.log(query);
 

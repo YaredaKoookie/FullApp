@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {
   format,
   parseISO,
@@ -46,6 +46,11 @@ const DoctorProfilePage = () => {
   const [showAllReviews, setShowAllReviews] = useState(false);
   const { doctorId } = useParams();
   const [consultationType, setConsultationType] = useState("in-person");
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [rating, setRating] = useState(0);
+  const [reviewText, setReviewText] = useState("");
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   // Fetch doctor data
   const {
@@ -74,10 +79,10 @@ const DoctorProfilePage = () => {
       );
       return response.data;
     },
-    placeholderData: (prev) => prev,
+    placeholderData: keepPreviousData,
     select: (data) => {
       const filteredSlots = data.availableSlots.filter((slot) => {
-        const slotDate = new Date(slot.date);
+        const slotDate = new Date(slot.start);
         return (
           slotDate.toDateString() === selectedDate.toDateString() &&
           !slot.isBooked
@@ -93,13 +98,22 @@ const DoctorProfilePage = () => {
     queryKey: ["reviews", doctorId],
     queryFn: async () => {
       const response = await apiClient.get(
-        `/patients/doctors/${doctorId}/reviews`
+        `/patient/doctors/${doctorId}/reviews`
       );
       return response.data?.reviews;
     },
   });
 
-  console.log("doctors", doctor);
+  // Check if patient can review
+  const { data: canReviewData } = useQuery({
+    queryKey: ["canReview", doctorId],
+    queryFn: async () => {
+      const response = await apiClient.get(`/patient/doctors/${doctorId}/can-review`);
+      return response;
+    },
+  });
+
+  console.log("can review", canReviewData);
 
   // Mutation for booking appointment
   const bookingMutation = useMutation({
@@ -120,7 +134,29 @@ const DoctorProfilePage = () => {
     },
   });
 
-  if (isLoading || isScheduleLoading) return <Loading />;
+  // Review mutation
+  const reviewMutation = useMutation({
+    mutationFn: (reviewData) => {
+      return apiClient.post(`/patient/doctors/${doctorId}/review`, reviewData);
+    },
+    onSuccess: () => {
+      // Invalidate both reviews and doctor data queries
+      queryClient.invalidateQueries(["reviews", doctorId]);
+      queryClient.invalidateQueries(["doctor", doctorId]);
+      // Force refetch the doctor data immediately
+      queryClient.refetchQueries(["doctor", doctorId]);
+      toast.success("Review submitted successfully");
+      setIsReviewModalOpen(false);
+      setRating(0);
+      setReviewText("");
+      setIsAnonymous(false);
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || "Failed to submit review");
+    },
+  });
+
+  if (isLoading) return <Loading />;
 
   if (isError)
     return (
@@ -342,29 +378,47 @@ const DoctorProfilePage = () => {
                 <Tab.Panel className="bg-white rounded-xl shadow-sm p-6">
                   <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold">Patient Reviews</h2>
-                    <div className="flex items-center bg-blue-50 px-3 py-1 rounded-full">
-                      <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 mr-1" />
-                      <span className="font-medium">{doctor.rating}</span>
-                      <span className="text-gray-500 ml-1">
-                        ({doctor.totalReviews} reviews)
-                      </span>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center bg-blue-50 px-3 py-1 rounded-full">
+                        <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 mr-1" />
+                        <span className="font-medium">{doctor.rating}</span>
+                        <span className="text-gray-500 ml-1">
+                          ({doctor.totalReviews} reviews)
+                        </span>
+                      </div>
+                      {canReviewData?.data?.canReview && (
+                        <button
+                          onClick={() => setIsReviewModalOpen(true)}
+                          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Write a Review
+                        </button>
+                      )}
                     </div>
                   </div>
 
                   <div className="space-y-6">
                     {displayedReviews?.length ? (
-                      displayedReviews?.map((review) => (
+                      displayedReviews.map((review) => (
                         <div
                           key={review._id}
                           className="border-b border-gray-100 pb-6 last:border-0"
                         >
                           <div className="flex items-center mb-3">
                             <div className="bg-blue-100 text-blue-800 rounded-full w-10 h-10 flex items-center justify-center mr-3">
-                              <User className="h-5 w-5" />
+                              {review.anonymous ? (
+                                <User className="h-5 w-5" />
+                              ) : (
+                                <img
+                                  src={review.patient?.profileImage || "/default-avatar.png"}
+                                  alt={review.patient?.name || "Anonymous"}
+                                  className="w-full h-full rounded-full object-cover"
+                                />
+                              )}
                             </div>
                             <div>
                               <p className="font-medium">
-                                {review.patientName}
+                                {review.anonymous ? "Anonymous" : review.patient?.name}
                               </p>
                               <div className="flex items-center">
                                 {[...Array(5)].map((_, i) => (
@@ -378,12 +432,27 @@ const DoctorProfilePage = () => {
                                   />
                                 ))}
                                 <span className="text-xs text-gray-500 ml-2">
-                                  {format(parseISO(review.date), "MMM d, yyyy")}
+                                  {format(parseISO(review.createdAt), "MMM d, yyyy")}
                                 </span>
                               </div>
                             </div>
                           </div>
-                          <p className="text-gray-700">{review.comment}</p>
+                          <p className="text-gray-700">{review.reviewText}</p>
+                          {review.tags && review.tags.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {review.tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {review.edited && (
+                            <span className="text-xs text-gray-500 mt-2 block">(Edited)</span>
+                          )}
                         </div>
                       ))
                     ) : (
@@ -550,15 +619,13 @@ const DoctorProfilePage = () => {
                   {schedule?.filteredSlots?.length ? (
                     <div className="grid grid-cols-2 gap-2">
                       {schedule.filteredSlots.map((slot) => {
-                        const slotTime = new Date(
-                          slot.date.split("T")[0] + "T" + slot.startTime + ":00"
-                        );
-                        const isSelected = selectedSlot === slot._id;
+                        const slotTime = new Date(slot.start);
+                        const isSelected = selectedSlot === slot.slotId;
 
                         return (
                           <button
-                            key={slot._id}
-                            onClick={() => setSelectedSlot(slot._id)}
+                            key={slot.slotId}
+                            onClick={() => setSelectedSlot(slot.slotId)}
                             className={`py-2 px-3 rounded-lg text-sm transition-colors flex items-center justify-center ${
                               isSelected
                                 ? "bg-blue-600 text-white"
@@ -714,7 +781,6 @@ const DoctorProfilePage = () => {
                       onSubmit={(e) => {
                         e.preventDefault();
                         const reason = e.currentTarget.reason?.value;
-                        console.log("reason", reason)
                         if(!reason) return;
                         bookingMutation.mutate({
                           doctorId,
@@ -781,6 +847,173 @@ const DoctorProfilePage = () => {
                         </button>
                       </div>
                     </form>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Review Modal */}
+      <Transition appear show={isReviewModalOpen} as={React.Fragment}>
+        <Dialog
+          as="div"
+          className="relative z-50"
+          onClose={() => setIsReviewModalOpen(false)}
+        >
+          <Transition.Child
+            as={React.Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={React.Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-lg font-medium leading-6 text-gray-900"
+                  >
+                    Write a Review
+                  </Dialog.Title>
+
+                  <div className="mt-4">
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Select Appointment
+                      </label>
+                      <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        value={selectedAppointment?._id || ""}
+                        onChange={(e) => {
+                          const appointment = canReviewData.data.availableAppointments.find(
+                            (a) => a._id === e.target.value
+                          );
+                          setSelectedAppointment(appointment);
+                        }}
+                      >
+                        <option value="">Select an appointment</option>
+                        {canReviewData?.data?.availableAppointments.map((appointment) => (
+                          <option key={appointment._id} value={appointment._id}>
+                            {format(new Date(appointment.slot.start), "MMM d, yyyy")}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Rating
+                      </label>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setRating(star)}
+                            className="focus:outline-none"
+                          >
+                            <Star
+                              className={`h-8 w-8 ${
+                                star <= rating
+                                  ? "text-yellow-400 fill-yellow-400"
+                                  : "text-gray-300"
+                              }`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <label
+                        htmlFor="review"
+                        className="block text-sm font-medium text-gray-700 mb-2"
+                      >
+                        Your Review
+                      </label>
+                      <textarea
+                        id="review"
+                        rows={4}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        value={reviewText}
+                        onChange={(e) => setReviewText(e.target.value)}
+                        placeholder="Share your experience with this doctor..."
+                      />
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                          checked={isAnonymous}
+                          onChange={(e) => setIsAnonymous(e.target.checked)}
+                        />
+                        <span className="ml-2 text-sm text-gray-600">
+                          Submit anonymously
+                        </span>
+                      </label>
+                    </div>
+
+                    <div className="mt-6 flex justify-end space-x-3">
+                      <button
+                        type="button"
+                        className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        onClick={() => setIsReviewModalOpen(false)}
+                        disabled={reviewMutation.isPending}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!selectedAppointment || !rating) {
+                            toast.error("Please select an appointment and provide a rating");
+                            return;
+                          }
+                          reviewMutation.mutate({
+                            doctorId,
+                            appointmentId: selectedAppointment._id,
+                            rating,
+                            reviewText,
+                            anonymous: isAnonymous,
+                            tags: [], // Add tags if needed
+                          });
+                        }}
+                        disabled={reviewMutation.isPending}
+                        className={`${
+                          reviewMutation.isPending
+                            ? "cursor-not-allowed opacity-50"
+                            : ""
+                        } px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center`}
+                      >
+                        {reviewMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            Submitting...
+                          </>
+                        ) : (
+                          "Submit Review"
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </Dialog.Panel>
               </Transition.Child>

@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { X } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -66,7 +66,30 @@ const UpdateVitalsModal = ({ isOpen, onClose, initialData }) => {
     }
   });
 
-  console.log("initialData", initialData)
+  // Reset form when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      reset({
+        height: initialData.height || '',
+        weight: initialData.weight || '',
+        bloodType: initialData.bloodType || '',
+        lifestyle: {
+          smoking: {
+            status: initialData.lifestyle?.smoking?.status || false,
+            frequency: initialData.lifestyle?.smoking?.frequency || 'Never',
+            years: initialData.lifestyle?.smoking?.years || 0
+          },
+          alcohol: {
+            status: initialData.lifestyle?.alcohol?.status || false,
+            frequency: initialData.lifestyle?.alcohol?.frequency || 'Never'
+          },
+          exerciseFrequency: initialData.lifestyle?.exerciseFrequency || 'Never',
+          diet: initialData.lifestyle?.diet || '',
+          occupation: initialData.lifestyle?.occupation || ''
+        }
+      });
+    }
+  }, [initialData, reset]);
 
   const smokingStatus = watch('lifestyle.smoking.status');
   const alcoholStatus = watch('lifestyle.alcohol.status');

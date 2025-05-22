@@ -6,14 +6,21 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import apiClient from '@/lib/apiClient';
 
-const CONDITION_STATUS = ['Active', 'In Remission', 'Resolved', 'Chronic'];
+const CONDITION_STATUS = ['Active', 'In Remission', 'Resolved'];
 
 const conditionSchema = z.object({
   name: z.string().min(1, 'Condition name is required'),
   diagnosisDate: z.string().min(1, 'Diagnosis date is required'),
   isChronic: z.boolean().default(false),
-  status: z.enum(CONDITION_STATUS).optional(),
-  resolvedDate: z.string().optional(),
+  status: z.enum(CONDITION_STATUS),
+  resolvedDate: z.string().optional().refine((val, ctx) => {
+    if (!val || val === '') return true;
+    const diagnosisDate = ctx.parent.diagnosisDate;
+    if (!diagnosisDate) return true;
+    return new Date(val) >= new Date(diagnosisDate);
+  }, {
+    message: 'Resolved date must be after diagnosis date'
+  }),
 }).refine((data) => {
   if (data.isChronic) {
     return !!data.status;
@@ -23,18 +30,18 @@ const conditionSchema = z.object({
   message: "Status is required for chronic conditions",
   path: ["status"]
 }).refine((data) => {
-  if (!data.isChronic) {
+  if (!data.isChronic && data.status === 'Resolved') {
     return !!data.resolvedDate;
   }
   return true;
 }, {
-  message: "Resolved date is required for non-chronic conditions",
+  message: "Resolved date is required when status is Resolved",
   path: ["resolvedDate"]
 });
 
 const AddConditionModal = ({ isOpen, onClose, onSuccess }) => {
   const queryClient = useQueryClient();
-  
+
   const {
     register,
     handleSubmit,
@@ -48,11 +55,11 @@ const AddConditionModal = ({ isOpen, onClose, onSuccess }) => {
       diagnosisDate: '',
       isChronic: false,
       status: 'Active',
-      resolvedDate: '',
     },
   });
 
   const isChronic = watch('isChronic');
+  const status = watch("status");
 
   const { mutate } = useMutation({
     mutationFn: async (data) => {
@@ -64,9 +71,13 @@ const AddConditionModal = ({ isOpen, onClose, onSuccess }) => {
       reset();
       onSuccess();
     },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to add condition');
+    }
   });
 
   const onSubmit = (data) => {
+    console.log("condition", data)
     mutate(data);
   };
 
@@ -140,7 +151,7 @@ const AddConditionModal = ({ isOpen, onClose, onSuccess }) => {
               </label>
             </div>
 
-            {isChronic ? (
+            
               <div>
                 <label
                   htmlFor="status"
@@ -163,8 +174,8 @@ const AddConditionModal = ({ isOpen, onClose, onSuccess }) => {
                   <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>
                 )}
               </div>
-            ) : (
-              <div>
+            
+             {status === "Resolved" && <div>
                 <label
                   htmlFor="resolvedDate"
                   className="block text-sm font-medium text-gray-700"
@@ -180,8 +191,7 @@ const AddConditionModal = ({ isOpen, onClose, onSuccess }) => {
                 {errors.resolvedDate && (
                   <p className="mt-1 text-sm text-red-600">{errors.resolvedDate.message}</p>
                 )}
-              </div>
-            )}
+              </div>}
 
             <div className="mt-6 flex justify-end space-x-3">
               <button

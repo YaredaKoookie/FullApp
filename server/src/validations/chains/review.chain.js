@@ -3,7 +3,7 @@ import { REVIEW_TAGS } from "../../models/review.model";
 
 // doctorId, rating, reviewText, tags, appointmentId, anonymous
 export const validateCreateReview = [
-  body("doctorId").notEmpty().withMessage("Doctor id is required"),
+  param("doctorId").notEmpty().withMessage("Doctor id is required"),
   body("appointmentId").notEmpty().withMessage("Appointment id is required"),
   body("rating")
     .notEmpty()

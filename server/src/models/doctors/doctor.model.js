@@ -43,14 +43,11 @@ const doctorSchema = new Schema(
     },
     dateOfBirth: { type: Date, required: true },
     profilePhoto: { type: String },
-    profilePhotoId: {type: String},
-    nationalIdFront: { type: String }, // removed required
-    nationalIdBack: { type: String },
-    licenseFront: { type: String },
-    licenseBack: { type: String },
+    profilePhotoId: { type: String },
+    nationalIdFanNumber: { type: String, required: true },
+    licenseNumber: { type: String, required: true },
     boardCertificationsDocument: { type: String },
     educationDocument: { type: String },
-
     specialization: { type: String, required: true },
     qualifications: {
       type: [qualificationSchema],
@@ -82,10 +79,7 @@ const doctorSchema = new Schema(
       default: 0,
       min: 0,
     },
-    serviceAreas: {
-      type: [String],
-      default: [],
-    },
+    serviceAreas: { type: String },
     totalReviews: { type: Number, default: 0 },
     rating: {
       type: Number,
@@ -93,23 +87,14 @@ const doctorSchema = new Schema(
       min: 0,
       max: 5,
     },
-    balance : {type: Number, default: 0 },
+    balance: { type: Number, default: 0 },
     totalEarnings: { type: Number, default: 0 },
     withdrawalBalance: { type: Number, default: 0 },
-    applicationNotes: {
-      type: String,
-      maxlength: 1000,
-    },
     approvedAt: Date,
     autoDeleteAt: {
       type: Date,
       default: null,
       index: { expires: 0 }, // TTL index to auto-delete after the date
-    },
-    verificationStatus: {
-      type: String,
-      enum: ["pending", "verified", "rejected"],
-      default: "pending",
     },
     isActive: { type: Boolean, default: true },
     bio: {

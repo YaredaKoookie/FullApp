@@ -57,7 +57,7 @@ const Navbar = () => {
             </Link>
             {user ? (
               <Link
-                to={user.role === "patient" ? "/patient/dashboard" : user.role === "doctor" ?  "/doctor/dashboard" : user.role === "admin" ? "admin/dashboard" : ""}
+                to={user.role === "patient" ? "/patient/dashboard" : user.role === "doctor" ? "/doctor/dashboard" : user.role === "admin" ? "admin/dashboard" : ""}
                 className="text-sm font-medium text-gray-900 hover:text-indigo-600 flex items-center"
               >
                 <LayoutDashboardIcon className="h-5 w-5 mr-1" />
@@ -129,16 +129,26 @@ const Navbar = () => {
                     </Link>
 
                     {user ? (
-                      <button
-                        onClick={() => {
-                          logout.mutate(); // Properly invoke the logout function
-                          setMobileMenuOpen(false);
-                        }}
-                        className="flex items-center rounded-md p-3 text-base font-medium text-gray-900 hover:bg-gray-50 w-full"
-                      >
-                        <LogOut className="h-5 w-5 mr-3" />
-                        Logout
-                      </button>
+                      <>
+                        <Link
+                          to="/patient/dashboard"
+                          className="flex items-center rounded-md p-3 text-base font-medium text-gray-900 hover:bg-gray-50 w-full"
+                        >
+                          <LayoutDashboardIcon className="h-5 w-5 mr-3" />
+                          Dashboard
+                        </Link>
+                        <button
+                          onClick={() => {
+                            logout.mutate(); // Properly invoke the logout function
+                            setMobileMenuOpen(false);
+                          }}
+                          className="flex items-center rounded-md p-3 text-base font-medium text-gray-900 hover:bg-gray-50 w-full"
+                        >
+                          <LogOut className="h-5 w-5 mr-3" />
+                          Logout
+                        </button>
+
+                      </>
                     ) : (
                       <Link
                         to="/auth/login"

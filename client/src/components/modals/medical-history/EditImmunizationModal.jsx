@@ -8,14 +8,14 @@ import apiClient from '@/lib/apiClient';
 import { toast } from 'react-toastify';
 
 const immunizationSchema = z.object({
-  vaccineName: z.string().min(1, 'Vaccine name is required'),
-  vaccinationDate: z.string().min(1, 'Vaccination date is required')
+  vaccine: z.string().min(1, 'Vaccine name is required'),
+  date: z.string().min(1, 'Vaccination date is required')
     .refine((date) => {
       return new Date(date) <= new Date();
     }, {
       message: 'Vaccination date cannot be in the future',
     }),
-  boosterDueDate: z.string().optional(),
+  boosterDue: z.string().optional(),
   administeredBy: z.string().optional(),
 });
 
@@ -30,23 +30,24 @@ const EditImmunizationModal = ({ isOpen, onClose, onSuccess, immunization }) => 
   } = useForm({
     resolver: zodResolver(immunizationSchema),
     defaultValues: {
-      vaccineName: immunization?.vaccineName || '',
-      vaccinationDate: immunization?.vaccinationDate || '',
-      boosterDueDate: immunization?.boosterDueDate || '',
+      vaccine: immunization?.vaccine || '',
+      date: immunization?.date ? new Date(immunization?.date).toISOString().split('T')[0] : '',
+      boosterDue: immunization?.boosterDue ? new Date(immunization?.boosterDue).toISOString().split('T')[0] : '',
       administeredBy: immunization?.administeredBy || '',
     },
   });
 
+  console.log("immunization", immunization);
+
   const { mutate } = useMutation({
     mutationFn: async (data) => {
-      const response = await apiClient.put(`/medical-history/immunizations/${immunization.id}`, data);
+      const response = await apiClient.put(`/medical-history/immunizations/${immunization._id}`, data);
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['medicalHistory']);
       reset();
       onSuccess();
-      toast.success('Immunization record updated successfully');
     },
     onError: (error) => {
       toast.error(error.message || 'Failed to update immunization record');
@@ -78,56 +79,56 @@ const EditImmunizationModal = ({ isOpen, onClose, onSuccess, immunization }) => 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
               <label
-                htmlFor="vaccineName"
+                htmlFor="vaccine"
                 className="block text-sm font-medium text-gray-700"
               >
                 Vaccine Name
               </label>
               <input
                 type="text"
-                id="vaccineName"
-                {...register('vaccineName')}
+                id="vaccine"
+                {...register('vaccine')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., COVID-19, Influenza"
               />
-              {errors.vaccineName && (
-                <p className="mt-1 text-sm text-red-600">{errors.vaccineName.message}</p>
+              {errors.vaccine && (
+                <p className="mt-1 text-sm text-red-600">{errors.vaccine.message}</p>
               )}
             </div>
 
             <div>
               <label
-                htmlFor="vaccinationDate"
+                htmlFor="date"
                 className="block text-sm font-medium text-gray-700"
               >
                 Vaccination Date
               </label>
               <input
                 type="date"
-                id="vaccinationDate"
-                {...register('vaccinationDate')}
+                id="date"
+                {...register('date')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
-              {errors.vaccinationDate && (
-                <p className="mt-1 text-sm text-red-600">{errors.vaccinationDate.message}</p>
+              {errors.date && (
+                <p className="mt-1 text-sm text-red-600">{errors.date.message}</p>
               )}
             </div>
 
             <div>
               <label
-                htmlFor="boosterDueDate"
+                htmlFor="boosterDue"
                 className="block text-sm font-medium text-gray-700"
               >
                 Booster Due Date (Optional)
               </label>
               <input
                 type="date"
-                id="boosterDueDate"
-                {...register('boosterDueDate')}
+                id="boosterDue"
+                {...register('boosterDue')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
-              {errors.boosterDueDate && (
-                <p className="mt-1 text-sm text-red-600">{errors.boosterDueDate.message}</p>
+              {errors.boosterDue && (
+                <p className="mt-1 text-sm text-red-600">{errors.boosterDue.message}</p>
               )}
             </div>
 

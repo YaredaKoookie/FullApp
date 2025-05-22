@@ -51,7 +51,7 @@ const PasswordStrengthMeter = ({ value }) => {
   );
 };
 
-const Register = ({ role }) => {
+const Register = ({ role = "patient" }) => {
   const {
     register,
     handleSubmit,

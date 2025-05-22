@@ -111,7 +111,7 @@ const Login = () => {
           <div className="text-center text-sm text-gray-500">
             No account yet?{" "}
             <RouterLink
-              to="/auth/select-role"
+              to="/auth/register"
               className="font-medium text-blue-600 hover:text-blue-500 hover:underline"
             >
               Register

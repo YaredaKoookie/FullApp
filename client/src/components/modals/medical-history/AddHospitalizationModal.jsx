@@ -54,7 +54,6 @@ const AddHospitalizationModal = ({ isOpen, onClose, onSuccess }) => {
       queryClient.invalidateQueries(['medicalHistory']);
       reset();
       onSuccess();
-      toast.success('Hospitalization record added successfully');
     },
     onError: (error) => {
       toast.error(error.message || 'Failed to add hospitalization record');

@@ -36,5 +36,7 @@ const env = cleanEnv(process.env, {
     choices: ["production", "development"],
     default: "development",
   }),
+  AGORA_APP_ID: str(),
+  AGORA_APP_CERTIFICATE: str(),
 });
 export default env;

@@ -14,38 +14,12 @@ const fetchDoctors = async (params) => {
   return response;
 }
 
-const specializations = [
-  'Cardiology',
-  'Dermatology',
-  'Pediatrics',
-  'Neurology',
-  'Orthopedics',
-  'Gynecology',
-  'Psychiatry',
-  'Dentistry',
-  'Ophthalmology',
-  'General Practice'
-]
-
-const languages = [
-  'English',
-  'Spanish',
-  'French',
-  'German',
-  'Mandarin',
-  'Arabic',
-  'Hindi',
-  'Portuguese',
-  'Russian',
-  'Japanese'
-]
-
 const DoctorsPage = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedSpecialization, setSelectedSpecialization] = useState([])
   const [selectedLanguages, setSelectedLanguages] = useState([])
   const [experienceRange, setExperienceRange] = useState([0, 50])
-  const [feeRange, setFeeRange] = useState([0, 500])
+  const [feeRange, setFeeRange] = useState([0, 5000])
   const [minRating, setMinRating] = useState(0);
   const [locationFilter, setLocationFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);

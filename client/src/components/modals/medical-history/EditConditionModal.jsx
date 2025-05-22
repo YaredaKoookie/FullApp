@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import apiClient from '@/lib/apiClient';
 
-const CONDITION_STATUS = ['Active', 'In Remission', 'Resolved', 'Chronic'];
+const CONDITION_STATUS = ['Active', 'In Remission', 'Resolved'];
 
 const conditionSchema = z.object({
   name: z.string().min(1, 'Condition name is required'),
@@ -15,12 +15,20 @@ const conditionSchema = z.object({
   status: z.string().refine((val) => !val || CONDITION_STATUS.includes(val), {
     message: 'Invalid status',
   }),
-  resolvedDate: z.string().optional(),
+  resolvedDate: z.string().optional().transform(val => val === '' ? undefined : val),
 }).refine((data) => {
-  if (data.isChronic) {
-    return true;
+  if (data.status === 'Resolved') {
+    return !!data.resolvedDate;
   }
-  return !data.resolvedDate || new Date(data.resolvedDate) >= new Date(data.diagnosisDate);
+  return true;
+}, {
+  message: 'Resolved date is required when status is Resolved',
+  path: ['resolvedDate'],
+}).refine((data) => {
+  if (data.resolvedDate && data.diagnosisDate) {
+    return new Date(data.resolvedDate) >= new Date(data.diagnosisDate);
+  }
+  return true;
 }, {
   message: 'Resolved date must be after diagnosis date',
   path: ['resolvedDate'],
@@ -46,7 +54,10 @@ const EditConditionModal = ({ isOpen, onClose, condition, onSuccess }) => {
     },
   });
 
+  console.log(condition)
+
   const isChronic = watch('isChronic');
+  const status = watch("status")
 
   const { mutate } = useMutation({
     mutationFn: async (data) => {
@@ -64,7 +75,15 @@ const EditConditionModal = ({ isOpen, onClose, condition, onSuccess }) => {
   });
 
   const onSubmit = (data) => {
-    mutate(data);
+    // Transform the data before sending to server
+    const transformedData = {
+      ...data,
+      // Only include resolvedDate if it exists and status is Resolved
+      resolvedDate: data.status === 'Resolved' ? data.resolvedDate : undefined,
+      diagnosisDate: data.diagnosisDate,
+    };
+    console.log("transformedData", transformedData)
+    mutate(transformedData);
   };
 
   return (
@@ -137,7 +156,7 @@ const EditConditionModal = ({ isOpen, onClose, condition, onSuccess }) => {
               </label>
             </div>
 
-            {isChronic ? (
+            
               <div>
                 <label
                   htmlFor="status"
@@ -160,7 +179,7 @@ const EditConditionModal = ({ isOpen, onClose, condition, onSuccess }) => {
                   <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>
                 )}
               </div>
-            ) : (
+            {status === "Resolved" &&
               <div>
                 <label
                   htmlFor="resolvedDate"
@@ -178,7 +197,7 @@ const EditConditionModal = ({ isOpen, onClose, condition, onSuccess }) => {
                   <p className="mt-1 text-sm text-red-600">{errors.resolvedDate.message}</p>
                 )}
               </div>
-            )}
+            }
 
             <div className="mt-6 flex justify-end space-x-3">
               <button
