@@ -1,8 +1,8 @@
 import { isValidObjectId } from "mongoose";
 import { env } from "../config";
 import Appointment from "../models/appointment/appointment.model";
-import Doctor from "../models/doctors/doctor.model";
-import Patient from "../models/patient/patient.model";
+import Doctor from "../../models/doctors/doctor.model";
+import Patient from "../../models/patient/patient.model";
 import { ServerError } from "../utils";
 import { RtcRole, RtcTokenBuilder } from "agora-token"
 
