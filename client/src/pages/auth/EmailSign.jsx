@@ -1,5 +1,5 @@
+import { useMagicLinkSignIn } from '@api/auth';
 import { useForm } from 'react-hook-form';
-import useMagicLinkSignIn from '@/hooks/useMagicLinkSignIn';
 
 const EmailSign = ({ role = "patient" }) => {
   const {

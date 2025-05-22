@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import useMagicLinkCallback from '@/hooks/useMagicLinkCallback';
 import LoadingSpinner from '@/components/Loading';
+import { useMagicLinkCallback } from '@api/auth';
 
 const MagicLinkVerify = () => {
     const location = useLocation();

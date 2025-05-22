@@ -10,7 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import useLogout from "@/hooks/useLogout";
+import { useLogout } from "@api/auth";
 import { useAuth } from "@/context/AuthContext";
 
 const Navbar = () => {

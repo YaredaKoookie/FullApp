@@ -1,6 +1,5 @@
 import Register from "./Register";
 import EmailSign from "./EmailSign";
-import { useSearchParams, Navigate } from "react-router-dom";
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@headlessui/react";
 
 const RegistrationTab = () => {

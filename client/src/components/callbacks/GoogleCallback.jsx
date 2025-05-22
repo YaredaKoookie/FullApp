@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import apiClient from '@/lib/apiClient';
+import apiClient from '@api/apiClient';
 
 const GoogleCallback = () => {
   const location = useLocation();

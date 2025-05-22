@@ -2,8 +2,8 @@ import { useForm } from "react-hook-form";
 import { Link as RouterLink } from "react-router-dom";
 import { Dialog } from "@headlessui/react";
 import GoogleLoginBtn from "./GoogleLoginBtn";
-import useLogin from "@/hooks/useLogin";
 import { MarsStrokeIcon } from "lucide-react";
+import { useLogin } from "@api/auth";
 
 const Login = () => {
   const {

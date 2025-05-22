@@ -1,11 +1,11 @@
 export * as authController from "./auth.controller"
 export * as doctorController from "./doctor.controller"
-export * as patientController from "./patient.controller"
-export * as paymentController from "./payment.controller"
-export * as reviewController from "./review.controller";
-export * as appointmentController from "./appointment.controller";
+export * as patientController from "./patient/patient.controller"
+export * as paymentController from "./patient/payment.controller"
+export * as reviewController from "./patient/review.controller";
+export * as appointmentController from "./patient/appointment.controller";
 export * as doctorPatient from './DoctorPatients'
 export * as adminController from './admin.controller'
 export * as paymentDoctorController from './doctorPayment'
 export * as appointmentDoctorController from './doctorApppointments.controller'
-export * as medicalHistoryController from './medicalHistory.controller'
+export * as medicalHistoryController from './patient/medicalHistory.controller'

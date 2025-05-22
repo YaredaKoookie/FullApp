@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import apiClient from '@/lib/apiClient';
+import apiClient from '@api/apiClient';
 import { toast } from 'react-toastify';
 
 const hospitalizationSchema = z.object({
