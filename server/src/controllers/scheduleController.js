@@ -5,6 +5,7 @@ import Appointment, {
   APPOINTMENT_TYPES,
 } from "../models/appointment/appointment.model";
 // Generate slots based on workingHours
+
 export const generateSlots = async (req, res) => {
   try {
     const { doctorId } = req.params;
@@ -650,18 +651,66 @@ export const addBlockedSlot = async (req, res) => {
     const { doctorId } = req.params;
     const { date, startTime, endTime, reason } = req.body;
 
-    const schedule = await Schedule.findOne({ doctorId });
-    if (!schedule) {
-      return res.status(404).json({ message: "Schedule not found" });
+    // Validate date format
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid date parameter (YYYY-MM-DD) is required"
+      });
     }
 
-    const newBlockedSlot = { date, startTime, endTime, reason };
+    // Validate time format
+    if (!startTime || !endTime || !/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(startTime) || !/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(endTime)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid time format (HH:MM) is required for both start and end times"
+      });
+    }
+
+    const schedule = await Schedule.findOne({ doctorId });
+    if (!schedule) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Schedule not found" 
+      });
+    }
+
+    // Check if slot is already blocked
+    const isAlreadyBlocked = schedule.blockedSlots.some(slot => {
+      const slotDate = new Date(slot.date).toISOString().split('T')[0];
+      return slotDate === date && 
+             slot.startTime === startTime && 
+             slot.endTime === endTime;
+    });
+
+    if (isAlreadyBlocked) {
+      return res.status(400).json({
+        success: false,
+        message: "This time slot is already blocked"
+      });
+    }
+
+    const newBlockedSlot = { 
+      date: new Date(date), 
+      startTime, 
+      endTime, 
+      reason 
+    };
+    
     schedule.blockedSlots.push(newBlockedSlot);
     await schedule.save();
 
-    res.status(201).json({ blockedSlot: newBlockedSlot });
+    res.status(201).json({ 
+      success: true,
+      blockedSlot: newBlockedSlot 
+    });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Error adding blocked slot:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Server error", 
+      error: error.message 
+    });
   }
 };
 
@@ -1357,3 +1406,180 @@ function generateChatToken() {
 async function sendAppointmentConfirmation(appointment) {
   // Implement your email/SMS notification logic here
 }
+
+// Get schedule analytics
+export const getScheduleAnalytics = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    const { startDate, endDate } = req.query;
+
+    const schedule = await Schedule.findOne({ doctorId });
+    if (!schedule) {
+      return res.status(404).json({
+        success: false,
+        message: "Schedule not found"
+      });
+    }
+
+    // Calculate analytics
+    const analytics = {
+      totalSlots: schedule.availableSlots.length,
+      bookedSlots: schedule.availableSlots.filter(slot => slot.isBooked).length,
+      utilizationRate: (schedule.availableSlots.filter(slot => slot.isBooked).length / schedule.availableSlots.length) * 100,
+      peakHours: calculatePeakHours(schedule.availableSlots),
+      popularDays: calculatePopularDays(schedule.availableSlots),
+      blockedTime: calculateBlockedTime(schedule.blockedSlots)
+    };
+
+    return res.json({
+      success: true,
+      data: analytics
+    });
+  } catch (error) {
+    console.error("Error getting schedule analytics:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to get schedule analytics"
+    });
+  }
+};
+
+// Update recurring schedule
+export const updateRecurringSchedule = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    const { pattern, weeks, workingHours } = req.body;
+
+    const schedule = await Schedule.findOne({ doctorId });
+    if (!schedule) {
+      return res.status(404).json({
+        success: false,
+        message: "Schedule not found"
+      });
+    }
+
+    // Validate pattern
+    if (!['weekly', 'biweekly', 'monthly'].includes(pattern)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid pattern. Must be weekly, biweekly, or monthly"
+      });
+    }
+
+    // Update recurring schedule
+    schedule.recurringSchedule = {
+      pattern,
+      weeks,
+      workingHours
+    };
+
+    await schedule.save();
+
+    return res.json({
+      success: true,
+      message: "Recurring schedule updated successfully",
+      data: schedule.recurringSchedule
+    });
+  } catch (error) {
+    console.error("Error updating recurring schedule:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update recurring schedule"
+    });
+  }
+};
+
+// Update break settings
+export const updateBreakSettings = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    const { day, breaks } = req.body;
+
+    const schedule = await Schedule.findOne({ doctorId });
+    if (!schedule) {
+      return res.status(404).json({
+        success: false,
+        message: "Schedule not found"
+      });
+    }
+
+    // Find and update the day's breaks
+    const dayIndex = schedule.workingHours.findIndex(wh => wh.day === day);
+    if (dayIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "Day not found in working hours"
+      });
+    }
+
+    // Validate breaks don't overlap
+    if (!validateBreaks(breaks)) {
+      return res.status(400).json({
+        success: false,
+        message: "Breaks cannot overlap"
+      });
+    }
+
+    schedule.workingHours[dayIndex].breaks = breaks;
+    await schedule.save();
+
+    return res.json({
+      success: true,
+      message: "Break settings updated successfully",
+      data: schedule.workingHours[dayIndex]
+    });
+  } catch (error) {
+    console.error("Error updating break settings:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update break settings"
+    });
+  }
+};
+
+// Helper functions
+const calculatePeakHours = (slots) => {
+  const hourCounts = {};
+  slots.forEach(slot => {
+    const hour = slot.startTime.split(':')[0];
+    hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+  });
+  return Object.entries(hourCounts)
+    .sort(([,a], [,b]) => b - a)
+    .slice(0, 3)
+    .map(([hour, count]) => ({ hour, count }));
+};
+
+const calculatePopularDays = (slots) => {
+  const dayCounts = {};
+  slots.forEach(slot => {
+    const day = new Date(slot.date).toLocaleDateString('en-US', { weekday: 'long' });
+    dayCounts[day] = (dayCounts[day] || 0) + 1;
+  });
+  return Object.entries(dayCounts)
+    .sort(([,a], [,b]) => b - a)
+    .map(([day, count]) => ({ day, count }));
+};
+
+const calculateBlockedTime = (blockedSlots) => {
+  return blockedSlots.reduce((total, slot) => {
+    const start = new Date(`2000-01-01T${slot.startTime}`);
+    const end = new Date(`2000-01-01T${slot.endTime}`);
+    return total + (end - start) / (1000 * 60); // Convert to minutes
+  }, 0);
+};
+
+const validateBreaks = (breaks) => {
+  for (let i = 0; i < breaks.length; i++) {
+    for (let j = i + 1; j < breaks.length; j++) {
+      const break1 = breaks[i];
+      const break2 = breaks[j];
+      if (
+        (break1.startTime <= break2.endTime && break1.endTime >= break2.startTime)
+      ) {
+        return false;
+      }
+    }
+  }
+  return true;
+};

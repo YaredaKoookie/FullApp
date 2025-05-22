@@ -1,142 +1,52 @@
-import {isDoctor } from '../middlewares/auth.middleware';
-import {doctorController, doctorPatient, reviewController,paymentDoctorController,appointmentDoctorController} from '../controllers';
-
 import {Router} from "express"
-// import { validate } from '../validations';
-// import { completeProfileValidation } from '../validations/chains/doctor.chain';
-import { handleMulterErrors, uploadDoctorFiles } from '../config/MultiFile';
-// import { uploadImage, uploadImages } from '../config/multer.config';
+import * as appointmentDoctorController from '../controllers/doctorApppointments.controller';
+import * as doctorPatientController from '../controllers/DoctorPatients';
+import * as scheduleController from '../controllers/scheduleController';
+import * as doctorController from '../controllers/doctor.controller';
 import { upload } from '../config/cloudinary.config';
 
 const router = Router();
 
-const parseJsonFields = (fieldsToParse = []) => (req, res, next) => {
-  try {
-    fieldsToParse.forEach(field => {
-      if (req.body[field]) {
-        req.body[field] = JSON.parse(req.body[field]);
-      }
-    });
-    next();
-  } catch (err) {
-    next(new Error("Invalid JSON in multipart/form field"));
-  }
-};
-// profile Complete page and profile page
-router.post('/profile/complete', isDoctor, uploadDoctorFiles.fields([
-    { name: "profilePhoto", maxCount: 1 },
-    { name: "nationalIdFront", maxCount: 1 },
-    { name: "nationalIdBack", maxCount: 1 },
-    { name: "licenseFront", maxCount: 1 },
-    { name: "licenseBack", maxCount: 1 },
-    { name: "boardCertificationsDocument", maxCount: 1 },
-    { name: "educationDocument", maxCount: 1 },
-  ]) ,handleMulterErrors, parseJsonFields(["qualifications", "hospitalAddress", "languages"]), 
-  doctorController.completeProfile);
-router.get("/profile/me",isDoctor, doctorController.getCurrentDoctor);
+// Profile Routes
+router.get('/profile', doctorController.getCurrentDoctor);
+router.put('/profile', 
+  upload.single('profilePhoto'),
+  doctorController.updateProfile
+);
+router.get('/profile/view', doctorController.getDoctorProfileView);
+router.get('/profile/view/:doctorId', doctorController.getDoctorProfileViewById);
 
-// Update doctor profile
-router.put(
-  "/profile/upload",
-  isDoctor,
-  upload.single("profilePhoto"),
-  doctorController.uploadDoctorProfileImage
-)
-router.put('/profile/update' , isDoctor , doctorController.updateDoctorProfile)  //unfinished
+// Appointment Routes
+router.get('/appointments', appointmentDoctorController.getAppointments);
+router.get('/appointments/stats', appointmentDoctorController.getAppointmentStats);
+router.post('/appointments/:id/accept', appointmentDoctorController.acceptAppointment);
+router.post('/appointments/:id/reject', appointmentDoctorController.rejectAppointment);
+router.post('/appointments/:id/reschedule', appointmentDoctorController.rescheduleAppointment);
+router.post('/appointments/:id/cancel', appointmentDoctorController.cancelAppointment);
 
+// Patient Routes
+router.get('/patients', doctorPatientController.getPatients);
+router.get('/patients/:id', doctorPatientController.getPatientDetails);
+router.get('/patients/:id/history', doctorPatientController.getPatientHistory);
+router.get('/patients/:id/medical-history', doctorPatientController.getPatientMedicalHistory);
+router.get('/patients/:id/notes', doctorPatientController.getPatientNotes);
+router.post('/patients/:id/notes', doctorPatientController.addPatientNote);
+router.post('/patients/:id/video-call', doctorPatientController.initiateVideoCall);
 
-// payment page
-router.get('/payment-stats', isDoctor, paymentDoctorController.getPaymentStats);
-router.get('/earnings', isDoctor, paymentDoctorController.getEarnings);
-router.get('/withdrawals', isDoctor, paymentDoctorController.getWithdrawals);
-router.post('/withdraw', isDoctor, paymentDoctorController.requestWithdrawal);
+// Schedule Routes
+router.get('/:doctorId/schedule', scheduleController.getSchedule);
+router.post('/:doctorId/schedule', scheduleController.createSchedule);
+router.put('/:doctorId/schedule', scheduleController.updateSchedule);
+router.get('/:doctorId/schedule/analytics', scheduleController.getScheduleAnalytics);
+router.put('/:doctorId/schedule/recurring', scheduleController.updateRecurringSchedule);
+router.put('/:doctorId/schedule/breaks', scheduleController.updateBreakSettings);
 
-// appointment page
-router.get('/Allappointments', isDoctor, appointmentDoctorController.getAppointments);
-router.get('/appointment/Allstats', isDoctor, appointmentDoctorController.getAppointmentStats);
+router.post('/:doctorId/schedule/slots/generate', scheduleController.generateSlots);
+router.get('/:doctorId/schedule/slots', scheduleController.getSlots);
+router.delete('/:doctorId/schedule/slots/:slotId', scheduleController.deleteSlot);
 
-// Appointment Actions
-router.post('/appointment/:appointmentId/accept', isDoctor, appointmentDoctorController.acceptAppointment);
-router.post('/appointment/:appointmentId/reject', isDoctor, appointmentDoctorController.rejectAppointment);
-router.post('/appointment/:appointmentId/reschedule', isDoctor, appointmentDoctorController.rescheduleAppointment);
-router.post('/appointment/:appointmentId/cancel', isDoctor, appointmentDoctorController.cancelAppointment);
-
-
-
-
-// // GET /api/patients - List all patients (with pagination/filter)
-// router.get('/patient', isDoctor , doctorPatient.getDoctorPatients);
-// // GET /api/patients/:id - Get single patient details
-// router.get('/patient/:id', isDoctor , doctorPatient.getPatientById);
-// // GET /api/patients/:id/medical-history - Get medical history
-// router.get('/patient/:id/medical-history', isDoctor , doctorPatient.getMedicalHistory);
-// // GET /api/patients/:id/consultations - Get consultations
-// router.get('/patient/:id/consultations', isDoctor , doctorPatient.getConsultations);
-// // GET /api/patients/:id/prescriptions - Get prescriptions
-// router.get('/patient/:id/prescriptions', isDoctor , doctorPatient.getPrescriptions);
-// // POST /api/patients/:id/consultations - Create new consultation
-// router.post('/patient/:id/consultations', isDoctor , doctorPatient.createConsultation);
-// // POST /api/patients/:id/prescriptions - Create new prescription
-// router.post('/patient/:id/prescriptions', isDoctor , doctorPatient.createPrescription);
-
-
-
-
-// Get filtered list of patients page
-router.get('/patientList', isDoctor, doctorPatient.getPatients);
-router.get('/patient/:doctorId/history',isDoctor, doctorPatient.getPatientHistory);
-router.post('/patient/:doctorId/notes',isDoctor, doctorPatient.addPatientNote);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//////////////////////////
-// DOCTOR PROTECTED
-// router.put('/profile/edit', isDoctor, validate(doctorEditProfileValidation), doctorController.editProfile);
-// router.delete('/delete-account', isDoctor, doctorController.deleteAccount);
-// router.get('/appointments', isDoctor, doctorController.getAppointments);
-// router.put('/appointments/:id/confirm', isDoctor, doctorController.approveAppointment);
-// router.put('/appointments/:id/cancel', isDoctor, doctorController.declineAppointment);
-// router.put('/appointments/:id/mark-complete', isDoctor, doctorController.markComplete);
-// router.put('/appointments/:id/decline', isDoctor, doctorController.cancelAppointment); 
-// router.post('/setAvailability', isDoctor, doctorController.setAvailability); 
-// router.get('/availability', isDoctor, doctorController.getAvailability);
-
-
-
-// router.get('/chats', isDoctor, chatController.getChats);
-// router.post('/withdrawal/request', isDoctor, doctorController.requestWithdrawal);
-// router.get('/earnings', isDoctor, doctorController.getEarnings);
-// router.get('/transactions', isDoctor, doctorController.getTransactionHistory); 
-// router.post('/appointment/:id/notes', isDoctor, doctorController.addNotes); 
-
-
-// optional 
-// doctor must add prescription optional features add by the doctor the the patient can see his prescription 
-// add note when the patient make appointment he can add note about his clinical status
-// mkdir a side 
-
-
-router.get("/doctor/:doctorId/reviews/", reviewController.getReviews);
+router.post('/:doctorId/schedule/blocked', scheduleController.addBlockedSlot);
+router.get('/:doctorId/schedule/blocked', scheduleController.getBlockedSlots);
+router.delete('/:doctorId/schedule/blocked/:slotId', scheduleController.removeBlockedSlot);
 
 export default router

@@ -7,7 +7,7 @@ import { env } from "./config";
 import path from "path"
 
 const app = express();
-const allowedOrigins = [env.FRONTEND_URL, ];
+const allowedOrigins = [env.FRONTEND_URL, "http://localhost:5174", "http://localhost:5173"];
     
 const corsOptions = {
   origin: function (origin, callback) {
