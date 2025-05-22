@@ -2,23 +2,24 @@ import Appointment, {
   APPOINTMENT_STATUS,
 } from "../models/appointment/appointment.model.js";
 import User from "../models/patient/patient.model.js";
-// import { sendEmail } from '../utils/emailService.js';
 import Doctor from "../models/doctors/doctor.model.js";
 import ServerError from "../utils/ServerError.js";
 import { isValidObjectId } from "mongoose";
-// @desc    Get all appointments with filters
-// @route   GET /api/appointments
-// @access  Private (Doctor)
 
+// Get all appointments for the logged-in doctor
 export const getAppointments = async (req, res) => {
   try {
-    const { status, dateRange, search, sort } = req.query;
-
+    const { status, dateRange, search, sort, page = 1, limit = 10 } = req.query;
     const { sub: userId } = req.user;
+
     const doctor = await Doctor.findOne({ userId });
+    if (!doctor) {
+      throw ServerError.notFound("Doctor not found");
+    }
 
     // Build query object
     const query = { doctor: doctor._id };
+
     // Status filter
     if (status && status !== "all") {
       query.status = status;
@@ -31,62 +32,64 @@ export const getAppointments = async (req, res) => {
 
       switch (dateRange) {
         case "today":
-          startDate = new Date(now.setHours(0, 0, 0, 0));
-          query.date = { $gte: startDate };
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          query["slot.start"] = { $gte: startDate };
           break;
         case "thisWeek":
-          startDate = new Date(now.setDate(now.getDate() - now.getDay()));
-          query.date = { $gte: startDate };
+          const day = now.getDay();
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
+          query["slot.start"] = { $gte: startDate };
           break;
         case "thisMonth":
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          query.date = { $gte: startDate };
+          query["slot.start"] = { $gte: startDate };
           break;
       }
     }
 
     // Search filter
     if (search) {
-      const patients = await User.find({
-        $or: [
-          { fullName: { $regex: search, $options: "i" } },
-          { email: { $regex: search, $options: "i" } },
-        ],
-        role: "patient",
-      }).select("_id");
-
       query.$or = [
-        { patient: { $in: patients } },
         { reason: { $regex: search, $options: "i" } },
+        { note: { $regex: search, $options: "i" } }
       ];
     }
 
     // Sort
-    let sortOption = { date: -1 }; // Default: newest first
-    if (sort) {
-      switch (sort) {
-        case "date-asc":
-          sortOption = { date: 1 };
-          break;
-        case "fee-desc":
-          sortOption = { fee: -1 };
-          break;
-        case "fee-asc":
-          sortOption = { fee: 1 };
-          break;
-        case "status":
-          sortOption = { status: 1 };
-          break;
-      }
+    let sortOption = { "slot.start": -1 };
+    if (sort === "oldest") {
+      sortOption = { "slot.start": 1 };
     }
 
-    const appointments = await Appointment.find(query).populate("patient");
-    //   .sort(sortOption);
-    console.log("app", appointments);
-    console.log(query);
-    res.json(appointments);
-  } catch (err) {
-    res.status(500).json({ message: "Server Error" });
+    // Pagination
+    const skip = (page - 1) * limit;
+
+    const appointments = await Appointment.find(query)
+      .populate("patient", "firstName lastName profileImage")
+      .sort(sortOption)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Appointment.countDocuments(query);
+
+    res.json({
+      success: true,
+      data: {
+        appointments,
+        pagination: {
+          total,
+          page: parseInt(page),
+          pages: Math.ceil(total / limit)
+        }
+      }
+    });
+  } catch (error) {
+    if (error instanceof ServerError) {
+      res.status(error.statusCode).json({ message: error.message });
+    } else {
+      console.error("Error in getAppointments:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
   }
 };
 
@@ -96,38 +99,42 @@ export const getAppointments = async (req, res) => {
 export const getAppointmentStats = async (req, res) => {
   try {
     const { sub: userId } = req.user;
-    const doctorId = await Doctor.findOne({ userId });
-
-    const now = new Date();
-    const todayStart = new Date(now.setHours(0, 0, 0, 0));
-    const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const doctor = await Doctor.findOne({ userId });
+    
+    if (!doctor) {
+      throw ServerError.notFound("Doctor not found");
+    }
 
     const stats = {
       completed: await Appointment.countDocuments({
-        doctor: doctorId._id,
-        status: "completed",
+        doctor: doctor._id,
+        status: APPOINTMENT_STATUS.COMPLETED
       }),
-
       pending: await Appointment.countDocuments({
-        doctor: doctorId._id,
-        status: "pending",
+        doctor: doctor._id,
+        status: APPOINTMENT_STATUS.PENDING
       }),
-
       confirmed: await Appointment.countDocuments({
-        doctor: doctorId._id,
-        status: "confirmed",
+        doctor: doctor._id,
+        status: APPOINTMENT_STATUS.CONFIRMED
       }),
-
       cancelled: await Appointment.countDocuments({
-        doctor: doctorId._id,
-        status: "cancelled",
-      }),
+        doctor: doctor._id,
+        status: APPOINTMENT_STATUS.CANCELLED
+      })
     };
 
-    res.json(stats);
-  } catch (err) {
-    res.status(500).json({ message: "Server Error" });
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    if (error instanceof ServerError) {
+      res.status(error.statusCode).json({ message: error.message });
+    } else {
+      console.error("Error in getAppointmentStats:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
   }
 };
 
@@ -135,43 +142,46 @@ export const getAppointmentStats = async (req, res) => {
 // @route   POST /api/appointments/:id/accept
 // @access  Private (Doctor)
 export const acceptAppointment = async (req, res) => {
-  const { appointmentId } = req.params;
-  const userId = req.user.sub;
+  try {
+    const { id: appointmentId } = req.params;
+    const { sub: userId } = req.user;
 
-  if (!appointmentId)
-    throw ServerError.badRequest("appointment id is required");
+    if (!isValidObjectId(appointmentId)) {
+      throw ServerError.badRequest("Invalid appointment ID");
+    }
 
-  if (!isValidObjectId(appointmentId))
-    throw ServerError.badRequest("appointment id is in a valid format");
+    const doctor = await Doctor.findOne({ userId });
+    if (!doctor) {
+      throw ServerError.notFound("Doctor not found");
+    }
 
-  const appointment = await Appointment.findById(appointmentId);
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      doctor: doctor._id,
+      status: APPOINTMENT_STATUS.PENDING
+    });
 
-  if (!appointment) {
-    throw ServerError.notFound("Appointment not found");
+    if (!appointment) {
+      throw ServerError.notFound("Appointment not found or cannot be accepted");
+    }
+
+    appointment.status = APPOINTMENT_STATUS.ACCEPTED;
+    appointment.acceptedAt = new Date();
+    await appointment.save();
+
+    res.json({
+      success: true,
+      message: "Appointment accepted successfully",
+      data: appointment
+    });
+  } catch (error) {
+    if (error instanceof ServerError) {
+      res.status(error.statusCode).json({ message: error.message });
+    } else {
+      console.error("Error in acceptAppointment:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
   }
-
-  if (appointment.status !== APPOINTMENT_STATUS.PENDING)
-    throw ServerError.badRequest(
-      "Only pending appointments can set to confirmed"
-    );
-
-  const doctor = await Doctor.findOne({ userId });
-
-  if (!doctor) throw ServerError.notFound("doctor not found");
-
-  if (appointment.doctor.toString() !== doctor._id.toString())
-    throw ServerError.forbidden("Not authorized to accept this appointment");
-
-  appointment.status = APPOINTMENT_STATUS.ACCEPTED;
-  appointment.acceptedAt = new Date().toISOString();
-
-  await appointment.save();
-  res.json({
-    message: "Appointment accepted successfully",
-    data: {
-      appointment,
-    },
-  });
 };
 
 // @desc    Reject an appointment
@@ -179,45 +189,54 @@ export const acceptAppointment = async (req, res) => {
 // @access  Private (Doctor)
 export const rejectAppointment = async (req, res) => {
   try {
+    const { id: appointmentId } = req.params;
     const { note } = req.body;
+    const { sub: userId } = req.user;
 
     if (!note) {
-      return res
-        .status(400)
-        .json({ message: "Please provide a rejection note" });
+      throw ServerError.badRequest("Rejection note is required");
     }
 
-    const appointment = await Appointment.findOneAndUpdate(
-      {
-        _id: req.params.id,
-        doctor: req.user.id,
-        status: "pending",
-      },
-      {
-        status: "cancelled",
-        cancellationNote: note,
-        cancelledAt: new Date(),
-        cancelledBy: req.user.id,
-      },
-      { new: true }
-    ).populate("patient", "name email");
+    if (!isValidObjectId(appointmentId)) {
+      throw ServerError.badRequest("Invalid appointment ID");
+    }
+
+    const doctor = await Doctor.findOne({ userId });
+    if (!doctor) {
+      throw ServerError.notFound("Doctor not found");
+    }
+
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      doctor: doctor._id,
+      status: APPOINTMENT_STATUS.PENDING
+    });
 
     if (!appointment) {
-      return res
-        .status(404)
-        .json({ message: "Appointment not found or already processed" });
+      throw ServerError.notFound("Appointment not found or cannot be rejected");
     }
 
-    // Send rejection email to patient
-    // await sendEmail({
-    //   to: appointment.patient.email,
-    //   subject: 'Appointment Rejected',
-    //   text: `Your appointment with Dr. ${req.user.name} has been rejected. Reason: ${note}`
-    // });
+    appointment.status = APPOINTMENT_STATUS.CANCELLED;
+    appointment.cancellation = {
+      reason: note,
+      cancelledBy: doctor._id,
+      cancelledByRole: "Doctor",
+      cancelledAt: new Date()
+    };
+    await appointment.save();
 
-    res.json(appointment);
-  } catch (err) {
-    res.status(500).json({ message: "Server Error" });
+    res.json({
+      success: true,
+      message: "Appointment rejected successfully",
+      data: appointment
+    });
+  } catch (error) {
+    if (error instanceof ServerError) {
+      res.status(error.statusCode).json({ message: error.message });
+    } else {
+      console.error("Error in rejectAppointment:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
   }
 };
 
@@ -226,92 +245,77 @@ export const rejectAppointment = async (req, res) => {
 // @access  Private (Doctor)
 export const rescheduleAppointment = async (req, res) => {
   try {
+    const { id: appointmentId } = req.params;
     const { newTime, reason } = req.body;
+    const { sub: userId } = req.user;
 
     if (!newTime || !reason) {
-      return res
-        .status(400)
-        .json({ message: "Please provide new time and reason" });
+      throw ServerError.badRequest("New time and reason are required");
+    }
+
+    if (!isValidObjectId(appointmentId)) {
+      throw ServerError.badRequest("Invalid appointment ID");
+    }
+
+    const doctor = await Doctor.findOne({ userId });
+    if (!doctor) {
+      throw ServerError.notFound("Doctor not found");
+    }
+
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      doctor: doctor._id,
+      status: { $in: [APPOINTMENT_STATUS.PENDING, APPOINTMENT_STATUS.CONFIRMED] }
+    });
+
+    if (!appointment) {
+      throw ServerError.notFound("Appointment not found or cannot be rescheduled");
     }
 
     const newDate = new Date(newTime);
     const existingAppointment = await Appointment.findOne({
-      doctor: req.user.id,
-      date: newDate,
-      status: { $in: ["pending", "confirmed"] },
+      doctor: doctor._id,
+      "slot.start": newDate,
+      status: { $in: [APPOINTMENT_STATUS.PENDING, APPOINTMENT_STATUS.CONFIRMED] },
+      _id: { $ne: appointmentId }
     });
 
     if (existingAppointment) {
-      return res
-        .status(400)
-        .json({ message: "You already have an appointment at this time" });
+      throw ServerError.badRequest("You already have an appointment at this time");
     }
 
-    const oldAppointment = await Appointment.findById(req.params.id);
-
-    const appointment = await Appointment.findOneAndUpdate(
-      {
-        _id: req.params.id,
-        doctor: req.user.id,
-        status: { $in: ["pending", "confirmed"] },
+    // Add to reschedule history
+    appointment.rescheduleHistory.push({
+      previousTimeSlot: appointment.slot,
+      newTimeSlot: {
+        slotId: appointment.slot.slotId,
+        start: newDate,
+        end: new Date(newDate.getTime() + (appointment.slot.end - appointment.slot.start))
       },
-      {
-        status: "rescheduled",
-        rescheduledAt: new Date(),
-        rescheduledBy: req.user.id,
-        history: [
-          ...(oldAppointment.history || []),
-          {
-            type: "reschedule",
-            from: oldAppointment.date,
-            to: newDate,
-            reason,
-            date: new Date(),
-          },
-        ],
-      },
-      { new: true }
-    );
-
-    if (!appointment) {
-      return res
-        .status(404)
-        .json({ message: "Appointment not found or cannot be rescheduled" });
-    }
-
-    // Create new appointment
-    const newAppointment = await Appointment.create({
-      patient: appointment.patient,
-      doctor: appointment.doctor,
-      date: newDate,
-      reason: appointment.reason,
-      type: appointment.type,
-      fee: appointment.fee,
-      status: "confirmed",
-      videoCallToken:
-        appointment.type === "virtual" ? generateToken() : undefined,
-      chatToken: generateToken(),
-      previousAppointment: appointment._id,
-      history: [
-        {
-          type: "status_change",
-          from: "rescheduled",
-          to: "confirmed",
-          date: new Date(),
-        },
-      ],
+      reason,
+      rescheduledBy: doctor._id,
+      rescheduledByRole: "Doctor",
+      rescheduledAt: new Date()
     });
 
-    // Send reschedule email to patient
-    // await sendEmail({
-    //   to: newAppointment.patient.email,
-    //   subject: 'Appointment Rescheduled',
-    //   text: `Your appointment with Dr. ${req.user.name} has been rescheduled to ${newDate}. Reason: ${reason}`
-    // });
+    // Update appointment
+    appointment.slot.start = newDate;
+    appointment.slot.end = new Date(newDate.getTime() + (appointment.slot.end - appointment.slot.start));
+    appointment.status = APPOINTMENT_STATUS.RESCHEDULED;
+    await appointment.save();
 
-    res.json(newAppointment);
-  } catch (err) {
-    res.status(500).json({ message: "Server Error" });
+    res.json({
+      success: true,
+      message: "Appointment rescheduled successfully",
+      data: appointment
+    });
+  } catch (error) {
+    if (error instanceof ServerError) {
+      res.status(error.statusCode).json({ message: error.message });
+    } else {
+      console.error("Error in rescheduleAppointment:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
   }
 };
 
@@ -320,55 +324,54 @@ export const rescheduleAppointment = async (req, res) => {
 // @access  Private (Doctor)
 export const cancelAppointment = async (req, res) => {
   try {
+    const { id: appointmentId } = req.params;
     const { reason } = req.body;
+    const { sub: userId } = req.user;
 
     if (!reason) {
-      return res
-        .status(400)
-        .json({ message: "Please provide a cancellation reason" });
+      throw ServerError.badRequest("Cancellation reason is required");
     }
 
-    const appointment = await Appointment.findOneAndUpdate(
-      {
-        _id: req.params.id,
-        doctor: req.user.id,
-        status: { $in: ["pending", "confirmed"] },
-      },
-      {
-        status: "cancelled",
-        cancellationNote: reason,
-        cancelledAt: new Date(),
-        cancelledBy: req.user.id,
-        history: [
-          ...(appointment.history || []),
-          {
-            type: "status_change",
-            from: appointment.status,
-            to: "cancelled",
-            date: new Date(),
-            note: reason,
-          },
-        ],
-      },
-      { new: true }
-    ).populate("patient", "name email");
+    if (!isValidObjectId(appointmentId)) {
+      throw ServerError.badRequest("Invalid appointment ID");
+    }
+
+    const doctor = await Doctor.findOne({ userId });
+    if (!doctor) {
+      throw ServerError.notFound("Doctor not found");
+    }
+
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      doctor: doctor._id,
+      status: { $in: [APPOINTMENT_STATUS.PENDING, APPOINTMENT_STATUS.CONFIRMED] }
+    });
 
     if (!appointment) {
-      return res
-        .status(404)
-        .json({ message: "Appointment not found or cannot be cancelled" });
+      throw ServerError.notFound("Appointment not found or cannot be cancelled");
     }
 
-    // Send cancellation email to patient
-    // await sendEmail({
-    //   to: appointment.patient.email,
-    //   subject: 'Appointment Cancelled',
-    //   text: `Your appointment with Dr. ${req.user.name} has been cancelled. Reason: ${reason}`
-    // });
+    appointment.status = APPOINTMENT_STATUS.CANCELLED;
+    appointment.cancellation = {
+      reason,
+      cancelledBy: doctor._id,
+      cancelledByRole: "Doctor",
+      cancelledAt: new Date()
+    };
+    await appointment.save();
 
-    res.json(appointment);
-  } catch (err) {
-    res.status(500).json({ message: "Server Error" });
+    res.json({
+      success: true,
+      message: "Appointment cancelled successfully",
+      data: appointment
+    });
+  } catch (error) {
+    if (error instanceof ServerError) {
+      res.status(error.statusCode).json({ message: error.message });
+    } else {
+      console.error("Error in cancelAppointment:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
   }
 };
 

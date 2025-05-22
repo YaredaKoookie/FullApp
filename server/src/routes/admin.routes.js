@@ -16,7 +16,14 @@ import {
   updateDoctor,
   toggleDoctorStatus,
   viewDoctorProfile,
-  deleteDoctor
+  deleteDoctor,
+  
+  // User Management
+  listUsers,
+  getUserDetails,
+  updateUser,
+  toggleUserStatus,
+  deleteUser
 } from '../controllers/admin.controller.js';
 
 const router = Router();
@@ -75,5 +82,11 @@ router.get('/doctors/:id/profile',
   validateParams(doctorIdValidation),
   viewDoctorProfile
 );
+
+router.get('/users', listUsers);
+router.get('/users/:id', getUserDetails);
+router.put('/users/:id', updateUser);
+router.patch('/users/:id/status', toggleUserStatus);
+router.delete('/users/:id', deleteUser);
 
 export default router;

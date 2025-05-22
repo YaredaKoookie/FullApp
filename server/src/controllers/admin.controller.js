@@ -3,6 +3,7 @@ import User from '../models/user.model.js';
 import { hashUtil } from '../utils/index.js';
 import ServerError from '../utils/ServerError.js';
 import { uploadImageCloud } from '../config/cloudinary.config.js';
+import Patient from '../models/patient/patient.model.js';
 
 // 1. List Doctors with Pagination
 export const listDoctors = async (req, res) => {
@@ -27,7 +28,7 @@ export const listDoctors = async (req, res) => {
     // Get doctors with pagination
     const doctors = await Doctor.find()
       .populate('userId', 'email isActive')
-      .select('firstName lastName specialization phoneNumber createdAt')
+      .select('firstName lastName specialization phoneNumber createdAt profilePhoto')
       .sort(sort)
       .skip(skip)
       .limit(parseInt(limit));
@@ -41,7 +42,8 @@ export const listDoctors = async (req, res) => {
         specialization: doc.specialization,
         phoneNumber: doc.phoneNumber,
         isActive: doc.userId.isActive,
-        createdAt: doc.createdAt
+        createdAt: doc.createdAt,
+        profilePhoto: doc.profilePhoto
       })),
       pagination: {
         total,
@@ -79,7 +81,8 @@ export const addNewDoctor = async (req, res) => {
       isEmailVerified: true,
       isProfileCompleted: true,
       isPhoneVerified: true,
-      isApproved: true
+      isApproved: true,
+      isPasswordSet: true
     });
 
     // Save user first
@@ -120,8 +123,25 @@ export const addNewDoctor = async (req, res) => {
         ? doctorData.hospitalAddress
         : JSON.parse(doctorData.hospitalAddress || '{}'),
       
+      // Handle languages - could be string, array string, or array
+      languages: (() => {
+        if (Array.isArray(doctorData.languages)) return doctorData.languages;
+        if (typeof doctorData.languages === 'string') {
+          try {
+            // Try parsing as JSON first (in case it's a stringified array)
+            const parsed = JSON.parse(doctorData.languages);
+            return Array.isArray(parsed) ? parsed : doctorData.languages.split(',').map(lang => lang.trim()).filter(Boolean);
+          } catch {
+            // If not JSON, treat as comma-separated string
+            return doctorData.languages.split(',').map(lang => lang.trim()).filter(Boolean);
+          }
+        }
+        return [];
+      })(),
+      
       // Set boolean fields according to schema defaults
-      isActive: true, // Default is true in schema
+      verificationStatus: true,
+      isActive: true,
       isProfileCompleted: true
     };
 
@@ -317,5 +337,242 @@ export const deleteDoctor = async (req, res) => {
   } catch (error) {
     if (error instanceof ServerError) throw error;
     throw ServerError.internal('Failed to delete doctor', error);
+  }
+};
+
+// User Management Controllers
+
+// 1. List Users with Pagination (Patients only)
+export const listUsers = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      search = '',
+      status = 'all'
+    } = req.query;
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Build sort object
+    const sort = {};
+    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+    // Build query - only patients
+    const query = { role: 'patient' };
+    if (search) {
+      query.$or = [
+        { email: { $regex: search, $options: 'i' } },
+        { 'firstName': { $regex: search, $options: 'i' } },
+        { 'lastName': { $regex: search, $options: 'i' } }
+      ];
+    }
+    if (status !== 'all') {
+      query.isActive = status === 'active';
+    }
+
+    // Get total count for pagination
+    const total = await User.countDocuments(query);
+
+    // Get users with pagination
+    const users = await User.find(query)
+      .select('-password')
+      .sort(sort)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    // Get patient details for each user
+    const patientsWithDetails = await Promise.all(
+      users.map(async (user) => {
+        const patient = await Patient.findOne({ user: user._id })
+          .select('firstName middleName lastName profileImage gender phone bloodType dateOfBirth emergencyContact location maritalStatus preferredLanguage');
+        
+        return {
+          ...user.toObject(),
+          patientDetails: patient || {}
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      data: patientsWithDetails,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    if (error instanceof ServerError) throw error;
+    throw ServerError.internal('Failed to list patients', error);
+  }
+};
+
+// 2. Get User Details (Patient)
+export const getUserDetails = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .select('-password');
+      
+    if (!user) {
+      throw ServerError.notFound('Patient not found');
+    }
+
+    if (user.role !== 'patient') {
+      throw ServerError.forbidden('Access denied. This endpoint is for patients only.');
+    }
+    
+    // Get patient details
+    const patient = await Patient.findOne({ user: user._id })
+      .select('firstName middleName lastName profileImage gender phone bloodType dateOfBirth emergencyContact location maritalStatus preferredLanguage');
+    
+    res.json({
+      success: true,
+      data: {
+        ...user.toObject(),
+        patientDetails: patient || {}
+      }
+    });
+  } catch (error) {
+    if (error instanceof ServerError) throw error;
+    throw ServerError.internal('Failed to get patient details', error);
+  }
+};
+
+// 3. Update User (Patient)
+export const updateUser = async (req, res) => {
+  try {
+    const { email, ...userData } = req.body;
+    const user = await User.findById(req.params.id);
+    
+    if (!user) {
+      throw ServerError.notFound('Patient not found');
+    }
+
+    if (user.role !== 'patient') {
+      throw ServerError.forbidden('Access denied. This endpoint is for patients only.');
+    }
+    
+    // Check if email is being changed and if it already exists
+    if (email && email !== user.email) {
+      const existingUser = await User.findOne({ email, _id: { $ne: user._id } });
+      if (existingUser) {
+        throw ServerError.conflict('Email already exists');
+      }
+      userData.email = email;
+      userData.isEmailVerified = false; // Reset email verification on email change
+    }
+
+    // Update user
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      userData,
+      { new: true }
+    ).select('-password');
+
+    // Update patient details if provided
+    if (req.body.patientDetails) {
+      const patientData = {
+        firstName: req.body.patientDetails.firstName,
+        middleName: req.body.patientDetails.middleName,
+        lastName: req.body.patientDetails.lastName,
+        gender: req.body.patientDetails.gender,
+        phone: req.body.patientDetails.phone,
+        bloodType: req.body.patientDetails.bloodType,
+        dateOfBirth: req.body.patientDetails.dateOfBirth,
+        emergencyContact: req.body.patientDetails.emergencyContact,
+        location: req.body.patientDetails.location,
+        maritalStatus: req.body.patientDetails.maritalStatus,
+        preferredLanguage: req.body.patientDetails.preferredLanguage
+      };
+
+      await Patient.findOneAndUpdate(
+        { user: user._id },
+        { $set: patientData },
+        { new: true, upsert: true }
+      );
+    }
+
+    // Get updated patient details
+    const patient = await Patient.findOne({ user: user._id })
+      .select('firstName middleName lastName profileImage gender phone bloodType dateOfBirth emergencyContact location maritalStatus preferredLanguage');
+
+    res.json({
+      success: true,
+      data: {
+        ...updatedUser.toObject(),
+        patientDetails: patient || {}
+      }
+    });
+  } catch (error) {
+    if (error instanceof ServerError) throw error;
+    throw ServerError.internal('Failed to update patient', error);
+  }
+};
+
+// 4. Toggle User Status (Patient)
+export const toggleUserStatus = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      throw ServerError.notFound('Patient not found');
+    }
+
+    if (user.role !== 'patient') {
+      throw ServerError.forbidden('Access denied. This endpoint is for patients only.');
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { isActive: !user.isActive },
+      { new: true }
+    ).select('-password');
+    
+    res.json({ 
+      success: true,
+      data: {
+        message: `Patient ${updatedUser.isActive ? 'activated' : 'deactivated'}`,
+        isActive: updatedUser.isActive
+      }
+    });
+  } catch (error) {
+    if (error instanceof ServerError) throw error;
+    throw ServerError.internal('Failed to update patient status', error);
+  }
+};
+
+// 5. Delete User (Patient)
+export const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    
+    if (!user) {
+      throw ServerError.notFound('Patient not found');
+    }
+
+    if (user.role !== 'patient') {
+      throw ServerError.forbidden('Access denied. This endpoint is for patients only.');
+    }
+
+    // Delete patient details first
+    await Patient.findOneAndDelete({ user: user._id });
+
+    // Delete user
+    await User.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Patient deleted successfully'
+      }
+    });
+  } catch (error) {
+    if (error instanceof ServerError) throw error;
+    throw ServerError.internal('Failed to delete patient', error);
   }
 };

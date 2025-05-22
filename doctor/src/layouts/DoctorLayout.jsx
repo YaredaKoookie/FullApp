@@ -2,19 +2,20 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
-  LayoutDashboard,
-  Users,
-  Calendar,
   MessageSquare,
   Settings,
   LogOut,
   Menu,
   X,
   ChevronDown,
-  Stethoscope,
+  Calendar,
+  User,
+  Star,
+  Bell,
 } from 'lucide-react';
+import { FaHome, FaCalendarAlt, FaUserInjured } from 'react-icons/fa';
 
-export const AdminLayout = ({ children }) => {
+export const DoctorLayout = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { user, logout } = useAuth();
@@ -22,11 +23,14 @@ export const AdminLayout = ({ children }) => {
   const navigate = useNavigate();
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Doctors', href: '/doctors', icon: Stethoscope },
-    { name: 'Users', href: '/users', icon: Users },
-    { name: 'Appointments', href: '/appointments', icon: Calendar },
+    { name: 'Dashboard', href: '/dashboard', icon: FaHome },
+    { name: 'Schedule', href: '/schedule', icon: Calendar },
+    { name: 'Appointments', href: '/appointments', icon: FaCalendarAlt },
+    { name: 'Patients', href: '/patients', icon: FaUserInjured },
     { name: 'Messages', href: '/messages', icon: MessageSquare },
+    { name: 'Profile', href: '/profile', icon: User },
+    { name: 'Reviews', href: '/reviews', icon: Star },
+    { name: 'Notifications', href: '/notifications', icon: Bell },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 

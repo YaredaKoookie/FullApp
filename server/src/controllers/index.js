@@ -6,7 +6,6 @@ export * as reviewController from "./review.controller";
 export * as appointmentController from "./appointment.controller";
 export * as doctorPatient from './DoctorPatients'
 export * as adminController from './admin.controller'
-export * as withdrawController from './withdraw.controller'
 export * as paymentDoctorController from './doctorPayment'
 export * as appointmentDoctorController from './doctorApppointments.controller'
 export * as medicalHistoryController from './medicalHistory.controller'

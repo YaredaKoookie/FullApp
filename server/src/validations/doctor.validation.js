@@ -98,8 +98,8 @@ export const addDoctorValidation = [
   
   body('serviceAreas')
     .optional()
-    .isArray()
-    .withMessage('Service areas must be an array'),
+    .isString()
+    .withMessage('Service areas must be a string'),
   
   body('bio')
     .optional()
@@ -178,8 +178,8 @@ export const updateDoctorValidation = [
   
   body('serviceAreas')
     .optional()
-    .isArray()
-    .withMessage('Service areas must be an array'),
+    .isString()
+    .withMessage('Service areas must be a string'),
   
   body('bio')
     .optional()

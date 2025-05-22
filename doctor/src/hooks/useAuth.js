@@ -19,8 +19,8 @@ export const useAuth = () => {
     enabled: !!localStorage.getItem('accessToken'), // Only run query if token exists
   });
 
-  // Check if user is an admin
-  const isAdmin = user?.role === 'admin';
+  // Check if user is a doctor
+  const isDoctor = user?.role === 'doctor';
 
   // Login mutation
   const { mutate: login, isPending: isLoggingIn } = useMutation({
@@ -28,9 +28,9 @@ export const useAuth = () => {
       const response = await adminAPI.auth.login(credentials);
       const { accessToken, user } = response.data.data;
       
-      // Verify the logged in user is an admin
-      if (user.role !== 'admin') {
-        throw new Error('Access denied. Only admins can access this portal.');
+      // Verify the logged in user is a doctor
+      if (user.role !== 'doctor') {
+        throw new Error('Access denied. Only doctors can access this portal.');
       }
       
       localStorage.setItem('accessToken', accessToken);
@@ -107,7 +107,7 @@ export const useAuth = () => {
     isLoggingOut,
     isRequestingReset,
     isResettingPassword,
-    isAdmin,
-    isAuthenticated: !!user && isAdmin,
+    isDoctor,
+    isAuthenticated: !!user && isDoctor,
   };
 }; 
