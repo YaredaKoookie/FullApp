@@ -1,9 +1,9 @@
 import Appointment, {
   APPOINTMENT_STATUS,
-} from "../models/appointment/appointment.model.js";
-import User from "../models/patient/patient.model.js";
-import Doctor from "../models/doctors/doctor.model.js";
-import ServerError from "../utils/ServerError.js";
+} from "../../models/appointment/appointment.model.js";
+import User from "../../models/patient/patient.model.js";
+import Doctor from "../../models/doctors/doctor.model.js";
+import ServerError from "../../utils/ServerError.js";
 import { isValidObjectId } from "mongoose";
 
 // Get all appointments for the logged-in doctor

@@ -1,9 +1,9 @@
-import Doctor from '../models/doctors/doctor.model.js';
-import User from '../models/user.model.js';
-import { hashUtil } from '../utils/index.js';
-import ServerError from '../utils/ServerError.js';
-import { uploadImageCloud } from '../config/cloudinary.config.js';
-import Patient from '../models/patient/patient.model.js';
+import Doctor from '../../models/doctors/doctor.model.js';
+import User from '../../models/user.model.js';
+import { hashUtil } from '../../utils/index.js';
+import ServerError from '../../utils/ServerError.js';
+import { uploadImageCloud } from '../../config/cloudinary.config.js';
+import Patient from '../../models/patient/patient.model.js';
 
 // 1. List Doctors with Pagination
 export const listDoctors = async (req, res) => {

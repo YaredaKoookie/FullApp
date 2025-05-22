@@ -1,9 +1,9 @@
-import Schedule from "../models/schedule/Schedule.model";
+import Schedule from "../../models/schedule/Schedule.model";
 import mongoose from "mongoose";
 import Appointment, {
   APPOINTMENT_STATUS,
   APPOINTMENT_TYPES,
-} from "../models/appointment/appointment.model";
+} from "../../models/appointment/appointment.model";
 // Generate slots based on workingHours
 
 export const generateSlots = async (req, res) => {

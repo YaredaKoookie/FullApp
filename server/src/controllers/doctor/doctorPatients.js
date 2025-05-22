@@ -1,9 +1,9 @@
-import Patient from '../models/patient/patient.model';
-import Appointment from '../models/appointment/appointment.model';
-import Doctor from '../models/doctors/doctor.model';
-import MedicalHistory from '../models/patient/medicalHistory.model';
-import MedicalRecord from '../models/patient/medicalRecord.model';
-import { ServerError } from '../utils/ServerError';
+import Patient from '../../models/patient/patient.model';
+import Appointment from '../../models/appointment/appointment.model';
+import Doctor from '../../models/doctors/doctor.model';
+import MedicalHistory from '../../models/patient/medicalHistory.model';
+import MedicalRecord from '../../models/patient/medicalRecord.model';
+import { ServerError } from '../../utils/ServerError';
 
 export const getPatients = async (req, res) => {
   try {
