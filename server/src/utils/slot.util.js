@@ -53,6 +53,28 @@ export const handleSlotConflict = async (slotId, doctorId, patientId, session = 
   const requestedStart = new Date(`${slotDateStr}T${bookedSlot.startTime}`);
   const requestedEnd = new Date(`${slotDateStr}T${bookedSlot.endTime}`);
 
+  // Check if the slot is in the past
+  const currentTime = new Date();
+  if (requestedStart < currentTime) {
+    // Rollback the slot reservation
+    await Schedule.updateOne(
+      { 
+        doctorId,
+        'availableSlots._id': slotId
+      },
+      {
+        $set: {
+          'availableSlots.$.isBooked': false,
+          'availableSlots.$.bookedAt': null,
+          'availableSlots.$.patientId': null
+        }
+      },
+      queryOptions
+    );
+    
+    throw ServerError.badRequest("Cannot book a slot that has already passed");
+  }
+
   const allowedStatus = [
     APPOINTMENT_STATUS.CANCELLED, 
     APPOINTMENT_STATUS.EXPIRED, 

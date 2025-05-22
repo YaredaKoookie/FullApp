@@ -6,7 +6,7 @@ import paymentRoutes from "./payment.route";
 import { isPatient ,isAdmin ,isDoctor} from "../middlewares/auth.middleware";
 import medicalHistoryRoutes from './medicalHistory.route'; 
 import adminRoutes from './admin.routes'
-
+import videoCallRoutes from './videoCall.route'
 const router = Router();
 
 router.use("/auth", authRoutes);
@@ -14,6 +14,8 @@ router.use("/doctors", isDoctor ,doctorRoutes);
 router.use("/medical-history", medicalHistoryRoutes);
 router.use("/patient", isPatient, patientRoutes);
 router.use("/payment", paymentRoutes);
+router.use("/schedule", scheduleRoutes)
+router.use("/video", videoCallRoutes)
 router.use("/admin", isAdmin, adminRoutes)
 
 export default router;

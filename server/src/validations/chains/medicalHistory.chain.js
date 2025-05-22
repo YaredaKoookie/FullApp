@@ -2,12 +2,17 @@ import { body, param, query } from "express-validator";
 import MedicalHistory, {
   ALLERGY_SEVERITY,
   BLOOD_TYPES,
+  CONDITION_STATUS,
+  RELATIONSHIPS,
 } from "../../models/patient/medicalHistory.model";
 import { FREQUENCY_OPTIONS } from "../../models/patient/medicalHistory.model";
 
 // Shared validators
 const validateCondition = [
   body("name").notEmpty().withMessage("Condition name is required"),
+  body("status")
+    .isIn(Object.values(CONDITION_STATUS))
+    .withMessage("Invalid status for chronic condition"),
   body("diagnosisDate")
     .optional()
     .isDate()
@@ -17,14 +22,11 @@ const validateCondition = [
     .isDate()
     .withMessage("Invalid resolved date")
     .custom((value, { req }) => {
-      if (
-        req.body.diagnosisDate &&
-        new Date(value) < new Date(req.body.diagnosisDate)
-      ) {
-        throw new Error("Resolved date must be after diagnosis date");
-      }
-      return true;
-    }),
+      if (!value) return true; // Allow empty/undefined values
+      if (!req.body.diagnosisDate) return true; // Skip validation if no diagnosis date
+      return new Date(value) >= new Date(req.body.diagnosisDate);
+    })
+    .withMessage("Resolved date must be after diagnosis date"),
 ];
 
 const validateMedication = [
@@ -40,7 +42,7 @@ const validateAllergy = [
   body("reaction").notEmpty().withMessage("Reaction description is required"),
   body("isCritical").optional().isBoolean().withMessage("isCritical must be a boolean"),
   body("severity")
-    .isIn(ALLERGY_SEVERITY)
+    .isIn(Object.values(ALLERGY_SEVERITY))
     .withMessage("Invalid severity level"),
   body("firstObserved")
     .optional()
@@ -57,7 +59,7 @@ export const validateUpdateAllergy = [
   body("isCritical").optional().isBoolean().withMessage("isCritical must be a boolean"),
   body("severity")
     .optional()
-    .isIn(ALLERGY_SEVERITY)
+    .isIn(Object.values(ALLERGY_SEVERITY))
     .withMessage("Invalid severity level"),
   body("firstObserved")
     .optional()
@@ -112,31 +114,18 @@ export const validateUpdateHistory = [
 export const validateAddCondition = [
   ...validateCondition,
   body("isChronic").isBoolean().withMessage("isChronic must be a boolean"),
-  body("status")
-    .if(body("isChronic").equals(true))
-    .isIn(["Active", "In Remission", "Resolved", "Chronic"])
-    .withMessage("Invalid status for chronic condition"),
-  body("lastFlareUp")
-    .if(body("isChronic").equals(true))
-    .optional()
-    .isDate()
-    .withMessage("Invalid flare-up date"),
+  // body("lastFlareUp")
+  //   .if(body("isChronic").equals(true))
+  //   .optional()
+  //   .isDate()
+  //   .withMessage("Invalid flare-up date"),
 ];
 
 export const validateUpdateCondition = [
   ...validateCondition,
-  body("conditionType")
-    .isIn(["chronic", "past"])
-    .withMessage("Invalid condition type"),
   body("status")
-    .if(body("conditionType").equals("chronic"))
-    .isIn(["Active", "In Remission", "Resolved", "Chronic"])
+    .isIn(Object.values(CONDITION_STATUS))
     .withMessage("Invalid status for chronic condition"),
-  body("lastFlareUp")
-    .if(body("conditionType").equals("chronic"))
-    .optional()
-    .isDate()
-    .withMessage("Invalid flare-up date"),
 ];
 
 export const validateAddMedication = validateMedication;
@@ -153,30 +142,68 @@ export const validateAddAllergy = validateAllergy;
 
 // === Immunization Validations ===
 export const validateAddImmunization = [
-  body("vaccine").notEmpty().withMessage("Vaccine name is required"),
-  body("date").optional().isISO8601().toDate()
+  body("vaccine")
+    .notEmpty().withMessage("Vaccine name is required")
+    .isString().withMessage("Vaccine must be a string"),
+
+  body("date")
+    .notEmpty().withMessage("Vaccination date is required")
+    .isISO8601().withMessage("Vaccination date must be a valid ISO date")
     .custom((value) => {
-      if (value && new Date(value) > new Date()) {
-        throw new Error("Vaccine date cannot be in the future");
+      const date = new Date(value);
+      if (date > new Date()) {
+        throw new Error("Vaccination date cannot be in the future");
       }
       return true;
     }),
-  body("boosterDue").optional().isISO8601().toDate(),
-  body("administeredBy").optional().isMongoId()
+
+  body("boosterDue")
+    .optional()
+    .isISO8601().withMessage("Booster due must be a valid ISO date")
+    .custom((value, { req }) => {
+      if (req.body.date && new Date(value) <= new Date(req.body.date)) {
+        throw new Error("Booster due date must be after vaccination date");
+      }
+      return true;
+    }),
+
+  body("administeredBy")
+    .optional()
+    .isString().withMessage("AdministeredBy must be a string"),
+
 ];
 
 export const validateUpdateImmunization = [
   param("immunizationId").isMongoId().withMessage("Invalid immunization ID"),
-  body("vaccine").optional().notEmpty(),
-  body("date").optional().isISO8601().toDate()
+  body("vaccine")
+    .optional()
+    .isString().withMessage("Vaccine must be a string"),
+
+  body("date")
+    .optional()
+    .isISO8601().withMessage("Vaccination date must be a valid ISO date")
     .custom((value) => {
-      if (value && new Date(value) > new Date()) {
-        throw new Error("Vaccine date cannot be in the future");
+      const date = new Date(value);
+      if (date > new Date()) {
+        throw new Error("Vaccination date cannot be in the future");
       }
       return true;
     }),
-  body("boosterDue").optional().isISO8601().toDate(),
-  body("administeredBy").optional().isMongoId()
+
+  body("boosterDue")
+    .optional()
+    .isISO8601().withMessage("Booster due must be a valid ISO date")
+    .custom((value, { req }) => {
+      if (req.body.date && new Date(value) <= new Date(req.body.date)) {
+        throw new Error("Booster due date must be after vaccination date");
+      }
+      return true;
+    }),
+
+  body("administeredBy")
+    .optional()
+    .isString().withMessage("AdministeredBy must be a string"),
+
 ];
 
 // === Surgery Validations ===
@@ -191,7 +218,8 @@ export const validateAddSurgery = [
     }),
   body("outcome").optional().isString(),
   body("hospital").optional().isString(),
-  body("surgeon").optional().isMongoId()
+  body("surgeon.doctorId").optional().isMongoId().withMessage("Invalid surgeon id"),
+  body("surgeon.name").optional().isString().withMessage("Surgeon name should be a string")
 ];
 
 export const validateUpdateSurgery = [
@@ -206,7 +234,8 @@ export const validateUpdateSurgery = [
     }),
   body("outcome").optional().isString(),
   body("hospital").optional().isString(),
-  body("surgeon").optional().isMongoId()
+  body("surgeon.doctorId").optional().isMongoId().withMessage("Invalid surgeon id"),
+  body("surgeon.name").optional().isString().withMessage("Surgeon name should be a string")
 ];
 
 // === Hospitalization Validations ===
@@ -254,22 +283,24 @@ export const validateUpdateHospitalization = [
 
 // === Family History Validations ===
 export const validateAddFamilyHistory = [
-  body("relation").notEmpty().isIn(["Father", "Mother", "Sibling", "Grandparent", "Other"])
+  body("relation").notEmpty().isIn(RELATIONSHIPS)
     .withMessage("Invalid relation type"),
   body("condition").notEmpty().withMessage("Medical condition is required"),
   body("ageAtDiagnosis").optional().isInt({ min: 0, max: 120 })
     .withMessage("Age at diagnosis must be between 0 and 120"),
-  body("deceased").optional().isBoolean()
+  body("deceased").optional().isBoolean(),
+  body("notes").optional().isString()
 ];
 
 export const validateUpdateFamilyHistory = [
   param("recordId").isMongoId().withMessage("Invalid family history record ID"),
-  body("relation").optional().isIn(["Father", "Mother", "Sibling", "Grandparent", "Other"])
+  body("relation").optional().isIn(RELATIONSHIPS)
     .withMessage("Invalid relation type"),
   body("condition").optional().notEmpty(),
   body("ageAtDiagnosis").optional().isInt({ min: 0, max: 120 })
     .withMessage("Age at diagnosis must be between 0 and 120"),
-  body("deceased").optional().isBoolean()
+  body("deceased").optional().isBoolean(),
+  body("notes").optional().isString()
 ];
 
 // === Search Validation ===

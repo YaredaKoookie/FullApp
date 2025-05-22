@@ -87,7 +87,7 @@ const doctorSchema = new Schema(
       min: 0,
       max: 5,
     },
-    balance : {type: Number, default: 0 },
+    balance: { type: Number, default: 0 },
     totalEarnings: { type: Number, default: 0 },
     withdrawalBalance: { type: Number, default: 0 },
     approvedAt: Date,

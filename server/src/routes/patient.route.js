@@ -44,7 +44,7 @@ router.post(
   patientController.createPatientProfile
 );
 
-router.get("/reviews", reviewController.getReviews)
+
 
 router.use(isProfileCompleted);
 
@@ -80,8 +80,14 @@ router.get(
 router.get("/doctors/:doctorId", patientController.getApprovedDoctorById);
 
 
+// ############# review related routes #################### //
+
+router.get("/doctors/:doctorId/can-review", reviewController.canReviewDoctor);
+
+router.get("/doctors/:doctorId/reviews", reviewController.getReviews);
+
 router.post(
-  "/review",
+  "/doctors/:doctorId/review",
   validate(validateCreateReview),
   reviewController.createReview
 );
@@ -91,7 +97,6 @@ router.put(
   validate(validateUpdateReview),
   reviewController.updateReview
 );
-
 
 router.delete("/reviews/:reviewId", reviewController.deleteReview);
 

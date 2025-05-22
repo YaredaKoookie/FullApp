@@ -1,0 +1,18 @@
+@import 'tailwindcss';
+
+
+@layer base {
+    *, *::after, *::before {
+        font-family: 'Poppins';
+    }
+
+    button {
+        cursor: pointer;
+    }
+}
+
+@layer components {
+    .input {
+        @apply p-2 outline outline-neutral-400 hover:outline-neutral-500 focus:outline-neutral-700 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm;
+    }
+}

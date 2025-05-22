@@ -1,4 +1,6 @@
+import { isValidObjectId } from "mongoose";
 import { env } from "../config";
+import Session from "../models/session.model";
 import Token from "../models/token.model";
 import User from "../models/user.model";
 import { SessionService, GoogleAuthService } from "../services";
@@ -114,9 +116,9 @@ export const loginWithEmail = async (req, res) => {
   const user = await User.findOne({ email }).select("+password");
 
   if (!user) throw ServerError.badRequest("User doesn't exist with that email");
-  
+
   console.log(email, user);
-  
+
   if (!user.isEmailVerified)
     throw ServerError.forbidden(
       "Email is not verified please use social login"
@@ -449,13 +451,13 @@ export const refreshToken = async (req, res) => {
 };
 
 export const getUser = async (req, res) => {
-  const {sub: userId, role} = req.user;
+  const { sub: userId, role } = req.user;
 
   const user = await User.findById(userId);
- 
-  if(!user) throw ServerError.notFound("User not found");
 
-  if(user.role !== role) throw ServerError.badRequest("Access Denied mismatched role");
+  if (!user) throw ServerError.notFound("User not found");
+
+  if (user.role !== role) throw ServerError.badRequest("Access Denied mismatched role");
 
   res.json({
     success: true,
@@ -464,3 +466,65 @@ export const getUser = async (req, res) => {
     }
   })
 }
+
+export const getSessions = async (req, res) => {
+  const { sessionId, sub } = req.user;
+
+  const sessions = await Session.findOne({ user: sub }).lean();
+
+  const sessionWithIsCurrent = sessions.map(session => ({
+    ...session,
+    isCurrent: session._id.equals(sessionId)
+  }))
+
+
+  return res.json({
+    success: true,
+    data: {
+      sessions: sessionWithIsCurrent
+    }
+  });
+}
+
+export const logoutFromSession = async (req, res, next) => {
+  const { sub: currentUserId, sessionId: currentUserSession } = req.user;
+  const sessionId = req.params.sessionId;
+
+  if(!sessionId)
+    throw ServerError.badRequest("Session id is required");
+
+  if(!isValidObjectId(sessionId))
+    throw ServerError.badRequest("Session id is not found");
+
+  const session = await Session.findById(sessionId);
+
+  if (!session) throw ServerError.forbidden("Invalid session");
+
+  if (!session.user.equals(currentUserId)) {
+    throw ServerError.forbidden("Not authorized to log out this session");
+  }
+
+  await Session.deleteOne({ _id: session._id });
+
+  const isCurrent = session._id.equals(currentUserSession)
+
+  if (isCurrent) {
+    res.clearCookie("refreshToken");
+  }
+
+  res.json({
+    success: true,
+    message: "Session logout successfully",
+    isCurrent,
+  });
+};
+
+export const logoutFromAllSessions = async (req, res, next) => {
+  const { sub } = req.user;
+  
+  await Session.deleteMany({ user: sub });
+
+  res.clearCookie("refreshToken");
+  
+  res.json({ success: true, message: "Logged out from all devices" });
+};

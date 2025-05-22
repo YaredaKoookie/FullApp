@@ -4,35 +4,51 @@ import Doctor from "../models/doctors/doctor.model.js";
 import Appointment from "../models/appointment/appointment.model.js";
 import Review from "../models/review.model.js";
 import { isValidObjectId } from "mongoose";
+import mongoose from "mongoose";
 
 async function updateDoctorRating(doctorId) {
+  // Convert string ID to ObjectId if needed
+  const doctorObjectId = typeof doctorId === 'string' ? new mongoose.Types.ObjectId(doctorId) : doctorId;
+  
   const stats = await Review.aggregate([
-    { $match: { doctor: doctorId, status: "approved" } },
+    { 
+      $match: { 
+        doctor: doctorObjectId 
+      } 
+    },
     {
       $group: {
         _id: null,
-        rating: { $avg: "$rating" },
-        totalReviews: { $sum: 1 },
+        averageRating: { $avg: "$rating" },
+        totalReviews: { $sum: 1 }
       },
     },
   ]);
 
-  const updateData =
-    stats.length > 0
-      ? {
-          rating: parseFloat(stats[0].averageRating.toFixed(1)),
-          totalReviews: stats[0].totalReviews,
-        }
-      : { rating: 0, totalReviews: 0 };
+  console.log("Doctor ID:", doctorId);
+  console.log("Stats:", stats);
 
-  await Doctor.findByIdAndUpdate(doctorId, updateData);
+  const updateData = stats.length > 0
+    ? {
+        rating: parseFloat(stats[0].averageRating.toFixed(1)),
+        totalReviews: stats[0].totalReviews,
+      }
+    : { rating: 0, totalReviews: 0 };
+
+  const updatedDoctor = await Doctor.findByIdAndUpdate(
+    doctorId,
+    { $set: updateData },
+    { new: true }
+  );
+
+  console.log("Updated Doctor:", updatedDoctor);
+  return updatedDoctor;
 }
 
 export const createReview = async (req, res) => {
-  const { doctorId, rating, reviewText, tags, appointmentId, anonymous } =
-    req.body;
+  const { doctorId } = req.params;
+  const { rating, reviewText, tags, appointmentId, anonymous } = req.body;
 
-  console.log(req.user.sub);
   const patient = await Patient.findOne({ user: req.user.sub })
     .select("_id")
     .lean();
@@ -48,7 +64,7 @@ export const createReview = async (req, res) => {
   if (!appointment) throw ServerError.notFound("Appointment not found");
 
   if (appointment.status !== "completed")
-    throw ServerError.notFound(
+    throw ServerError.badRequest(
       "Reviews are allowed only for completed appointments"
     );
 
@@ -58,7 +74,7 @@ export const createReview = async (req, res) => {
 
   review = await Review.create({
     patient: patient._id,
-    doctor: appointment.doctor,
+    doctor: doctorId, // Use doctorId directly from params
     appointment: appointment._id,
     anonymous,
     rating,
@@ -66,7 +82,7 @@ export const createReview = async (req, res) => {
     tags,
   });
 
-  updateDoctorRating(doctorId);
+  await updateDoctorRating(doctorId);
 
   res.json({
     success: true,
@@ -172,6 +188,42 @@ export const deleteReview = async (req, res) => {
     success: true,
     message: "review deleted successfully",
     data: [],
+  });
+};
+
+export const canReviewDoctor = async (req, res) => {
+  const { doctorId } = req.params;
+  const userId = req.user.sub;
+
+  const patient = await Patient.findOne({ user: userId })
+    .select("_id")
+    .lean();
+
+  if (!patient) throw ServerError.notFound("Patient not found");
+
+  // Find completed appointments for this doctor
+  const completedAppointments = await Appointment.find({
+    patient: patient._id,
+    doctor: doctorId,
+    status: "completed"
+  }).select("_id slot");
+
+  // Check if any of these appointments don't have reviews
+  const appointmentsWithoutReviews = await Promise.all(
+    completedAppointments.map(async (appointment) => {
+      const review = await Review.findOne({ appointment: appointment._id });
+      return review ? null : appointment;
+    })
+  );
+
+  const availableAppointments = appointmentsWithoutReviews.filter(Boolean);
+
+  res.json({
+    success: true,
+    data: {
+      canReview: availableAppointments.length > 0,
+      availableAppointments
+    }
   });
 };
 
