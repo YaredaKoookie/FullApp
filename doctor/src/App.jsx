@@ -10,6 +10,7 @@ import Schedule from './pages/Schedule';
 import ProfileManagement from './pages/ProfileManagement';
 import ReviewsRatings from './pages/ReviewsRatings';
 import Notifications from './pages/Notifications';
+import { VideoCall } from './pages/VideoCall';
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
         <Route path="/profile" element={<ProfileManagement />} />
         <Route path="/reviews" element={<ReviewsRatings />} />
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/VideoCall/:appointmentId" element={<VideoCall />} />
       </Route>
 
       {/* Redirects */}

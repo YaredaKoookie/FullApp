@@ -19,7 +19,7 @@ export const getPatients = async (req, res) => {
     // Build query for completed appointments with this doctor
     const appointmentQuery = {
       doctor: doctorId,
-      status: 'completed'
+      status: 'confirmed'
     };
 
     // Get patient IDs with completed appointments

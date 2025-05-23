@@ -12,6 +12,7 @@ import {
   FaTimes,
 } from "react-icons/fa";
 import { DoctorLayout } from "../layouts/DoctorLayout";
+import { Link } from "react-router-dom";
 
 const PatientsContent = () => {
   console.log("Patients component rendering");
@@ -242,21 +243,21 @@ const PatientsContent = () => {
   console.log("Current newLifestyleChange state:", newLifestyleChange);
   console.log("Current newSymptom state:", newSymptom);
 
-  // Video call mutation
-  const videoCallMutation = useMutation({
-    mutationFn: (patientId) => adminAPI.patients.initiateVideoCall(patientId),
-    onSuccess: (data) => {
-      // Handle video call initiation
-      const { roomId } = data.data.data;
-      // You would typically redirect to your video call page here
-      window.open(`/video-call/${roomId}`, "_blank");
-    },
-    onError: (error) => {
-      toast.error(
-        error.response?.data?.message || "Failed to initiate video call"
-      );
-    },
-  });
+  // // Video call mutation
+  // const videoCallMutation = useMutation({
+  //   mutationFn: (patientId) => adminAPI.patients.initiateVideoCall(patientId),
+  //   onSuccess: (data) => {
+  //     // Handle video call initiation
+  //     const { roomId } = data.data.data;
+  //     // You would typically redirect to your video call page here
+  //     window.open(`/video-call/${roomId}`, "_blank");
+  //   },
+  //   onError: (error) => {
+  //     toast.error(
+  //       error.response?.data?.message || "Failed to initiate video call"
+  //     );
+  //   },
+  // });
 
   // Add debug logs for the click handler
   const handleViewHistory = (patient) => {
@@ -396,15 +397,6 @@ const PatientsContent = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-3">
-                          <button
-                            onClick={() =>
-                              videoCallMutation.mutate(patient._id)
-                            }
-                            className="text-blue-600 hover:text-blue-900"
-                            title="Start Video Call"
-                          >
-                            <FaVideo />
-                          </button>
                           <button
                             onClick={() => handleViewHistory(patient)}
                             className="text-gray-600 hover:text-gray-900"
