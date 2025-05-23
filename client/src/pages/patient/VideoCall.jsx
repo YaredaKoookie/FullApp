@@ -70,13 +70,29 @@ const VideoCall = () => {
                 const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
                     encoderConfig: {
                         sampleRate: 48000,
-                        stereo: true,
-                        bitrate: 128,
+                        stereo: false,
+                        bitrate: 64,
                     },
-                    AEC: true, // Acoustic Echo Cancellation
-                    AGC: true, // Automatic Gain Control
-                    ANS: true, // Automatic Noise Suppression
+                    AEC: true,
+                    AGC: true,
+                    ANS: true,
+                    noiseSuppression: true,
+                    echoCancellation: true,
+                    autoGainControl: true,
+                    AECConfig: {
+                        mode: 2,
+                        maxDelay: 500,
+                    },
+                    AGCConfig: {
+                        targetLevel: 3,
+                        compressionGain: 9,
+                    },
+                    ANSConfig: {
+                        level: 2,
+                    }
                 });
+                
+                audioTrack.setVolume(50);
                 
                 setLocalVideoTrack(videoTrack);
                 setLocalAudioTrack(audioTrack);
@@ -135,9 +151,9 @@ const VideoCall = () => {
                     await client.subscribe(user, "audio");
                     const audioTrack = user.audioTrack;
                     setRemoteAudioTrack(audioTrack);
-                    // Play audio with explicit configuration
+                    // Play audio with optimized settings
                     audioTrack.play({
-                        volume: 100,
+                        volume: 70,
                         loop: false,
                     });
                     console.log("Remote audio track playing");
