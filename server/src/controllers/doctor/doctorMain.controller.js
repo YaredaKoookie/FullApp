@@ -1,15 +1,9 @@
-import Doctor from "./../models/doctors/doctor.model";
-import User from "../models/user.model";
-import Appointment from "../models/appointment/appointment.model";
-import Schedule from "../models/schedule/Schedule.model";
-import { ServerError } from "../utils";
-import sharp from "sharp";
-import path from "path";
-import fs from "fs";
-import { deleteImage, uploadImageCloud } from "../config/cloudinary.config";
+import Doctor from "../../models/doctors/doctor.model";
+import User from "../../models/user.model";
+import Appointment from "../../models/appointment/appointment.model";
+import { ServerError } from "../../utils";
+import { deleteImage, uploadImageCloud } from "../../config/cloudinary.config";
 
-
-// GET /doctor/profile - Get doctor profile
 export const getCurrentDoctor = async (req, res) => {
   try {
     // The authenticated doctor's ID should be in req.user._id (or wherever your auth middleware puts it)

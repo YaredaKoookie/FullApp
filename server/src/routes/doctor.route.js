@@ -1,8 +1,8 @@
 import {Router} from "express"
-import * as appointmentDoctorController from '../controllers/doctorApppointments.controller';
-import * as doctorPatientController from '../controllers/DoctorPatients';
-import * as scheduleController from '../controllers/scheduleController';
-import * as doctorController from '../controllers/doctor.controller';
+import * as appointmentDoctorController from '../controllers/doctor/doctorApppointments.controller';
+import * as doctorPatientController from '../controllers/doctor/doctorPatients';
+import * as scheduleController from '../controllers/doctor/doctorScheduleController';
+import * as doctorController from '../controllers/doctor/doctorMain.controller';
 import { upload } from '../config/cloudinary.config';
 
 const router = Router();
