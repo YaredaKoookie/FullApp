@@ -82,7 +82,7 @@ const patients = {
   getHistory: (id) => api.get(`/doctors/patients/${id}/history`),
   getMedicalHistory: (id) => api.get(`/doctors/patients/${id}/medical-history`),
   getNotes: (id) => api.get(`/doctors/patients/${id}/notes`),
-  addNote: (id, note) => api.post(`/doctors/patients/${id}/notes`, { note }),
+  addNote: (id, note) => api.post(`/doctors/patients/${id}/notes`, note),
   initiateVideoCall: (id) => api.post(`/doctors/patients/${id}/video-call`)
 };
 

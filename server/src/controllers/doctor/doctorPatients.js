@@ -3,7 +3,7 @@ import Appointment from '../../models/appointment/appointment.model';
 import Doctor from '../../models/doctors/doctor.model';
 import MedicalHistory from '../../models/patient/medicalHistory.model';
 import MedicalRecord from '../../models/patient/medicalRecord.model';
-import { ServerError } from '../../utils/ServerError';
+import ServerError from '../../utils/ServerError';
 
 export const getPatients = async (req, res) => {
   try {
@@ -25,8 +25,8 @@ export const getPatients = async (req, res) => {
     // Get patient IDs with completed appointments
     const patientIds = await Appointment.distinct('patient', appointmentQuery);
     if (!patientIds.length) {
-      return res.json({ 
-        success: true, 
+      return res.json({
+        success: true,
         data: {
           patients: [],
           pagination: {
@@ -73,7 +73,7 @@ export const getPatients = async (req, res) => {
           ],
           as: 'lastAppointment'
       }},
-      { $addFields: { 
+      { $addFields: {
           lastAppointmentDate: { $arrayElemAt: ['$lastAppointment.slot.start', 0] },
           totalAppointments: { $size: '$lastAppointment' }
       }},
@@ -105,9 +105,9 @@ export const getPatients = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in getPatients:', error);
-    res.status(error.status || 500).json({ 
-      success: false, 
-      message: error.message || 'Server Error' 
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || 'Server Error'
     });
   }
 };
@@ -163,9 +163,9 @@ export const getPatientDetails = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in getPatientDetails:', error);
-    res.status(error.status || 500).json({ 
-      success: false, 
-      message: error.message || 'Server Error' 
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || 'Server Error'
     });
   }
 };
@@ -204,9 +204,9 @@ export const getPatientHistory = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in getPatientHistory:', error);
-    res.status(error.status || 500).json({ 
-      success: false, 
-      message: error.message || 'Server Error' 
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || 'Server Error'
     });
   }
 };
@@ -224,31 +224,70 @@ export const addPatientNote = async (req, res) => {
       throw new ServerError('Patient not found', 404);
     }
 
-    const { 
+    const {
       additionalNotes,
       prescriptions,
       testsOrdered,
       followUpRequired,
-      follUpDate,
+      followUpDate, // Fixed field name
       lifeStyleChanges,
       symptoms
     } = req.body;
 
-    // Create a new medical record for the note
-    const medicalRecord = new MedicalRecord({
+    // Find the most recent completed appointment between this doctor and patient
+    const lastAppointment = await Appointment.findOne({
       patient: patient._id,
-      doctorId: doctor._id,
-      additionalNotes: additionalNotes || '',
-      prescriptions: prescriptions || [],
-      testsOrdered: testsOrdered || [],
-      followUpRequired: followUpRequired || false,
-      follUpDate: follUpDate || null,
-      lifeStyleChanges: lifeStyleChanges || [],
-      symptoms: symptoms || [],
-      fileUrl: 'N/A', // Required field but not needed for notes
-      uploadedBy: userId
-    });
+      doctor: doctor._id,
+      status: 'completed'
+    }).sort({ 'slot.start': -1 });
 
+    // Create a new medical record for the note
+    const medicalRecordData = {
+      patient: patient._id,
+      addedBy: doctor._id,
+      source: "Doctor",
+      clinicalNotes: [{
+        date: new Date(),
+        note: additionalNotes || ''
+      }],
+      prescriptions: prescriptions?.map(prescription => ({
+        medication: prescription.name,
+        dosage: prescription.dosage,
+        frequency: prescription.instruction,
+        duration: prescription.duration,
+        startDate: new Date(),
+        notes: ''
+      })) || [],
+      labResults: testsOrdered?.map(test => ({
+        testName: test.testName,
+        result: 'Pending',
+        date: new Date(test.orderedDate),
+        comments: ''
+      })) || [],
+      vitalSigns: [{
+        date: new Date(),
+        notes: `Follow-up required: ${followUpRequired ? 'Yes' : 'No'}${followUpDate ? `, Date: ${followUpDate}` : ''}`
+      }],
+      diagnoses: symptoms?.map(symptom => ({
+        name: symptom,
+        status: 'Active',
+        diagnosisDate: new Date(),
+        notes: ''
+      })) || [],
+      procedures: lifeStyleChanges?.map(change => ({
+        name: change,
+        date: new Date(),
+        notes: 'Lifestyle change recommendation'
+      })) || []
+    };
+
+    // Add appointment reference if available
+    if (lastAppointment) {
+      medicalRecordData.appointment = lastAppointment._id;
+    }
+
+    // Create and save the medical record
+    const medicalRecord = new MedicalRecord(medicalRecordData);
     await medicalRecord.save();
 
     res.json({
@@ -259,9 +298,9 @@ export const addPatientNote = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in addPatientNote:', error);
-    res.status(error.status || 500).json({ 
-      success: false, 
-      message: error.message || 'Server Error' 
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || 'Server Error'
     });
   }
 };
@@ -298,9 +337,9 @@ export const initiateVideoCall = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in initiateVideoCall:', error);
-    res.status(error.status || 500).json({ 
-      success: false, 
-      message: error.message || 'Server Error' 
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || 'Server Error'
     });
   }
 };
@@ -310,47 +349,65 @@ export const getPatientMedicalHistory = async (req, res) => {
     const { sub: userId } = req.user;
     const doctor = await Doctor.findOne({ userId });
     if (!doctor) {
-      throw new ServerError('Doctor not found', 404);
+      throw ServerError.notFound('Doctor not found');
     }
 
     const patient = await Patient.findById(req.params.id);
     if (!patient) {
-      throw new ServerError('Patient not found', 404);
+      throw ServerError.notFound('Patient not found');
     }
 
     console.log('Fetching medical history for patient:', patient._id);
     const medicalHistory = await MedicalHistory.findOne({ patient: patient._id })
       .populate("patient", "firstName gender")
-      .populate("metadata.reviewedBy", "name specialty")
-      .populate("currentMedications.prescribedBy", "name")
-      .populate("surgeries.surgeon", "name specialty")
+      .populate("surgeries.surgeon.doctorId", "name specialty")
       .lean();
 
     console.log('Found medical history:', medicalHistory);
 
     if (!medicalHistory) {
       console.log('No medical history found, returning empty structure');
-      // Return empty medical history instead of throwing error
       return res.json({
         success: true,
         data: {
-          patient: {
-            firstName: patient.firstName,
-            gender: patient.gender
-          },
-          chronicConditions: [],
-          allergies: [],
-          currentMedications: [],
-          pastMedications: [],
-          familyHistory: [],
-          lifestyle: {},
-          immunizations: [],
-          surgeries: [],
-          hospitalizations: [],
-          metadata: {
-            lastReviewed: null,
-            reviewedBy: null,
-            updates: []
+          data: {
+            patient: {
+              firstName: patient.firstName,
+              gender: patient.gender
+            },
+            conditions: [],
+            surgeries: [],
+            hospitalizations: [],
+            currentMedications: [],
+            pastMedications: [],
+            allergies: [],
+            familyHistory: [],
+            lifestyle: {
+              smoking: {
+                status: false,
+                frequency: null,
+                years: null
+              },
+              alcohol: {
+                status: false,
+                frequency: null
+              },
+              exerciseFrequency: null,
+              diet: null,
+              occupation: null
+            },
+            bloodType: null,
+            height: null,
+            weight: null,
+            lastPhysicalExam: null,
+            immunizations: [],
+            womenHealth: {
+              pregnancies: 0,
+              liveBirths: 0,
+              lastMenstrualPeriod: null,
+              contraceptiveUse: false,
+              menstrualCycleRegular: null
+            }
           }
         }
       });
@@ -359,7 +416,7 @@ export const getPatientMedicalHistory = async (req, res) => {
     // Calculate additional virtual fields
     const enhancedHistory = {
       ...medicalHistory,
-      activeConditions: medicalHistory.chronicConditions?.filter(
+      activeConditions: medicalHistory.conditions?.filter(
         (c) => c.status === "Active"
       ) || [],
       criticalAllergies: medicalHistory.allergies?.filter(
@@ -368,17 +425,26 @@ export const getPatientMedicalHistory = async (req, res) => {
     };
 
     console.log('Sending enhanced history:', enhancedHistory);
-
     res.json({
       success: true,
-      data: enhancedHistory
+      data: {
+        data: enhancedHistory
+      }
     });
   } catch (error) {
     console.error('Error in getPatientMedicalHistory:', error);
-    res.status(error.status || 500).json({ 
-      success: false, 
-      message: error.message || 'Server Error' 
-    });
+    if (error instanceof ServerError) {
+      res.status(error.status).json({
+        success: false,
+        message: error.message
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Server error',
+        error: error.message
+      });
+    }
   }
 };
 
@@ -415,9 +481,9 @@ export const getPatientNotes = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in getPatientNotes:', error);
-    res.status(error.status || 500).json({ 
-      success: false, 
-      message: error.message || 'Server Error' 
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.message || 'Server Error'
     });
   }
 };

@@ -7,6 +7,7 @@ import { upload } from '../config/cloudinary.config';
 
 const router = Router();
 
+
 // Profile Routes
 router.get('/profile', doctorController.getCurrentDoctor);
 router.put('/profile', 

@@ -15,12 +15,16 @@ const medicalRecordSchema = new mongoose.Schema(
     appointment: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Appointment",
-      required: true,
+      required: function() {
+        // Make appointment optional for standalone notes added by doctors
+        return this.source !== "Doctor" || !this.clinicalNotes || this.clinicalNotes.length === 0;
+      },
       immutable: true,
       validate: {
         validator: async function(appointmentId) {
+          if (!appointmentId) return true; // Skip validation if no appointment provided
           const appointment = await mongoose.model('Appointment').findById(appointmentId);
-          return appointment?.status === 'Completed';
+          return appointment?.status === 'completed';
         },
         message: "Medical records can only be created for completed appointments"
       }
@@ -147,8 +151,8 @@ medicalRecordSchema.index({ "clinicalNotes.date": -1 });
 
 medicalRecordSchema.virtual('bmi').get(function() {
   if (!this.vitals?.height || !this.vitals?.weight) return null;
-  const heightInM = this.vitals.height.unit === 'cm' 
-    ? this.vitals.height.value / 100 
+  const heightInM = this.vitals.height.unit === 'cm'
+    ? this.vitals.height.value / 100
     : this.vitals.height.value * 0.0254;
   return (this.vitals.weight.value / (heightInM * heightInM)).toFixed(1);
 });
