@@ -36,6 +36,8 @@ import apiClient from "@api/apiClient";
 import Loading from "@/components/Loading";
 import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
+import { useDoctorReviews, useCanReviewDoctor } from '@/api/patient/reviews.queries';
+import { useSubmitReview } from '@/api/patient/reviews.mutations';
 
 const DoctorProfilePage = () => {
   const queryClient = useQueryClient();
@@ -75,17 +77,24 @@ const DoctorProfilePage = () => {
     queryFn: async () => {
       const dateStr = format(selectedDate, "yyyy-MM-dd");
       const response = await apiClient.get(
-        `/schedule/${doctorId}?date=${dateStr}/slots`
+        `/doctors/${doctorId}/schedule/slots?date=${dateStr}&upcomingOnly=true`
       );
-      return response.data;
+      return response;
     },
     placeholderData: keepPreviousData,
     select: (data) => {
-      const filteredSlots = data.availableSlots.filter((slot) => {
-        const slotDate = new Date(slot.start);
+      console.log("select", data)
+      const now = new Date();
+      const filteredSlots = data.slots.filter((slot) => {
+        const slotDate = new Date(slot.date);
+        const slotDateTime = new Date(
+          slot.date.split("T")[0] + "T" + slot.startTime
+        );
+        console.log(slotDateTime, now)
         return (
           slotDate.toDateString() === selectedDate.toDateString() &&
-          !slot.isBooked
+          !slot.isBooked &&
+          slotDateTime > now
         );
       });
       return { ...data, filteredSlots };
@@ -93,27 +102,12 @@ const DoctorProfilePage = () => {
     enabled: !!doctor,
   });
 
-  // Fetch reviews
-  const { data: reviews } = useQuery({
-    queryKey: ["reviews", doctorId],
-    queryFn: async () => {
-      const response = await apiClient.get(
-        `/patient/doctors/${doctorId}/reviews`
-      );
-      return response.data?.reviews;
-    },
-  });
+  console.log("schedule", schedule)
 
-  // Check if patient can review
-  const { data: canReviewData } = useQuery({
-    queryKey: ["canReview", doctorId],
-    queryFn: async () => {
-      const response = await apiClient.get(`/patient/doctors/${doctorId}/can-review`);
-      return response;
-    },
-  });
-
-  console.log("can review", canReviewData);
+  // Use the new review hooks
+  const { data: reviews } = useDoctorReviews(doctorId);
+  const { data: canReviewData } = useCanReviewDoctor(doctorId);
+  const reviewMutation = useSubmitReview(doctorId);
 
   // Mutation for booking appointment
   const bookingMutation = useMutation({
@@ -131,28 +125,6 @@ const DoctorProfilePage = () => {
     },
     onError: (error) => {
       toast.error(error.message);
-    },
-  });
-
-  // Review mutation
-  const reviewMutation = useMutation({
-    mutationFn: (reviewData) => {
-      return apiClient.post(`/patient/doctors/${doctorId}/review`, reviewData);
-    },
-    onSuccess: () => {
-      // Invalidate both reviews and doctor data queries
-      queryClient.invalidateQueries(["reviews", doctorId]);
-      queryClient.invalidateQueries(["doctor", doctorId]);
-      // Force refetch the doctor data immediately
-      queryClient.refetchQueries(["doctor", doctorId]);
-      toast.success("Review submitted successfully");
-      setIsReviewModalOpen(false);
-      setRating(0);
-      setReviewText("");
-      setIsAnonymous(false);
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || "Failed to submit review");
     },
   });
 
@@ -188,6 +160,33 @@ const DoctorProfilePage = () => {
   const handleDateSelect = (date) => {
     setSelectedDate(date);
     setSelectedSlot(null);
+  };
+
+  // Review submission handler
+  const handleReviewSubmit = () => {
+    if (!selectedAppointment || !rating) {
+      toast.error("Please select an appointment and provide a rating");
+      return;
+    }
+    reviewMutation.mutate({
+      doctorId,
+      appointmentId: selectedAppointment._id,
+      rating,
+      reviewText,
+      anonymous: isAnonymous,
+      tags: [], // Add tags if needed
+    }, {
+      onSuccess: () => {
+        toast.success("Review submitted successfully");
+        setIsReviewModalOpen(false);
+        setRating(0);
+        setReviewText("");
+        setIsAnonymous(false);
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.message || "Failed to submit review");
+      }
+    });
   };
 
   return (
@@ -615,36 +614,39 @@ const DoctorProfilePage = () => {
                   )}
                 </div>
 
-                <div className={`${isScheduleFetching ? "animate-pulse" : ""}`}>
-                  {schedule?.filteredSlots?.length ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      {schedule.filteredSlots.map((slot) => {
-                        const slotTime = new Date(slot.start);
-                        const isSelected = selectedSlot === slot.slotId;
+                {isScheduleFetching ? (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 text-blue-600 animate-spin mb-3" />
+                    <p className="text-sm text-gray-500">Loading available slots...</p>
+                  </div>
+                ) : schedule?.filteredSlots?.length ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {schedule.filteredSlots.map((slot) => {
+                      const slotTime = new Date(slot.date.split("T")[0] + "T" + slot.startTime);
+                      const isSelected = selectedSlot === slot._id;
 
-                        return (
-                          <button
-                            key={slot.slotId}
-                            onClick={() => setSelectedSlot(slot.slotId)}
-                            className={`py-2 px-3 rounded-lg text-sm transition-colors flex items-center justify-center ${
-                              isSelected
-                                ? "bg-blue-600 text-white"
-                                : "bg-gray-100 hover:bg-gray-200"
-                            }`}
-                          >
-                            {format(slotTime, "h:mm a")}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 text-gray-500">
-                      {isPast(selectedDate) && !isToday(selectedDate)
-                        ? "This date has passed"
-                        : "No available slots for this date"}
-                    </div>
-                  )}
-                </div>
+                      return (
+                        <button
+                          key={slot._id}
+                          onClick={() => setSelectedSlot(slot._id)}
+                          className={`py-2 px-3 rounded-lg text-sm transition-colors flex items-center justify-center ${
+                            isSelected
+                              ? "bg-blue-600 text-white"
+                              : "bg-gray-100 hover:bg-gray-200"
+                          }`}
+                        >
+                          {format(slotTime, "h:mm a")}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-gray-500">
+                    {isPast(selectedDate) && !isToday(selectedDate)
+                      ? "This date has passed"
+                      : "No available slots for this date"}
+                  </div>
+                )}
               </div>
 
               {/* Book Button */}
@@ -983,26 +985,12 @@ const DoctorProfilePage = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (!selectedAppointment || !rating) {
-                            toast.error("Please select an appointment and provide a rating");
-                            return;
-                          }
-                          reviewMutation.mutate({
-                            doctorId,
-                            appointmentId: selectedAppointment._id,
-                            rating,
-                            reviewText,
-                            anonymous: isAnonymous,
-                            tags: [], // Add tags if needed
-                          });
-                        }}
+                        onClick={handleReviewSubmit}
                         disabled={reviewMutation.isPending}
-                        className={`${
-                          reviewMutation.isPending
-                            ? "cursor-not-allowed opacity-50"
-                            : ""
-                        } px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center`}
+                        className={`
+                          ${reviewMutation.isPending ? "cursor-not-allowed opacity-50 pointer-events-none" : ""} 
+                          px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center
+                        `}
                       >
                         {reviewMutation.isPending ? (
                           <>

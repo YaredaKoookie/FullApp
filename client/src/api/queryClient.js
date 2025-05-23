@@ -31,6 +31,24 @@ export const queryKeys = {
         payments: {
             list: () => ["patient", "payments"],
             byId: id => ["patient", "payments", id]
+        },
+        medicalHistory: {
+            all: () => ["patient", "medicalHistory"],
+            details: id => ["patient", "medicalHistory", id],
+            summary: () => ["patient", "medicalHistory", "summary"],
+            timeline: {
+                medications: () => ["patient", "medicalHistory", "timeline", "medications"],
+                hospitalizations: () => ["patient", "medicalHistory", "timeline", "hospitalizations"]
+            },
+            immunizations: () => ["patient", "medicalHistory", "immunizations"],
+            familyHistory: {
+                all: () => ["patient", "medicalHistory", "familyHistory"],
+                geneticRisk: () => ["patient", "medicalHistory", "familyHistory", "geneticRisk"]
+            }
+        },
+        reviews: {
+            all: (doctorId) => ['reviews', doctorId],
+            canReview: (doctorId) => ['canReview', doctorId]
         }
     }
 }

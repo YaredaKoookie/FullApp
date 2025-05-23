@@ -175,10 +175,10 @@ export const initializeChapaPayment = async (req, res) => {
           }
 
           await payment.save();
-
+          
           if (appointment) await appointment.save();
+          throw ServerError.badRequest("Payment already processed");
         }
-        throw ServerError.badRequest("Payment already processed");
       } catch (error) {
         console.log("chapa verification failed:", error);
         throw error;
@@ -197,7 +197,7 @@ export const initializeChapaPayment = async (req, res) => {
       currency: payment.currency || "ETB",
       amount: payment.amount,
       tx_ref,
-      callback_url: `${env.SERVER_URL}/payment/chapa/callback`,
+      callback_url: `${env.SERVER_URL}/patient/payments/chapa/callback`,
       return_url: `${env.FRONTEND_URL}/patient/payments`,
       customization: {
         title: "Appointment Fee",

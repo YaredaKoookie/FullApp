@@ -1,17 +1,15 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import LoadingSpinner  from '@/components/Loading';
+import LoadingSpinner from '@/components/Loading';
 
-
-const ProtectedRoute = ({ 
-  role, 
+const ProtectedRoute = ({
+  role = "patient",
   redirectPath = '/auth/login',
+  skipProfileCheck = false, // Add this new prop
   children
 }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
-
-  console.log("user", user);
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -27,8 +25,17 @@ const ProtectedRoute = ({
     return <Navigate to="/" replace />;
   }
 
-  if (!user.isProfileCompleted) {
-    return <Navigate to={`/${user.role}/complete-profile`} replace />;
+  // Skip profile check for certain routes (like complete-profile)
+  if (!skipProfileCheck) {
+    // Redirect to complete profile if not completed
+    if (!user.isProfileCompleted && !location.pathname.includes('complete-profile')) {
+      return <Navigate to={`/${user.role}/complete-profile`} replace />;
+    }
+
+    // Redirect away from complete-profile if already completed
+    if (user.isProfileCompleted && location.pathname.includes('complete-profile')) {
+      return <Navigate to={`/${user.role}/dashboard`} replace />;
+    }
   }
 
   // If authenticated and has required role (if specified)

@@ -21,6 +21,20 @@ export const endpoints = {
             base: () => "/patient/profile",
             image: () => "/patient/profile/image"
         },
+        medicalHisotry: {
+            base: () => "/patient/medical-history",
+            summary: () => "/patient/medical-history/summary",
+            timeline: {
+                medications: () => "/patient/medical-history/timeline/medications",
+                hospitalizations: () => "/patient/medical-history/hospitalizations"
+            },
+            immunizations: () => "/patient/medical-history/immunizations",
+            familyHistory: {
+                base: () => "/patient/medical-history/family-history",
+                byId: (recordId) => `/patient/medical-history/family-history/${recordId}`,
+                geneticRisk: () => "/patient/medical-history/genetic-risk"
+            }
+        },
         doctors: {
             base: () => "/patient/doctors",
             byId: (id) => `/patient/doctors/${id}`,
@@ -40,6 +54,11 @@ export const endpoints = {
             base: () => "/patient/payments",
             initiate: (appointmentId) => `/patient/payments/appointments/${appointmentId}`,
             initialize: (paymentId) => `/patient/payment/${paymentId}`
+        },
+        reviews: {
+            base: '/patient/doctors/:doctorId/reviews',
+            canReview: '/patient/doctors/:doctorId/can-review',
+            submit: '/patient/doctors/:doctorId/review'
         }
     },
 }

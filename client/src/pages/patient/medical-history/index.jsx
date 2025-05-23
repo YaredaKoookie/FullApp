@@ -44,6 +44,16 @@ import {
   AddFamilyHistoryModal,
   EditFamilyHistoryModal
 } from '@/components/modals/medical-history';
+import {
+  useMedicalHistory,
+  useMedicationTimeline,
+  useHealthSummary
+} from '@/api/patient/medicalHistory.queries';
+import {
+  useAddFamilyHistory,
+  useUpdateFamilyHistory,
+  useDeleteFamilyHistory
+} from '@/api/patient/medicalHistory.mutations';
 
 const EmptyState = ({ icon: Icon, title, description, action }) => (
   <div className="text-center py-12 px-4">
@@ -78,30 +88,16 @@ const MedicalHistory = () => {
     return (weight / (heightInMeters ** 2)).toFixed(2);
   };
 
-  const { data: medicalHistory, isLoading, error, refetch } = useQuery({
-    queryKey: ['medicalHistory'],
-    queryFn: async () => {
-      const response = await apiClient.get('/medical-history');
-      return response.data;
-    },
-  });
+  const { data: medicalHistory, isLoading, error, refetch } = useMedicalHistory();
+  const { data: medicationTimeline } = useMedicationTimeline();
+  const { data: healthSummary } = useHealthSummary();
 
   // Calculate BMI if not provided in response
   const bmi = medicalHistory?.bmi || calculateBMI(medicalHistory?.weight, medicalHistory?.height);
 
-  const { data: medicationTimeline } = useQuery({
-    queryKey: ['medicationTimeline'],
-    queryFn: async () => {
-      const response = await apiClient.get('/medical-history/timeline/medications');
-      return response.data;
-    },
-  });
-
-  console.log("medical timeline", medicationTimeline)
-
   const { mutate: createMedicalHistory, isPending: isCreating } = useMutation({
     mutationFn: async () => {
-      const response = await apiClient.post('/medical-history');
+      const response = await apiClient.post('/patient/medical-history');
       return response.data;
     },
     onSuccess: () => {
@@ -115,7 +111,7 @@ const MedicalHistory = () => {
 
   const {mutate: discontinueMedication, isPending: isDiscontinuingMedication} = useMutation({
     mutationFn: async ({ medicationId, reasonStopped, endDate }) => {
-      const response = await apiClient.post(`/medical-history/medications/${medicationId}/discontinue`, {
+      const response = await apiClient.post(`/patient/medical-history/medications/${medicationId}/discontinue`, {
         reasonStopped,
         endDate
       });

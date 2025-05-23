@@ -1,6 +1,6 @@
 import patientLinks from "@/constants/patientLinks";
 import { useAuth } from "@/context/AuthContext";
-import { ArrowLeftCircle, ChevronLeft } from "lucide-react";
+import { ArrowLeftCircle, ChevronLeft, Home } from "lucide-react";
 import React, { useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 
@@ -22,6 +22,31 @@ const PatientSideBar = ({isCollapsed, setIsCollapsed}) => {
         >
           <ChevronLeft className={`w-5 h-5 text-indigo-600 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} />
         </button>
+      </div>
+
+      {/* Home Link */}
+      <div className="mb-6">
+        <Link
+          to="/"
+          className={`
+            flex items-center 
+            ${isCollapsed ? 'justify-center p-3' : 'px-4 py-3'} 
+            rounded-xl 
+            transition-all 
+            duration-200 
+            group
+            hover:bg-indigo-50 text-gray-600 hover:text-indigo-600
+          `}
+        >
+          <span className="text-indigo-500 transition-colors">
+            <Home className="w-5 h-5" />
+          </span>
+          {!isCollapsed && (
+            <span className="font-medium text-sm ml-3">
+              Home
+            </span>
+          )}
+        </Link>
       </div>
 
       {/* Navigation Links */}

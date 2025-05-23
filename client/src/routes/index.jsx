@@ -30,6 +30,7 @@ import AppProtector from "@/components/AppProtector";
 import DoctorProfileDetails from "@/pages/patient/doctors/DoctorProfileDetails";
 import MedicalHistoryPage from "@/pages/patient/medical-history";
 import VideoCall from "@/pages/patient/VideoCall";
+import SecurityPage from "@/pages/patient/security";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -39,7 +40,7 @@ const router = createBrowserRouter(
         <Route index element={<CureLogicHomepage />} />
       </Route>
 
-    
+
 
       <Route
         path="/patient"
@@ -58,6 +59,7 @@ const router = createBrowserRouter(
             </ProtectedRoute>
           }
         />
+
         <Route
           path="appointments"
           element={
@@ -131,12 +133,25 @@ const router = createBrowserRouter(
             </ProtectedRoute>
           }
         />
+        <Route
+          path="security"
+          element={
+            <ProtectedRoute>
+              <SecurityPage />
+            </ProtectedRoute>
+          }
+        />
       </Route>
 
       <Route
-        path="/patient/complete-profile"
-        element={<PatientProfileComplete />}
+        path="patient/complete-profile"
+        element={
+          <ProtectedRoute skipProfileCheck>
+            <PatientProfileComplete />
+          </ProtectedRoute>
+        }
       />
+
 
       <Route path="auth" element={<RedirectIfLoggedIn />}>
         <Route index element={<Navigate to="/auth/login" replace />} />

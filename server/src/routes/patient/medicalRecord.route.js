@@ -15,10 +15,10 @@ import {
     addImmunizationValidations,
     searchByDiagnosisValidations,
     getPatientTimelineValidations
-} from '../validations/chains/medicalRecord.chain.js';
+} from '../../validations/chains/medicalRecord.chain.js';
 import medicalRecordController from '../controllers/medicalRecord.controller.js';
-import { validate } from '../validations';
-import { isDoctor } from "../middlewares/auth.middleware.js"
+import { validate } from '../../validations/index.js';
+import { isDoctor } from "../../middlewares/auth.middleware.js"
 
 const router = express.Router();
 

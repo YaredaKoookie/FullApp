@@ -15,6 +15,7 @@ import apiClient from "@api/apiClient";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useAuth } from "@/context/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 const genderOptions = [
   { id: 1, name: "Male", value: "male" },
@@ -165,6 +166,7 @@ export default function ProfileCompletion() {
   }, [setValue]);
 
   return (
+
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-8">
@@ -204,7 +206,7 @@ export default function ProfileCompletion() {
         </Dialog>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div className="bg-white shadow rounded-lg overflow-hidden">
+          <div className="bg-white shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <h2 className="text-lg font-medium text-gray-900 mb-6">
                 Personal Information

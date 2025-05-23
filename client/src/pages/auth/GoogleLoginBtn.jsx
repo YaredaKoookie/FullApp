@@ -2,7 +2,7 @@ import { GoogleLogin } from "@react-oauth/google";
 import React from "react";
 import {useGoogleSignIn} from "@api/auth"
 
-const GoogleLoginBtn = ({ role }) => {
+const GoogleLoginBtn = ({ role = "patient" }) => {
   const googleMutation = useGoogleSignIn();
 
   const handleGoogleLogin = async (response) => {

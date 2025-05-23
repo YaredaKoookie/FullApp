@@ -11,7 +11,7 @@ export default function AppProtector({ allowedRoles, children }) {
 
   if (!user || !allowedRoles.includes(user.role)) {
     console.log(user);
-    return <Navigate to="/unauthorized" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return children;

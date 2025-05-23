@@ -4,10 +4,11 @@ import { paymentController } from "../../controllers";
 import { authMiddleware, verifyChapaSignature } from "../../middlewares";
 
 const {isPatient, isProfileCompleted, verifyJWT} = authMiddleware;
+
 const router = Router();
 
 router.post(
-    '/initiate/:appointmentId', 
+    '/appointments/:appointmentId', 
     isPatient, 
     isProfileCompleted,
     validate(paymentChains.validateInitiatePayment),
@@ -15,14 +16,19 @@ router.post(
 )
 
 router.post(
-    "/:paymentId/initialize",
+    "/:paymentId",
     isPatient,
     validate(paymentChains.validateInitializePayment),
     paymentController.initializeChapaPayment
 )
 
+router.get(
+    "/",
+    paymentController.getPayments
+  )
+
 router.post(
-    '/payment/refund',
+    '/refund',
     verifyJWT,
     validate(paymentChains.validateRefundRequest),
     paymentController.processRefund

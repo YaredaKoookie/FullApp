@@ -1115,10 +1115,11 @@ const PaymentDialog = ({ open, onClose, appointment }) => {
     isPending: isInitiating,
     isError,
     data: payment,
+    reset
   } = useMutation({
     mutationFn: async () => {
       const { data } = await apiClient.post(
-        `/payment/initiate/${appointment._id}`
+        `/patient/payments/appointments/${appointment._id}`
       );
       return data.payment;
     },
@@ -1133,7 +1134,7 @@ const PaymentDialog = ({ open, onClose, appointment }) => {
   const { mutate: initializePayment, isPending: isPaying } = useMutation({
     mutationFn: async (payment) => {
       const { data } = await apiClient.post(
-        `/payment/${payment._id}/initialize`
+      `/patient/payments/${payment._id}`
       );
       return data;
     },
@@ -1142,13 +1143,13 @@ const PaymentDialog = ({ open, onClose, appointment }) => {
     },
     onError: (error) => {
       toast.error(error.message);
-
+      onClose()
     },
   });
 
   useEffect(() => {
     if (open && appointment?._id) initiatePayment(appointment._id);
-  }, [open, appointment._id, initiatePayment, isError, onClose]);
+  }, [open, appointment._id]);
 
   let content = "";
 
@@ -1212,11 +1213,11 @@ const PaymentDialog = ({ open, onClose, appointment }) => {
         <h1 className="text-lg font-semibold mb-2">Initializing Error</h1>
         <p className="mb-4">Unable to initiate payment please try again</p>
         <div className="flex items-center gap-4 justify-end">
-          <button className="px-4 py-2 bg-sky-600 text-white text-sm font-medium rounded-md hover:bg-sky-700 disabled:opacity-50">
-            Try Again
+          <button onClick={() => !isInitiating && initiatePayment(appointment._id)} className="px-4 py-2 bg-sky-600 text-white text-sm font-medium rounded-md hover:bg-sky-700 disabled:opacity-50">
+            {isInitiating ? <RotateCw className="animate-spin h-4 w-4 mx-2" /> : "Try Again"}
           </button>
           <button
-            onClose={onClose}
+            onClick={onClose}
             className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             Close
