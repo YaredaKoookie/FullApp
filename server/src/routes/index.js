@@ -5,6 +5,7 @@ import patientRoutes from "./patient";
 import { isAdmin, isPatient ,isDoctor} from "../middlewares/auth.middleware";
 import adminRoutes from './admin.routes'
 import videoCallRoutes from './videoCall.route'
+
 const router = Router();
 
 router.use("/auth", authRoutes);

@@ -21,6 +21,7 @@ const sessionSchema = new Schema({
   user: {
     type: Schema.Types.ObjectId,
     required: true,
+    ref: "User",
   },
   ip: String,
   userAgent: String,

@@ -53,6 +53,14 @@ router.post(
 );
 
 router.post(
+  "/change-password",
+  authMiddleware.verifyJWT,
+  authMiddleware.verifyRefreshToken,
+  validate(authChains.validateChangePassword),
+  authController.changePassword
+);
+
+router.post(
   "/logout",
   authMiddleware.verifyRefreshToken,
   authController.logout
@@ -65,10 +73,38 @@ router.post(
   authController.refreshToken
 );
 
+router.post(
+  "/set-password",
+  authMiddleware.verifyJWT,
+  authMiddleware.verifyRefreshToken,
+  validate(authChains.validateSetPassword),
+  authController.setPassword
+);
+
 router.get(
-  "/me", 
+  "/me",
   authMiddleware.verifyJWT,
   authController.getUser
+)
+
+router.get(
+  "/sessions",
+  authMiddleware.verifyRefreshToken,
+  authController.getSessions
+)
+
+router.delete(
+  "/sessions/:sessionId",
+  authMiddleware.verifyJWT,
+  authMiddleware.verifyRefreshToken,
+  authController.logoutFromSession
+)
+
+router.delete(
+  "/sessions",
+  authMiddleware.verifyJWT,
+  authMiddleware.verifyRefreshToken,
+  authController.logoutFromAllSessions
 )
 
 export default router;

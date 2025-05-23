@@ -461,7 +461,7 @@ export const getHealthSummary = async (req, res) => {
 
   const medicalHistory = await MedicalHistory.findOne({ patient: patient._id })
     .select(
-      "height weight bloodType allergies chronicConditions currentMedications lifestyle"
+      "height weight bloodType allergies conditions currentMedications lifestyle"
     )
     .lean();
 
@@ -484,7 +484,7 @@ export const getHealthSummary = async (req, res) => {
           ).toFixed(2)
           : null,
     },
-    activeConditions: medicalHistory.chronicConditions
+    activeConditions: medicalHistory.conditions
       .filter((c) => c.status === CONDITION_STATUS.ACTIVE)
       .map((c) => c.name),
     criticalAllergies: medicalHistory.allergies

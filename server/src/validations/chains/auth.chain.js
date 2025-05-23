@@ -5,6 +5,27 @@ export const validateEmailToken = [
   body("token").notEmpty().withMessage("code is required"),
 ];
 
+export const validateChangePassword = [
+  body("currentPassword")
+    .notEmpty()
+    .withMessage("Current password is required"),
+  body("newPassword")
+    .notEmpty()
+    .withMessage("New password is required")
+    .isLength({ min: 8 })
+    .withMessage("Password must be at least 8 characters long")
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/)
+    .withMessage("Password must contain at least one uppercase letter, one lowercase letter, one number and one special character"),
+]; 
+
+export const validateSetPassword = [
+  body("password")
+    .notEmpty()
+    .withMessage("Password is required")
+    .isLength({ min: 8 })
+    .withMessage("Password must be at least 8 characters long")
+]; 
+
 export const validateGoogleCode = [
   body("code").notEmpty().withMessage("code is required"),
   body("state").optional().isBase64().withMessage("invalid state"),

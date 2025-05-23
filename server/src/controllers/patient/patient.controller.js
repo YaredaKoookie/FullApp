@@ -9,6 +9,7 @@ import sharp from "sharp";
 import logger from "../../utils/logger.util.js";
 import { deleteImage, uploadImageCloud } from "../../config/cloudinary.config.js";
 import { generateAccessToken } from "../../utils/token.util.js";
+import mongoose from "mongoose";
 /**
  * @desc Create a new patient profile linked to an existing user.
  * @route POST /api/patients/profiles
@@ -886,4 +887,167 @@ export const getApprovedDoctorById = async (req, res) => {
       doctor,
     },
   });
+};
+
+export const getPatientOverview = async (req, res) => {
+  try {
+    const { sub: userId } = req.user;
+
+    // Get patient profile
+    const patient = await Patient.findOne({ user: userId });
+    if (!patient) throw ServerError.notFound("Patient profile not found");
+
+    // Get appointments statistics
+    const appointmentStats = await Appointment.aggregate([
+      { $match: { patient: patient._id } },
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+          totalAmount: { $sum: "$fee" }
+        }
+      }
+    ]);
+
+    // Get upcoming appointments
+    const upcomingAppointments = await Appointment.find({
+      patient: patient._id,
+      status: "confirmed",
+      "slot.start": { $gt: new Date() }
+    })
+    .populate("doctor", "firstName lastName specialization profilePhoto")
+    .sort({ "slot.start": 1 })
+    .limit(3);
+
+    // Get recent medical records
+    const recentMedicalRecords = await mongoose.model("MedicalRecord")
+      .find({ patient: patient._id })
+      .populate("appointment", "slot")
+      .populate("addedBy", "firstName middleName lastName specialization")
+      .sort({ createdAt: -1 })
+      .limit(3);
+
+    // Get medical history summary
+    const medicalHistory = await mongoose.model("MedicalHistory")
+      .findOne({ patient: patient._id })
+      .select("conditions allergies currentMedications immunizations");
+
+    // Get payment statistics
+    const paymentStats = await mongoose.model("Payment").aggregate([
+      { $match: { patient: patient._id } },
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+          totalAmount: { $sum: "$amount" }
+        }
+      }
+    ]);
+
+    // Get recent payments
+    const recentPayments = await mongoose.model("Payment")
+      .find({ patient: patient._id })
+      .populate("appointment", "slot")
+      .populate("doctor", "firstName lastName")
+      .sort({ createdAt: -1 })
+      .limit(3);
+
+    // Format appointment statistics
+    const formattedAppointmentStats = {
+      total: 0,
+      confirmed: 0,
+      pending: 0,
+      completed: 0,
+      cancelled: 0,
+      totalSpent: 0
+    };
+
+    appointmentStats.forEach(stat => {
+      formattedAppointmentStats[stat._id] = stat.count;
+      formattedAppointmentStats.total += stat.count;
+      if (stat._id === "completed") {
+        formattedAppointmentStats.totalSpent += stat.totalAmount;
+      }
+    });
+
+    // Format payment statistics
+    const formattedPaymentStats = {
+      total: 0,
+      paid: 0,
+      pending: 0,
+      refunded: 0,
+      totalAmount: 0
+    };
+
+    paymentStats.forEach(stat => {
+      formattedPaymentStats[stat._id] = stat.count;
+      formattedPaymentStats.total += stat.count;
+      if (stat._id === "paid") {
+        formattedPaymentStats.totalAmount += stat.totalAmount;
+      }
+    });
+
+    // Prepare overview data
+    const overview = {
+      patient: {
+        fullName: patient.fullName,
+        profileImage: patient.profileImage,
+        bloodType: patient.bloodType,
+        age: Math.floor((new Date() - patient.dateOfBirth) / (365.25 * 24 * 60 * 60 * 1000)),
+        location: patient.location
+      },
+      appointments: {
+        stats: formattedAppointmentStats,
+        upcoming: upcomingAppointments.map(apt => ({
+          id: apt._id,
+          doctor: apt.doctor,
+          date: apt.slot.start,
+          type: apt.appointmentType,
+          status: apt.status
+        }))
+      },
+      medical: {
+        recentRecords: recentMedicalRecords.map(record => ({
+          id: record._id,
+          date: record.createdAt,
+          doctor: {
+            fullName: `${record.addedBy.firstName} ${record.addedBy.middleName} ${record.addedBy.lastName}`,
+            specialization: record.addedBy.specialization
+          },
+          diagnoses: record.diagnoses,
+          prescriptions: record.prescriptions
+        })),
+        history: {
+          activeConditions: medicalHistory?.conditions?.filter(c => c.status === "Active") || [],
+          allergies: medicalHistory?.allergies || [],
+          currentMedications: medicalHistory?.currentMedications || [],
+          recentImmunizations: medicalHistory?.immunizations?.slice(-3) || []
+        }
+      },
+      payments: {
+        stats: formattedPaymentStats,
+        recent: recentPayments.map(payment => ({
+          id: payment._id,
+          amount: payment.amount,
+          status: payment.status,
+          date: payment.createdAt,
+          appointment: payment.appointment,
+          doctor: payment.doctor
+        }))
+      }
+    };
+
+    res.json({
+      success: true,
+      data: overview
+    });
+
+  } catch (error) {
+    console.error("Error fetching patient overview:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch patient overview",
+      error: error.message
+    });
+  }
 };

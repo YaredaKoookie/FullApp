@@ -470,8 +470,8 @@ export const getUser = async (req, res) => {
 export const getSessions = async (req, res) => {
   const { sessionId, sub } = req.user;
 
-  const sessions = await Session.findOne({ user: sub }).lean();
-
+  const sessions = await Session.find({ user: sub }).lean();
+  console.log("sessions", sessions);
   const sessionWithIsCurrent = sessions.map(session => ({
     ...session,
     isCurrent: session._id.equals(sessionId)
@@ -527,4 +527,82 @@ export const logoutFromAllSessions = async (req, res, next) => {
   res.clearCookie("refreshToken");
   
   res.json({ success: true, message: "Logged out from all devices" });
+};
+
+export const changePassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const { sub: userId } = req.user;
+
+  if (!currentPassword || !newPassword) {
+    throw ServerError.badRequest("Current password and new password are required");
+  }
+
+  const user = await User.findById(userId).select("+password");
+
+  if (!user) {
+    throw ServerError.notFound("User not found");
+  }
+
+  // Verify current password
+  const isCurrentPasswordValid = await user.comparePassword(currentPassword);
+  if (!isCurrentPasswordValid) {
+    throw ServerError.forbidden("Current password is incorrect");
+  }
+
+  // Hash new password
+  const hashedPassword = await hashUtil.hashPassword(newPassword);
+
+  // Update password
+  user.password = hashedPassword;
+  user.isPasswordSet = true;
+  await user.save();
+
+  // Logout from all other sessions for security
+  await Session.deleteMany({ 
+    user: userId,
+    _id: { $ne: req.user.sessionId } // Keep current session
+  });
+
+  res.json({
+    success: true,
+    message: "Password changed successfully"
+  });
+};
+
+export const setPassword = async (req, res) => {
+  const { password } = req.body;
+  const { sub: userId } = req.user;
+
+  if (!password) {
+    throw ServerError.badRequest("Password is required");
+  }
+
+  const user = await User.findById(userId).select("+password");
+
+  if (!user) {
+    throw ServerError.notFound("User not found");
+  }
+
+  if (user.isPasswordSet) {
+    throw ServerError.forbidden("Password is already set. Use change password instead.");
+  }
+
+  // Hash new password
+  const hashedPassword = await hashUtil.hashPassword(password);
+
+  // Update password
+  user.password = hashedPassword;
+  user.isPasswordSet = true;
+  await user.save();
+
+  // Logout from all other sessions for security
+  await Session.deleteMany({ 
+    user: userId,
+    _id: { $ne: req.user.sessionId } // Keep current session
+  });
+
+  res.json({
+    success: true,
+    message: "Password set successfully"
+  });
 };
