@@ -10,6 +10,7 @@ import logger from "../../utils/logger.util.js";
 import { deleteImage, uploadImageCloud } from "../../config/cloudinary.config.js";
 import { generateAccessToken } from "../../utils/token.util.js";
 import mongoose from "mongoose";
+import Schedule from "../../models/schedule/Schedule.model.js";
 /**
  * @desc Create a new patient profile linked to an existing user.
  * @route POST /api/patients/profiles
@@ -1048,6 +1049,88 @@ export const getPatientOverview = async (req, res) => {
       success: false,
       message: "Failed to fetch patient overview",
       error: error.message
+    });
+  }
+};
+
+
+export const getSlots = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    const { date, isBooked, upcomingOnly } = req.query;
+
+    // Validate doctorId
+    if (!doctorId) {
+      return res.status(400).json({ message: "Valid doctorId is required" });
+    }
+
+    // Find schedule with optional population of doctor details
+    const schedule = await Schedule.findOne({ doctorId }).populate(
+      "doctorId",
+      "name specialization -_id"
+    ); // Optional: include basic doctor info
+
+    if (!schedule) {
+      return res
+        .status(404)
+        .json({ message: "Schedule not found for this doctor" });
+    }
+
+    let slots = schedule.availableSlots;
+
+    // Apply filters if provided
+    if (date) {
+      const targetDate = new Date(date);
+      if (isNaN(targetDate.getTime())) {
+        return res.status(400).json({ message: "Invalid date format" });
+      }
+      slots = slots.filter(
+        (slot) =>
+          new Date(slot.date).toDateString() === targetDate.toDateString()
+      );
+    }
+
+    if (isBooked !== undefined) {
+      const bookedFilter = isBooked === "true";
+      slots = slots.filter((slot) => slot.isBooked === bookedFilter);
+    }
+
+    if (upcomingOnly === "true") {
+      const now = new Date();
+      slots = slots.filter(
+        (slot) => new Date(slot.date) >= new Date(now.setHours(0, 0, 0, 0))
+      );
+    }
+
+    // Sort slots by date and time
+    slots.sort((a, b) => {
+      const dateCompare = new Date(a.date) - new Date(b.date);
+      if (dateCompare !== 0) return dateCompare;
+      return a.startTime.localeCompare(b.startTime);
+    });
+
+    // Format response with metadata
+    const response = {
+      doctor: schedule.doctorId, // Will be populated if using .populate()
+      totalSlots: slots.length,
+      available: slots.filter((s) => !s.isBooked).length,
+      booked: slots.filter((s) => s.isBooked).length,
+      slots,
+      generatedAt: new Date().toISOString(),
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error("Error fetching slots:", error);
+
+    // Handle specific errors
+    if (error.name === "CastError") {
+      return res.status(400).json({ message: "Invalid doctorId format" });
+    }
+
+    res.status(500).json({
+      message: "Error retrieving slots",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };

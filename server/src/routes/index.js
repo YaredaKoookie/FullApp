@@ -12,7 +12,7 @@ router.use("/auth", authRoutes);
 
 router.use("/doctors",isDoctor, doctorRoutes);
 
-router.use("/patient", isPatient, patientRoutes);
+router.use("/patient", patientRoutes);
 
 router.use("/video", videoCallRoutes);
 

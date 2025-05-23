@@ -21,7 +21,7 @@ router.get(
 )
 
 router.get("/:doctorId", patientController.getApprovedDoctorById);
-
+router.get("/:doctorId/schedule/slots", patientController.getSlots);
 
 router.get("/:doctorId/can-review", reviewController.canReviewDoctor);
 

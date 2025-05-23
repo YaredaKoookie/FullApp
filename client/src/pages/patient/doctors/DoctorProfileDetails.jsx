@@ -77,7 +77,7 @@ const DoctorProfilePage = () => {
     queryFn: async () => {
       const dateStr = format(selectedDate, "yyyy-MM-dd");
       const response = await apiClient.get(
-        `/doctors/${doctorId}/schedule/slots?date=${dateStr}&upcomingOnly=true`
+        `/patient/doctors/${doctorId}/schedule/slots?date=${dateStr}&upcomingOnly=true`
       );
       return response;
     },
