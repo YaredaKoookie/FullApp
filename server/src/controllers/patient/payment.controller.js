@@ -81,7 +81,7 @@ export const initiatePayment = async (req, res) => {
         success: true,
         data: {
           payment: existingPayment,
-          paymentInitiationUrl: `${env.SERVER_URL}/payment/${existingPayment._id}/initialize`, // Suggested next step
+          paymentInitiationUrl: `${env.SERVER_URL}/patient/payments/${existingPayment._id}/initialize`, // Suggested next step
         },
       });
     }
@@ -109,7 +109,7 @@ export const initiatePayment = async (req, res) => {
       success: true,
       data: {
         payment,
-        paymentInitiationUrl: `/payments/${payment._id}/initialize`, // Suggested next step
+        paymentInitiationUrl: `${env.SERVER_URL}/patient/payments/${payment._id}/initialize`, // Suggested next step
       },
     });
   } catch (error) {
@@ -165,7 +165,7 @@ export const initializeChapaPayment = async (req, res) => {
         if (verification?.status === "success") {
           payment.status = PAYMENT_STATUS.PAID;
           payment.referenceId = verification.data.reference;
-          const appointment = await Appointment.findById(payment.appointment);
+          const appointment = await Appointment.findById(payment.appointment).session(session);
 
           if (
             appointment &&
@@ -174,10 +174,19 @@ export const initializeChapaPayment = async (req, res) => {
             appointment.status = APPOINTMENT_STATUS.CONFIRMED;
           }
 
-          await payment.save();
+          await payment.save({session});
           
-          if (appointment) await appointment.save();
-          throw ServerError.badRequest("Payment already processed");
+          if (appointment) await appointment.save({session});
+
+          await session.commitTransaction();
+
+          res.status(400).json({
+            success: false,
+            message: "Payment already processed",
+            data: {
+              payment,
+            },
+          });
         }
       } catch (error) {
         console.log("chapa verification failed:", error);
