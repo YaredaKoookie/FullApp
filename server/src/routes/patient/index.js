@@ -17,7 +17,7 @@ router.use("/profile", isPatient,profileRoutes);
 router.use("/appointments", isPatient, isProfileCompleted, appointmentRoutes);
 router.use("/doctors", doctorRoutes)
 router.use("/reviews", isPatient, reviewRoutes);
-router.use("/payments", isPatient, isProfileCompleted, paymentRoutes);
+router.use("/payments", paymentRoutes);
 
 
 export default router;

@@ -180,7 +180,7 @@ export const initializeChapaPayment = async (req, res) => {
 
           await session.commitTransaction();
 
-          res.status(400).json({
+          return res.status(400).json({
             success: false,
             message: "Payment already processed",
             data: {
@@ -224,7 +224,7 @@ export const initializeChapaPayment = async (req, res) => {
 
     await session.commitTransaction();
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Payment initialized successfully",
       data: {
@@ -244,41 +244,40 @@ export const initializeChapaPayment = async (req, res) => {
   }
 };
 
-export const verifyChapaCallback = async (req, res, next) => {
-  console.log("chapa callback query", req.query);
-
-  const trx_ref = req.query.trx_ref || req.query.tx_ref;
-  const ref_id = req.query._ || req.query.ref_id;
-  const status = req.query.status;
-
-  if (!trx_ref || !status || !ref_id)
-    throw ServerError.badRequest("Invalid chapa payload");
-
+export const verifyChapaCallback = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
+    const trx_ref = req.query.trx_ref || req.query.tx_ref;
+    const ref_id = req.query._ || req.query.ref_id;
+    const status = req.query.status;
+
+    if (!trx_ref || !status || !ref_id) {
+      throw ServerError.badRequest("Invalid chapa payload");
+    }
+
     const [name, paymentId] = trx_ref.split("_");
     const payment = await Payment.findById(paymentId).session(session);
 
     if (!payment) throw ServerError.notFound("Payment record not found");
 
-    if (payment.status === PAYMENT_STATUS.PAID)
+    if (payment.status === PAYMENT_STATUS.PAID) {
       throw ServerError.badRequest("Payment already completed");
+    }
 
     if (payment.status !== PAYMENT_STATUS.PENDING) {
       await session.abortTransaction();
-      return res.json(404).json({ message: "Payment is not in pending state" });
+      return res.status(404).json({ message: "Payment is not in pending state" });
     }
 
     const response = await chapa.verify({ tx_ref: trx_ref });
 
-    console.log("response", response);
-
-    if (!response || response.status !== "success")
+    if (!response || response.status !== "success") {
       throw ServerError.badRequest("Invalid chapa verification response");
+    }
 
-    const { status, data, message } = response;
+    const { data } = response;
 
     payment.transactionId = data.tx_ref || trx_ref;
     payment.referenceId = data.reference || ref_id;
@@ -289,9 +288,7 @@ export const verifyChapaCallback = async (req, res, next) => {
     if (status === "success") {
       payment.status = PAYMENT_STATUS.PAID;
 
-      const appointment = await Appointment.findById(
-        payment.appointment
-      ).session(session);
+      const appointment = await Appointment.findById(payment.appointment).session(session);
 
       if (!appointment) {
         await session.abortTransaction();
@@ -314,8 +311,11 @@ export const verifyChapaCallback = async (req, res, next) => {
       message: "Payment status updated successfully",
     });
   } catch (error) {
+    await session.abortTransaction();
     logger.error("Payment verification failed", error);
-    next(error);
+    throw error;
+  } finally {
+    session.endSession();
   }
 };
 

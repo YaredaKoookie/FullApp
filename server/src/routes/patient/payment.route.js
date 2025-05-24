@@ -8,26 +8,6 @@ const {isPatient, isProfileCompleted, verifyJWT} = authMiddleware;
 const router = Router();
 
 router.post(
-    '/appointments/:appointmentId', 
-    isPatient, 
-    isProfileCompleted,
-    validate(paymentChains.validateInitiatePayment),
-    paymentController.initiatePayment
-)
-
-router.post(
-    "/:paymentId",
-    isPatient,
-    validate(paymentChains.validateInitializePayment),
-    paymentController.initializeChapaPayment
-)
-
-router.get(
-    "/",
-    paymentController.getPayments
-  )
-
-router.post(
     '/refund',
     verifyJWT,
     validate(paymentChains.validateRefundRequest),
@@ -44,5 +24,29 @@ router.post(
     verifyChapaSignature, 
     paymentController.handleChapaWebhook
 )
+
+
+router.post(
+    '/appointments/:appointmentId', 
+    isPatient, 
+    isProfileCompleted,
+    validate(paymentChains.validateInitiatePayment),
+    paymentController.initiatePayment
+)
+
+router.post(
+    "/:paymentId",
+    isPatient,
+    validate(paymentChains.validateInitializePayment),
+    paymentController.initializeChapaPayment
+)
+
+router.get(
+    "/",
+    isPatient,
+    isProfileCompleted,
+    paymentController.getPayments
+)
+
 
 export default router;

@@ -1,101 +1,29 @@
-import React, { useState, memo, useEffect } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import {
-  Shield,
-  Lock,
-  LogOut,
-  Smartphone,
-  AlertCircle,
-  XCircle,
-  Clock,
-  Globe,
-  Laptop,
-  Tablet,
-  Monitor,
-  SmartphoneIcon,
-  Mail,
-  ArrowRight,
-  CheckCircle2,
-} from "lucide-react";
+import { Shield, Lock, LogOut, Smartphone, AlertCircle, CheckCircle2, Laptop, XCircle } from "lucide-react";
 import { toast } from "react-toastify";
 import apiClient from "@api/apiClient";
 import { useNavigate } from "react-router-dom";
 
+// Simplified password schema
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required").optional(),
-  newPassword: z
-    .string()
+  newPassword: z.string()
     .min(8, "Password must be at least 8 characters")
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-      "Password must contain at least one uppercase letter, one lowercase letter, one number and one special character"
-    ),
+    .regex(/[A-Z]/, "Must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Must contain at least one number")
+    .regex(/[@$!%*?&]/, "Must contain at least one special character"),
   confirmPassword: z.string(),
-  isPasswordSet: z.boolean().optional()
-}).refine((data) => data.newPassword === data.confirmPassword, {
+}).refine(data => data.newPassword === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
-}).refine((data) => {
-  if (data.isPasswordSet) {
-    return !!data.currentPassword;
-  }
-  return true;
-}, {
-  message: "Current password is required",
-  path: ["currentPassword"],
 });
 
-const checkPasswordStrength = (password) => {
-  let strengthValue = 0;
-  let message = "Weak";
-
-  if (password.length >= 8) strengthValue++;
-  if (/[A-Z]/.test(password)) strengthValue++;
-  if (/[0-9]/.test(password)) strengthValue++;
-  if (/[@$!%*?&#]/.test(password)) strengthValue++;
-
-  switch (strengthValue) {
-    case 1:
-      message = "Very Weak";
-      break;
-    case 2:
-      message = "Weak";
-      break;
-    case 3:
-      message = "Moderate";
-      break;
-    case 4:
-      message = "Strong";
-      break;
-    default:
-      message = "Very Weak";
-  }
-
-  return { message, strengthValue };
-};
-
-const PasswordStrengthMeter = memo(({ value }) => {
-  const strengthColors = [
-    "bg-red-500",
-    "bg-orange-500",
-    "bg-yellow-500",
-    "bg-green-500",
-  ];
-  
-  return (
-    <div className="w-full bg-gray-200 rounded-full h-2.5 mt-1">
-      <div
-        className={`${strengthColors[value - 1] || "bg-red-500"} h-2.5 rounded-full`}
-        style={{ width: `${(value / 4) * 100}%` }}
-      ></div>
-    </div>
-  );
-});
-
-const PasswordRequirement = memo(({ met, text }) => (
+const PasswordRequirement = ({ met, text }) => (
   <div className="flex items-center gap-2">
     {met ? (
       <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -106,54 +34,15 @@ const PasswordRequirement = memo(({ met, text }) => (
       {text}
     </span>
   </div>
-));
-
-const PasswordRequirements = memo(({ password }) => {
-  const requirements = [
-    { met: password.length >= 8, text: "At least 8 characters long" },
-    { met: /[A-Z]/.test(password), text: "At least one uppercase letter" },
-    { met: /[a-z]/.test(password), text: "At least one lowercase letter" },
-    { met: /[0-9]/.test(password), text: "At least one number" },
-    { met: /[@$!%*?&#]/.test(password), text: "At least one special character" },
-  ];
-
-  return (
-    <div className="bg-blue-50 p-4 rounded-lg">
-      <div className="flex items-start gap-3">
-        <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-        <div className="space-y-2">
-          <h4 className="font-medium text-blue-900">Password Requirements</h4>
-          <div className="space-y-1">
-            {requirements.map((req, index) => (
-              <PasswordRequirement key={index} {...req} />
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-});
-
-const PasswordStrength = memo(({ password }) => {
-  const strength = checkPasswordStrength(password);
-  
-  return (
-    <div className="mt-2">
-      <PasswordStrengthMeter value={strength.strengthValue} />
-      <p className="text-sm text-gray-500 mt-1">
-        Password Strength: {strength.message}
-      </p>
-    </div>
-  );
-});
+);
 
 const SecurityPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeSection, setActiveSection] = useState("overview");
-  const [showMfaSetup, setShowMfaSetup] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
+  // User data query
   const { data: user } = useQuery({
     queryKey: ["user"],
     queryFn: async () => {
@@ -162,6 +51,7 @@ const SecurityPage = () => {
     },
   });
 
+  // Sessions data query
   const { data: sessions, isLoading: isLoadingSessions } = useQuery({
     queryKey: ["sessions"],
     queryFn: async () => {
@@ -170,138 +60,75 @@ const SecurityPage = () => {
     },
   });
 
-  console.log('Sessions data:', sessions);
-
+  // Form handling
   const {
     register,
     handleSubmit,
     reset,
     watch,
-    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(passwordSchema),
-    defaultValues: {
-      isPasswordSet: false,
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: ""
-    }
   });
 
-  // Update isPasswordSet when user data is loaded
-  useEffect(() => {
-    if (user) {
-      setValue("isPasswordSet", user.isPasswordSet || false);
-    }
-  }, [user, setValue]);
+  const newPassword = watch("newPassword", "");
 
-  const newPassword = watch("newPassword") || "";
-
-  const changePasswordMutation = useMutation({
-    mutationFn: (data) => apiClient.post("/auth/change-password", {
-      currentPassword: data.currentPassword,
-      newPassword: data.newPassword
-    }),
-    onSuccess: () => {
-      toast.success("Password changed successfully");
-      reset();
+  // Password change mutation
+  const passwordMutation = useMutation({
+    mutationFn: (data) => {
+      const endpoint = user?.isPasswordSet ? "/auth/change-password" : "/auth/set-password";
+      const payload = user?.isPasswordSet 
+        ? { currentPassword: data.currentPassword, newPassword: data.newPassword }
+        : { password: data.newPassword };
+      
+      return apiClient.post(endpoint, payload);
     },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || "Failed to change password");
-    },
-  });
-
-  const setPasswordMutation = useMutation({
-    mutationFn: (data) => apiClient.post("/auth/set-password", data),
     onSuccess: () => {
-      toast.success("Password set successfully");
+      toast.success(`Password ${user?.isPasswordSet ? "changed" : "set"} successfully`);
       reset();
       queryClient.invalidateQueries(["user"]);
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || "Failed to set password");
+      toast.error(error.response?.data?.message || "Failed to update password");
     },
   });
 
-  const logoutAllMutation = useMutation({
-    mutationFn: () => apiClient.delete("/auth/sessions"),
+  // Logout mutations
+  const logoutMutation = useMutation({
+    mutationFn: (sessionId) => 
+      sessionId 
+        ? apiClient.delete(`/auth/sessions/${sessionId}`)
+        : apiClient.delete("/auth/sessions"),
     onSuccess: () => {
-      toast.success("Logged out from all devices");
+      toast.success("Logged out successfully");
       queryClient.invalidateQueries(["sessions"]);
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || "Failed to logout from all sessions");
-    },
-  });
-
-  const logoutSessionMutation = useMutation({
-    mutationFn: (sessionId) => apiClient.delete(`/auth/sessions/${sessionId}`),
-    onSuccess: () => {
-      toast.success("Session logged out successfully");
-      queryClient.invalidateQueries(["sessions"]);
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || "Failed to logout from session");
-    },
-  });
-
-  const logoutCurrentMutation = useMutation({
-    mutationFn: () => apiClient.post("/auth/logout"),
-    onSuccess: () => {
-      toast.success("Successfully logged out");
-      queryClient.invalidateQueries(["sessions"]);
-      navigate("/");
+      if (!sessionId) navigate("/");
     },
     onError: (error) => {
       toast.error(error.response?.data?.message || "Failed to logout");
     },
   });
 
-  const onSubmit = async (data) => {
-    try {
-      if (user?.isPasswordSet) {
-        await changePasswordMutation.mutateAsync({
-          currentPassword: data.currentPassword,
-          newPassword: data.newPassword
-        });
-      } else {
-        await setPasswordMutation.mutateAsync({
-          password: data.newPassword
-        });
-      }
-    } catch (error) {
-      // Error is already handled in mutation callbacks
-      console.error("Password change/set error:", error);
-    }
+  const onSubmit = (data) => {
+    passwordMutation.mutate(data);
   };
 
-  const getDeviceIcon = (device) => {
-    if (!device) return <Monitor className="h-5 w-5" />;
+  // Simplified device info display
+  const getDeviceInfo = (session) => {
+    const device = session.device || {};
+    const parts = [
+      device.browser,
+      device.os,
+      device.model
+    ].filter(Boolean);
     
-    switch (device.type?.toLowerCase()) {
-      case 'mobile':
-        return <Smartphone className="h-5 w-5" />;
-      case 'tablet':
-        return <Tablet className="h-5 w-5" />;
-      case 'desktop':
-        return <Laptop className="h-5 w-5" />;
-      default:
-        return <Monitor className="h-5 w-5" />;
-    }
+    return {
+      name: parts.length ? parts.join(" - ") : "Unknown Device",
+      icon: device.type === 'mobile' ? <Smartphone /> : <Laptop />
+    };
   };
 
-  const getDeviceName = (session) => {
-    if (!session.device) return "Unknown Device";
-    
-    const parts = [];
-    if (session.device.browser) parts.push(session.device.browser);
-    if (session.device.os) parts.push(session.device.os);
-    if (session.device.model) parts.push(session.device.model);
-    
-    return parts.length > 0 ? parts.join(" - ") : "Unknown Device";
-  };
-
+  // Security card component
   const SecurityCard = ({ title, description, icon: Icon, children }) => (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="p-6 border-b border-gray-100">
@@ -346,19 +173,13 @@ const SecurityPage = () => {
                   { id: "overview", label: "Security Overview", icon: Shield },
                   { id: "password", label: "Password & Recovery", icon: Lock },
                   { id: "sessions", label: "Active Sessions", icon: LogOut },
-                  { id: "mfa", label: "Two-Factor Auth", icon: Smartphone },
-                ]?.map((item) => (
+                ].map((item) => (
                   <button
                     key={item.id}
                     onClick={() => setActiveSection(item.id)}
-                    className={`
-                      w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors
-                      ${
-                        activeSection === item.id
-                          ? "bg-blue-50 text-blue-700"
-                          : "text-gray-600 hover:bg-gray-50"
-                      }
-                    `}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                      activeSection === item.id ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-50"
+                    }`}
                   >
                     <item.icon className="h-5 w-5" />
                     {item.label}
@@ -370,71 +191,6 @@ const SecurityPage = () => {
 
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Security Overview */}
-            {activeSection === "overview" && (
-              <>
-                <SecurityCard
-                  title="Security Status"
-                  description="Your account security overview"
-                  icon={Shield}
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-green-100 p-2 rounded-lg">
-                          <CheckCircle2 className="h-5 w-5 text-green-600" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900">Email Verified</h4>
-                          <p className="text-sm text-gray-500">Your email is verified</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-yellow-100 p-2 rounded-lg">
-                          <AlertCircle className="h-5 w-5 text-yellow-600" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900">Two-Factor Auth</h4>
-                          <p className="text-sm text-gray-500">Not enabled</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setActiveSection("mfa")}
-                        className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-2"
-                      >
-                        Enable
-                        <ArrowRight className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </SecurityCard>
-
-                <SecurityCard
-                  title="Recent Activity"
-                  description="Your recent security-related activities"
-                  icon={Clock}
-                >
-                  <div className="space-y-3">
-                    {Array.isArray(sessions) && sessions.map((session) => (
-                      <div key={session._id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                        {getDeviceIcon(session.device)}
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">
-                            {getDeviceName(session)}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(session.createdAt).toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </SecurityCard>
-              </>
-            )}
-
             {/* Password Section */}
             {activeSection === "password" && (
               <SecurityCard
@@ -477,7 +233,6 @@ const SecurityPage = () => {
                         {errors.newPassword.message}
                       </p>
                     )}
-                    <PasswordStrength password={newPassword} />
                   </div>
 
                   <div>
@@ -497,14 +252,12 @@ const SecurityPage = () => {
                     )}
                   </div>
 
-                  <PasswordRequirements password={newPassword} />
-
                   <button
                     type="submit"
-                    disabled={changePasswordMutation.isPending || setPasswordMutation.isPending}
+                    disabled={passwordMutation.isPending}
                     className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {changePasswordMutation.isPending || setPasswordMutation.isPending
+                    {passwordMutation.isPending
                       ? (user?.isPasswordSet ? "Changing..." : "Setting...")
                       : (user?.isPasswordSet ? "Change Password" : "Set Password")}
                   </button>
@@ -529,11 +282,11 @@ const SecurityPage = () => {
                       Logout Current Session
                     </button>
                     <button
-                      onClick={() => logoutAllMutation.mutate()}
-                      disabled={logoutAllMutation.isPending}
+                      onClick={() => logoutMutation.mutate()}
+                      disabled={logoutMutation.isPending}
                       className="text-red-600 hover:text-red-700 text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {logoutAllMutation.isPending ? (
+                      {logoutMutation.isPending ? (
                         <>
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
                           Logging out...
@@ -552,129 +305,47 @@ const SecurityPage = () => {
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                     </div>
                   ) : sessions?.length > 0 ? (
-                    sessions?.map((session) => (
-                      <div
-                        key={session._id}
-                        className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="bg-white p-2 rounded-lg">
-                            {getDeviceIcon(session.device)}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">
-                                {getDeviceName(session)}
-                              </span>
-                              {session.isCurrent && (
-                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                                  Current
-                                </span>
-                              )}
+                    sessions?.map((session) => {
+                      const { name, icon } = getDeviceInfo(session);
+                      return (
+                        <div key={session._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-4">
+                            <div className="bg-white p-2 rounded-lg">
+                              {icon}
                             </div>
-                            <div className="text-sm text-gray-500 mt-1">
+                            <div>
                               <div className="flex items-center gap-2">
-                                <Globe className="h-4 w-4" />
-                                {session.address?.city && session.address?.country 
-                                  ? `${session.address.city}, ${session.address.country}`
-                                  : "Unknown Location"}
+                                <span className="font-medium">{name}</span>
+                                {session.isCurrent && (
+                                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                                    Current
+                                  </span>
+                                )}
                               </div>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Clock className="h-4 w-4" />
-                                Last active: {new Date(session.createdAt).toLocaleString()}
+                              <div className="text-sm text-gray-500 mt-1">
+                                <div className="flex items-center gap-2">
+                                  Last active: {new Date(session.createdAt).toLocaleString()}
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                        {!session.isCurrent && (
-                          <button
-                            onClick={() => logoutSessionMutation.mutate(session._id)}
-                            disabled={logoutSessionMutation.isPending && logoutSessionMutation.variables === session._id}
-                            className="text-gray-400 hover:text-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {logoutSessionMutation.isPending && logoutSessionMutation.variables === session._id ? (
-                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-600"></div>
-                            ) : (
+                          {!session.isCurrent && (
+                            <button
+                              onClick={() => logoutMutation.mutate(session._id)}
+                              disabled={logoutMutation.isPending}
+                              className="text-gray-400 hover:text-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
                               <XCircle className="h-5 w-5" />
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    ))
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })
                   ) : (
                     <div className="text-center py-8 text-gray-500">
                       No active sessions found
                     </div>
                   )}
-                </div>
-              </SecurityCard>
-            )}
-
-            {/* MFA Section */}
-            {activeSection === "mfa" && (
-              <SecurityCard
-                title="Two-Factor Authentication"
-                description="Add an extra layer of security to your account"
-                icon={Smartphone}
-              >
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
-                    <div>
-                      <h3 className="font-medium text-yellow-800">
-                        Coming Soon
-                      </h3>
-                      <p className="text-yellow-700 mt-1 text-sm">
-                        Two-factor authentication will be available soon. Stay tuned for updates!
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-4">
-                      <div className="bg-white p-2 rounded-lg">
-                        <Smartphone className="h-6 w-6 text-gray-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-gray-900">
-                          Two-Factor Authentication
-                        </h3>
-                        <p className="text-sm text-gray-500 mt-1">
-                          Add an extra layer of security to your account
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-500">Coming Soon</span>
-                      <div className="w-10 h-6 bg-gray-200 rounded-full relative cursor-not-allowed">
-                        <div className="w-5 h-5 bg-white rounded-full absolute left-0.5 top-0.5"></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-4">
-                      <div className="bg-white p-2 rounded-lg">
-                        <SmartphoneIcon className="h-6 w-6 text-gray-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-gray-900">
-                          Backup Codes
-                        </h3>
-                        <p className="text-sm text-gray-500 mt-1">
-                          Generate backup codes for account recovery
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-500">Coming Soon</span>
-                      <div className="w-10 h-6 bg-gray-200 rounded-full relative cursor-not-allowed">
-                        <div className="w-5 h-5 bg-white rounded-full absolute left-0.5 top-0.5"></div>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </SecurityCard>
             )}
@@ -705,12 +376,12 @@ const SecurityPage = () => {
               <button
                 onClick={() => {
                   setShowLogoutConfirm(false);
-                  logoutCurrentMutation.mutate();
+                  logoutMutation.mutate();
                 }}
-                disabled={logoutCurrentMutation.isPending}
+                disabled={logoutMutation.isPending}
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {logoutCurrentMutation.isPending ? (
+                {logoutMutation.isPending ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                     Logging out...
