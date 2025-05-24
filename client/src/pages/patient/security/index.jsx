@@ -302,13 +302,11 @@ const SecurityPage = () => {
                           <p className="text-sm text-gray-500">Not enabled</p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => setActiveSection("password")}
-                        className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-2"
+                      <p
+                        className="text-gray-400  text-sm font-medium flex items-center gap-2"
                       >
-                        Enable
-                        <ArrowRight className="h-4 w-4" />
-                      </button>
+                        Coming Soon
+                      </p>
                     </div>
                   </div>
                 </SecurityCard>
