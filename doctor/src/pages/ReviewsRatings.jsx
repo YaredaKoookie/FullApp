@@ -1,13 +1,11 @@
 import React from "react";
 import { DoctorLayout } from "../layouts/DoctorLayout";
-
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
 import { Listbox, Transition } from "@headlessui/react";
 import {
   Star,
   Filter,
-  Calendar,
   Search,
   User,
   ChevronDown,
@@ -16,23 +14,30 @@ import {
   Edit2,
   Clock,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { adminAPI } from "@/lib/api";
 import toast from "react-hot-toast";
 
 const ReviewsRatings = () => {
-  // const fetchReviews = async (params = {}) => {
-  //   const queryString = new URLSearchParams(params).toString();
-  //   const response = await fetch(`/api/doctors/reviews?${queryString}`);
-  //   if (!response.ok) throw new Error("Failed to fetch reviews");
-  //   return response.json();
-  // };
-  const { data: fetchReviews } = useQuery({
+  const [filters, setFilters] = useState({
+    rating: "",
+    tags: [],
+    search: "",
+    sort: "-createdAt",
+  });
+
+  // Pagination state
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 10,
+  });
+
+  const { data: currentUser } = useQuery({
     queryKey: ["currentUser"],
     queryFn: async () => {
-      console.log("Fetching current user...");
-      const response = await adminAPI.reviews.getReviews();
-      console.log("Current user response:", response);
+      const response = await adminAPI.auth.getCurrentUser();
       return response;
     },
     onError: (error) => {
@@ -41,21 +46,71 @@ const ReviewsRatings = () => {
     },
   });
 
-  const [filters, setFilters] = useState({
-    rating: "",
-    tags: [],
-    anonymous: false,
-    startDate: "",
-    endDate: "",
-    search: "",
-    sort: "-createdAt",
+  // Get current doctor's ID
+  const { data: currentDoctor } = useQuery({
+    queryKey: ["currentDoctor"],
+    queryFn: async () => {
+      if (!currentUser?.data?.data?.user?._id) {
+        throw new Error("User information not available");
+      }
+      const response = await adminAPI.doctor.getCurrentDoctor();
+      return response;
+    },
+    enabled: !!currentUser?.data?.data?.user?._id,
+    onError: (error) => {
+      console.error("Error fetching current doctor:", error);
+      toast.error("Failed to fetch doctor information");
+    },
   });
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["reviews", filters],
-    queryFn: () => fetchReviews(filters),
-    keepPreviousData: true,
+  const {
+    data: reviewsData,
+    isLoading: isReviewsLoading,
+    isFetching: isFetchingReviews,
+    error: reviewsError,
+  } = useQuery({
+    queryKey: ["reviews", currentDoctor?.data?.data?.doctor?._id, filters, pagination],
+    queryFn: async () => {
+      if (!currentDoctor?.data?.data?.doctor?._id) {
+        throw new Error("No doctor ID available");
+      }
+      const response = await adminAPI.reviews.getReviews(
+        currentDoctor.data.data.doctor._id,
+        {
+          ...filters,
+          page: pagination.page,
+          limit: pagination.pageSize,
+        }
+      );
+      return response.data;
+    },
+    enabled: !!currentDoctor?.data?.data?.doctor?._id,
+    placeholderData: keepPreviousData,
   });
+
+  // Local search implementation
+  const filteredReviews = useMemo(() => {
+    if (!reviewsData?.reviews) return [];
+    
+    return reviewsData.reviews.filter(review => {
+      // Search by review text or patient name
+      const matchesSearch = !filters.search || 
+        review.reviewText?.toLowerCase().includes(filters.search.toLowerCase()) ||
+        (review.patient && !review.anonymous && 
+          `${review.patient.firstName} ${review.patient.lastName}`
+            .toLowerCase()
+            .includes(filters.search.toLowerCase()));
+      
+      // Filter by rating if selected
+      const matchesRating = !filters.rating || review.rating === parseInt(filters.rating);
+      
+      // Filter by tags if any selected
+      const matchesTags = filters.tags.length === 0 || 
+        filters.tags.every(tag => review.tags.includes(tag));
+      
+      return matchesSearch && matchesRating && matchesTags;
+    });
+  }, [reviewsData?.reviews, filters]);
 
   const toggleTag = (tag) => {
     setFilters((prev) => ({
@@ -70,13 +125,28 @@ const ReviewsRatings = () => {
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
-  if (isError)
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  if (isReviewsLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Clock className="animate-spin w-8 h-8 text-blue-500 mr-2" />
+        <span>Loading reviews...</span>
+      </div>
+    );
+  }
+
+  if (reviewsError) {
     return (
       <div className="flex items-center justify-center h-64">
         <AlertCircle className="w-8 h-8 text-red-500 mr-2" />
         <span>Failed to load reviews</span>
       </div>
     );
+  }
+
   return (
     <DoctorLayout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -96,7 +166,7 @@ const ReviewsRatings = () => {
                 </span>
               </div>
               <div className="text-3xl font-bold text-gray-900 mt-2">
-                {data?.averageRating?.toFixed(1) || "0.0"}
+                {reviewsData?.averageRating?.toFixed(1) || "0.0"}
               </div>
             </div>
 
@@ -109,7 +179,7 @@ const ReviewsRatings = () => {
                 </span>
               </div>
               <div className="text-3xl font-bold text-gray-900 mt-2">
-                {data?.totalReviews || 0}
+                {reviewsData?.totalReviews || 0}
               </div>
             </div>
 
@@ -122,7 +192,7 @@ const ReviewsRatings = () => {
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {data?.topTags?.map((tag) => (
+                {reviewsData?.topTags?.map((tag) => (
                   <button
                     key={tag}
                     onClick={() => toggleTag(tag)}
@@ -140,9 +210,9 @@ const ReviewsRatings = () => {
           </div>
         </div>
 
-        {/* Filter Bar */}
+        {/* Filter Bar - Simplified */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Rating Filter */}
             <Listbox
               value={filters.rating}
@@ -226,36 +296,6 @@ const ReviewsRatings = () => {
               </div>
             </Listbox>
 
-            {/* Date Range */}
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <Calendar className="w-5 h-5 text-gray-400" />
-                </div>
-                <input
-                  type="date"
-                  className="bg-white border rounded-lg pl-10 p-2 w-full focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  value={filters.startDate}
-                  onChange={(e) =>
-                    handleFilterChange("startDate", e.target.value)
-                  }
-                />
-              </div>
-              <div className="relative flex-1">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <Calendar className="w-5 h-5 text-gray-400" />
-                </div>
-                <input
-                  type="date"
-                  className="bg-white border rounded-lg pl-10 p-2 w-full focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  value={filters.endDate}
-                  onChange={(e) =>
-                    handleFilterChange("endDate", e.target.value)
-                  }
-                />
-              </div>
-            </div>
-
             {/* Search */}
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -269,153 +309,159 @@ const ReviewsRatings = () => {
                 onChange={(e) => handleFilterChange("search", e.target.value)}
               />
             </div>
-
-            {/* Anonymous Toggle */}
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="anonymousFilter"
-                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                checked={filters.anonymous}
-                onChange={(e) =>
-                  handleFilterChange("anonymous", e.target.checked)
-                }
-              />
-              <label
-                htmlFor="anonymousFilter"
-                className="ml-2 block text-sm text-gray-700"
-              >
-                Anonymous Only
-              </label>
-            </div>
           </div>
         </div>
 
         {/* Review List */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          {isLoading ? (
+          {(isReviewsLoading || isFetchingReviews) ? (
             <div className="p-8 text-center text-gray-500 flex items-center justify-center">
               <Clock className="animate-spin w-5 h-5 mr-2" />
               Loading reviews...
             </div>
-          ) : data?.reviews?.length === 0 ? (
+          ) : filteredReviews?.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               No reviews found matching your criteria
             </div>
           ) : (
-            <ul className="divide-y divide-gray-200">
-              {data?.reviews?.map((review) => (
-                <li
-                  key={review._id}
-                  className="p-6 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center mb-3">
-                        <div className="flex mr-3">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`w-5 h-5 ${
-                                i < review.rating
-                                  ? "text-yellow-400 fill-yellow-400"
-                                  : "text-gray-300"
-                              }`}
-                            />
-                          ))}
+            <>
+              <ul className="divide-y divide-gray-200">
+                {filteredReviews?.map((review) => (
+                  <li
+                    key={review._id}
+                    className="p-6 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center mb-3">
+                          <div className="flex mr-3">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`w-5 h-5 ${
+                                  i < review.rating
+                                    ? "text-yellow-400 fill-yellow-400"
+                                    : "text-gray-300"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          {review.edited && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              <Edit2 className="w-3 h-3 mr-1" />
+                              Edited
+                            </span>
+                          )}
                         </div>
-                        {review.edited && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                            <Edit2 className="w-3 h-3 mr-1" />
-                            Edited
-                          </span>
+
+                        <div className="flex items-center mb-3">
+                          {review.patient && !review.anonymous ? (
+                            <>
+                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-200 mr-2 overflow-hidden">
+                                {review.patient.profilePhoto ? (
+                                  <img
+                                    src={review.patient.profilePhoto}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <User className="w-4 h-4 text-gray-500" />
+                                )}
+                              </div>
+                              <span className="font-medium text-gray-900">
+                                {review.patient.firstName}{" "}
+                                {review.patient.lastName}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-gray-500">
+                              <User className="w-4 h-4 inline mr-1" />
+                              Anonymous Patient
+                            </span>
+                          )}
+                        </div>
+
+                        {review.appointment && (
+                          <div className="text-sm text-gray-500 mb-3">
+                            <Clock className="w-4 h-4 inline mr-1" />
+                            {new Date(
+                              review.appointment.date
+                            ).toLocaleDateString()}
+                            {review.appointment.serviceType &&
+                              ` • ${review.appointment.serviceType}`}
+                          </div>
+                        )}
+
+                        {review.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {review.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {review.reviewText && (
+                          <p className="text-gray-700 mb-3 whitespace-pre-line">
+                            {review.reviewText}
+                          </p>
                         )}
                       </div>
 
-                      <div className="flex items-center mb-3">
-                        {review.patient && !review.anonymous ? (
-                          <>
-                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-200 mr-2 overflow-hidden">
-                              {review.patient.profilePhoto ? (
-                                <img
-                                  src={review.patient.profilePhoto}
-                                  alt=""
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <User className="w-4 h-4 text-gray-500" />
-                              )}
-                            </div>
-                            <span className="font-medium text-gray-900">
-                              {review.patient.firstName}{" "}
-                              {review.patient.lastName}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-gray-500">
-                            <User className="w-4 h-4 inline mr-1" />
-                            Anonymous Patient
-                          </span>
-                        )}
+                      <div className="text-sm text-gray-500 mt-2 sm:mt-0">
+                        {new Date(review.createdAt).toLocaleDateString()}
                       </div>
+                    </div>
 
-                      {review.appointment && (
-                        <div className="text-sm text-gray-500 mb-3">
-                          <Clock className="w-4 h-4 inline mr-1" />
-                          {new Date(
-                            review.appointment.date
-                          ).toLocaleDateString()}
-                          {review.appointment.serviceType &&
-                            ` • ${review.appointment.serviceType}`}
+                    {review.response?.byDoctor && (
+                      <div className="mt-4 pl-4 border-l-4 border-blue-200 bg-blue-50 p-3 rounded">
+                        <div className="font-semibold text-blue-800 mb-1 flex items-center">
+                          <MessageSquare className="w-4 h-4 mr-1" />
+                          Your Response
                         </div>
-                      )}
-
-                      {review.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {review.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      {review.reviewText && (
-                        <p className="text-gray-700 mb-3 whitespace-pre-line">
-                          {review.reviewText}
+                        <p className="text-blue-700 whitespace-pre-line">
+                          {review.response.byDoctor}
                         </p>
-                      )}
-                    </div>
-
-                    <div className="text-sm text-gray-500 mt-2 sm:mt-0">
-                      {new Date(review.createdAt).toLocaleDateString()}
-                    </div>
-                  </div>
-
-                  {review.response?.byDoctor && (
-                    <div className="mt-4 pl-4 border-l-4 border-blue-200 bg-blue-50 p-3 rounded">
-                      <div className="font-semibold text-blue-800 mb-1 flex items-center">
-                        <MessageSquare className="w-4 h-4 mr-1" />
-                        Your Response
+                        {review.response.respondedAt && (
+                          <div className="text-xs text-blue-600 mt-1">
+                            {new Date(
+                              review.response.respondedAt
+                            ).toLocaleDateString()}
+                          </div>
+                        )}
                       </div>
-                      <p className="text-blue-700 whitespace-pre-line">
-                        {review.response.byDoctor}
-                      </p>
-                      {review.response.respondedAt && (
-                        <div className="text-xs text-blue-600 mt-1">
-                          {new Date(
-                            review.response.respondedAt
-                          ).toLocaleDateString()}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
+                    )}
+                  </li>
+                ))}
+              </ul>
+
+              {/* Pagination Controls */}
+              <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
+                <button
+                  onClick={() => handlePageChange(pagination.page - 1)}
+                  disabled={pagination.page === 1}
+                  className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-5 h-5 mr-1" />
+                  Previous
+                </button>
+                <span className="text-sm text-gray-700">
+                  Page {pagination.page} of {Math.ceil(reviewsData.totalReviews / pagination.pageSize)}
+                </span>
+                <button
+                  onClick={() => handlePageChange(pagination.page + 1)}
+                  disabled={pagination.page * pagination.pageSize >= reviewsData.totalReviews}
+                  className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                  <ChevronRight className="w-5 h-5 ml-1" />
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>

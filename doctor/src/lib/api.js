@@ -114,7 +114,7 @@ const videoCall = {
   getToken: (channel) => api.get(`/video/token`, { params: { channel } }),
 };
 const reviews = {
-  getReviews: (doctorId) => api.get(`/doctors/${doctorId}/reviews`),
+  getReviews: (doctorId, filters) => api.get(`/doctors/${doctorId}/reviews`, { params: filters }),
 };
 // Admin API client
 export const adminAPI = {

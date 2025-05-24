@@ -32,8 +32,10 @@ const AppointmentVideoCall = () => {
     const [isCameraOn, setIsCameraOn] = useState(true);
     const [callDuration, setCallDuration] = useState(0);
     const [isRemoteUserJoined, setIsRemoteUserJoined] = useState(false);
-    const [localTrack, setLocalTrack] = useState(null);
-    const [screenTrack, setScreenTrack] = useState(null);
+    const [localAudioTrack, setLocalAudioTrack] = useState(null);
+    const [localVideoTrack, setLocalVideoTrack] = useState(null);
+    const [remoteAudioTrack, setRemoteAudioTrack] = useState(null);
+    const [remoteVideoTrack, setRemoteVideoTrack] = useState(null);
     const [isScreenSharing, setIsScreenSharing] = useState(false);
     const [isLeaving, setIsLeaving] = useState(false);
     const [isLocalVideoExpanded, setIsLocalVideoExpanded] = useState(false);
@@ -55,58 +57,141 @@ const AppointmentVideoCall = () => {
         return () => clearInterval(timer);
     }, [isRemoteUserJoined]);
 
-    console.log("agora data: ", data)
     useEffect(() => {
         if (!data) return;
 
         async function joinChannel() {
             try {
+                // Join the channel
                 await client.join(AGORA_APP_ID, channel, data.token, data.uid);
-                const track = await AgoraRTC.createCameraVideoTrack();
-                setLocalTrack(track);
-                track.play(localVideoRef.current);
-                await client.publish([track]);
+                console.log("Successfully joined channel:", channel);
 
+                // Create and publish local tracks with explicit audio configuration
+                const videoTrack = await AgoraRTC.createCameraVideoTrack();
+                const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+                    encoderConfig: {
+                        sampleRate: 48000,
+                        stereo: true,
+                        bitrate: 128,
+                    },
+                    AEC: true, // Acoustic Echo Cancellation
+                    AGC: true, // Automatic Gain Control
+                    ANS: true, // Automatic Noise Suppression
+                });
+                
+                setLocalVideoTrack(videoTrack);
+                setLocalAudioTrack(audioTrack);
+                
+                // Play local video
+                videoTrack.play(localVideoRef.current);
+                
+                // Publish both tracks
+                await client.publish([videoTrack, audioTrack]);
+                console.log("Published local tracks");
+
+                // Handle existing users
+                const existingUsers = client.remoteUsers;
+                console.log("Existing users:", existingUsers.length);
+                
+                for (const user of existingUsers) {
+                    await handleRemoteUser(user);
+                }
+
+                // Handle new users joining
+                client.on("user-joined", async (user) => {
+                    console.log("New user joined:", user.uid);
+                    await handleRemoteUser(user);
+                });
+
+                // Handle user publishing
                 client.on("user-published", async (user, mediaType) => {
-                    await client.subscribe(user, mediaType);
-                    if(mediaType === "video"){
-                        const remoteTrack = user.videoTrack;
-                        remoteTrack.play(remoteVideoRef.current);
-                        setIsRemoteUserJoined(true);
+                    console.log("User published:", user.uid, mediaType);
+                    await handleRemoteUser(user);
+                });
+
+                // Handle user leaving
+                client.on("user-left", (user) => {
+                    console.log("User left:", user.uid);
+                    setIsRemoteUserJoined(false);
+                    if (remoteVideoTrack) {
+                        remoteVideoTrack.stop();
+                        setRemoteVideoTrack(null);
+                    }
+                    if (remoteAudioTrack) {
+                        remoteAudioTrack.stop();
+                        setRemoteAudioTrack(null);
                     }
                 });
 
-                client.on("user-unpublished", () => {
-                    setIsRemoteUserJoined(false);
-                });
             } catch (error) {
-                console.error("Error joining channel:", error);
+                console.error("Error in joinChannel:", error);
+            }
+        }
+
+        async function handleRemoteUser(user) {
+            try {
+                // Always try to subscribe to audio first
+                if (user.hasAudio) {
+                    console.log("Subscribing to remote audio");
+                    await client.subscribe(user, "audio");
+                    const audioTrack = user.audioTrack;
+                    setRemoteAudioTrack(audioTrack);
+                    // Play audio with explicit configuration
+                    audioTrack.play({
+                        volume: 100,
+                        loop: false,
+                    });
+                    console.log("Remote audio track playing");
+                }
+                
+                if (user.hasVideo) {
+                    console.log("Subscribing to remote video");
+                    await client.subscribe(user, "video");
+                    const videoTrack = user.videoTrack;
+                    setRemoteVideoTrack(videoTrack);
+                    videoTrack.play(remoteVideoRef.current);
+                    setIsRemoteUserJoined(true);
+                }
+            } catch (error) {
+                console.error("Error handling remote user:", error);
             }
         }
 
         joinChannel();
 
         return () => {
-            if (localTrack) {
-                localTrack.close();
+            // Cleanup
+            if (localVideoTrack) {
+                localVideoTrack.close();
             }
-            if (screenTrack) {
-                screenTrack.close();
+            if (localAudioTrack) {
+                localAudioTrack.close();
+            }
+            if (remoteVideoTrack) {
+                remoteVideoTrack.stop();
+            }
+            if (remoteAudioTrack) {
+                remoteAudioTrack.stop();
             }
             client.leave();
         };
     }, [data, channel]);
 
     const toggleMic = async () => {
-        if (localTrack) {
-            await localTrack.setEnabled(!isMicOn);
-            setIsMicOn(!isMicOn);
+        if (localAudioTrack) {
+            try {
+                await localAudioTrack.setEnabled(!isMicOn);
+                setIsMicOn(!isMicOn);
+                console.log("Microphone toggled:", !isMicOn);
+            } catch (error) {
+                console.error("Error toggling microphone:", error);
+            }
         }
     };
 
     const toggleCamera = async () => {
-        if (localTrack) {
-            await localTrack.setEnabled(!isCameraOn);
+        if (localVideoTrack) {
+            await localVideoTrack.setEnabled(!isCameraOn);
             setIsCameraOn(!isCameraOn);
         }
     };
@@ -115,10 +200,10 @@ const AppointmentVideoCall = () => {
         try {
             if (isScreenSharing) {
                 // Stop screen sharing
-                if (screenTrack) {
-                    await client.unpublish([screenTrack]);
-                    screenTrack.close();
-                    setScreenTrack(null);
+                if (remoteVideoTrack) {
+                    await client.unpublish([remoteVideoTrack]);
+                    remoteVideoTrack.stop();
+                    setRemoteVideoTrack(null);
                 }
                 setIsScreenSharing(false);
                 setActiveView('camera');
@@ -133,8 +218,8 @@ const AppointmentVideoCall = () => {
                         bitrateMax: 3000,
                     },
                 });
-                setScreenTrack(track);
-                track.play(screenShareRef.current);
+                setRemoteVideoTrack(track);
+                track.play(remoteVideoRef.current);
                 await client.publish([track]);
                 setIsScreenSharing(true);
                 setActiveView('screen');
@@ -143,7 +228,7 @@ const AppointmentVideoCall = () => {
                 track.on("ended", async () => {
                     await client.unpublish([track]);
                     track.close();
-                    setScreenTrack(null);
+                    setRemoteVideoTrack(null);
                     setIsScreenSharing(false);
                     setActiveView('camera');
                 });
@@ -161,11 +246,17 @@ const AppointmentVideoCall = () => {
 
     const endCall = async () => {
         setIsLeaving(true);
-        if (localTrack) {
-            localTrack.close();
+        if (localVideoTrack) {
+            localVideoTrack.close();
         }
-        if (screenTrack) {
-            screenTrack.close();
+        if (localAudioTrack) {
+            localAudioTrack.close();
+        }
+        if (remoteVideoTrack) {
+            remoteVideoTrack.stop();
+        }
+        if (remoteAudioTrack) {
+            remoteAudioTrack.stop();
         }
         await client.leave();
         navigate('/');
@@ -224,7 +315,7 @@ const AppointmentVideoCall = () => {
                                 <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
                                     <div className="text-center">
                                         <User className="w-16 h-16 mx-auto mb-4 text-gray-600" />
-                                        <p className="text-gray-400">Waiting for patient to join...</p>
+                                        <p className="text-gray-400">Waiting for doctor to join...</p>
                                     </div>
                                 </div>
                             )}
@@ -375,3 +466,6 @@ export const VideoCall = () => {
       </DoctorLayout>
     );
   };
+
+
+  

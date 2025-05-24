@@ -5,7 +5,7 @@ import { Dashboard } from './pages/Dashboard';
 import Users from './pages/Users';
 import { Appointments } from './pages/Appointments';
 import DoctorManagement from './pages/DoctorManagement';
-import {Patients} from './pages/Patients';
+import Patients from './pages/Patients';
 import Schedule from './pages/Schedule';
 import ProfileManagement from './pages/ProfileManagement';
 import ReviewsRatings from './pages/ReviewsRatings';

@@ -19,7 +19,7 @@ export const getPatients = async (req, res) => {
     // Build query for completed appointments with this doctor
     const appointmentQuery = {
       doctor: doctorId,
-      status: 'confirmed'
+      status: 'completed'
     };
 
     // Get patient IDs with completed appointments
@@ -183,6 +183,13 @@ export const getPatientHistory = async (req, res) => {
       throw new ServerError('Patient not found', 404);
     }
 
+    // Get medical history
+    const medicalHistory = await MedicalHistory.findOne({ patient: patient._id })
+      .populate('patient')
+      .populate('conditions.addedBy')
+      .populate('currentMedications.addedBy');
+
+    // Get appointments (keeping your existing logic)
     const appointments = await Appointment.find({
       patient: patient._id,
       doctor: doctor._id,
@@ -194,6 +201,13 @@ export const getPatientHistory = async (req, res) => {
     res.json({
       success: true,
       data: {
+        patient: {
+          id: patient._id,
+          name: patient.name,
+          dob: patient.dob,
+          // other basic info
+        },
+        medicalHistory: medicalHistory || null, // Handle case where no history exists
         appointments: appointments.map(appointment => ({
           date: appointment.slot.start,
           reason: appointment.reason,
