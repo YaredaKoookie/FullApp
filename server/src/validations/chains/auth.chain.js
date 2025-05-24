@@ -7,16 +7,31 @@ export const validateEmailToken = [
 
 export const validateChangePassword = [
   body("currentPassword")
-    .notEmpty()
-    .withMessage("Current password is required"),
+    .notEmpty().withMessage("Current password is required")
+    .isLength({ min: 8 }).withMessage("Current password must be at least 8 characters"),
+
   body("newPassword")
-    .notEmpty()
-    .withMessage("New password is required")
-    .isLength({ min: 8 })
-    .withMessage("Password must be at least 8 characters long")
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/)
-    .withMessage("Password must contain at least one uppercase letter, one lowercase letter, one number and one special character"),
-]; 
+    .notEmpty().withMessage("New password is required")
+    .isLength({ min: 12 }).withMessage("Password must be at least 12 characters long")
+    .matches(/[A-Z]/).withMessage("Must contain at least one uppercase letter (A-Z)")
+    .matches(/[a-z]/).withMessage("Must contain at least one lowercase letter (a-z)")
+    .matches(/[0-9]/).withMessage("Must contain at least one number (0-9)")
+    // Expanded special characters: !@#$%^&*()_+\-=[\]{};':"\\|,.<>/?
+    .matches(/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/)
+      .withMessage("Must contain at least one special character (!@#$%^&* etc.)")
+    .not().matches(/^$|\s+/).withMessage("Password cannot contain spaces")
+    .custom((value, { req }) => value !== req.body.currentPassword)
+      .withMessage("New password must be different from current password")
+    // Additional security checks
+    .custom(value => !/(.)\1\1/.test(value))
+      .withMessage("Password cannot contain 3 repeating characters in a row")
+    .isLength({ max: 128 }).withMessage("Password cannot exceed 128 characters"),
+
+  body("confirmPassword")
+    .notEmpty().withMessage("Please confirm your new password")
+    .custom((value, { req }) => value === req.body.newPassword)
+      .withMessage("Passwords do not match")
+];
 
 export const validateSetPassword = [
   body("password")

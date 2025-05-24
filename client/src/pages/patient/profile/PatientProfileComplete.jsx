@@ -23,17 +23,6 @@ const genderOptions = [
   { id: 3, name: "Other", value: "other" },
 ];
 
-const bloodTypeOptions = [
-  { id: 1, name: "A+", value: "A+" },
-  { id: 2, name: "A-", value: "A-" },
-  { id: 3, name: "B+", value: "B+" },
-  { id: 4, name: "B-", value: "B-" },
-  { id: 5, name: "AB+", value: "AB+" },
-  { id: 6, name: "AB-", value: "AB-" },
-  { id: 7, name: "O+", value: "O+" },
-  { id: 8, name: "O-", value: "O-" },
-  { id: 9, name: "Unknown", value: "" },
-];
 
 const locationTypeOptions = [
   { id: 1, name: "Home", value: "home" },
@@ -64,7 +53,6 @@ export default function ProfileCompletion() {
       lastName: "",
       gender: "",
       phone: "",
-      bloodType: "",
       dateOfBirth: "",
       emergencyContact: [
         {
@@ -118,7 +106,6 @@ export default function ProfileCompletion() {
     formData.append("lastName", data.lastName);
     formData.append("gender", data.gender);
     formData.append("phone", data.phone);
-    formData.append("bloodType", data.bloodType);
     formData.append("dateOfBirth", data.dateOfBirth);
     formData.append("emergencyContact", JSON.stringify(data.emergencyContact));
     formData.append("location", JSON.stringify(data.location));
@@ -407,74 +394,6 @@ export default function ProfileCompletion() {
                       Gender is required
                     </p>
                   )}
-                </div>
-
-                {/* Blood Type */}
-                <div className="sm:col-span-3">
-                  <label
-                    htmlFor="bloodType"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Blood Type
-                  </label>
-                  <Listbox
-                    value={watch("bloodType")}
-                    onChange={(value) => setValue("bloodType", value)}
-                  >
-                    {({ open }) => (
-                      <>
-                        <div className="mt-1 relative">
-                          <Listbox.Button className="relative w-full bg-white border border-gray-300 rounded-md shadow-sm pl-3 pr-10 py-2 text-left cursor-default focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                            <span className="block truncate">
-                              {bloodTypeOptions.find(
-                                (b) => b.value === watch("bloodType")
-                              )?.name || "Select blood type"}
-                            </span>
-                            <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                              <ChevronDown className="h-5 w-5 text-gray-400" />
-                            </span>
-                          </Listbox.Button>
-
-                          <Transition
-                            show={open}
-                            leave="transition ease-in duration-100"
-                            leaveFrom="opacity-100"
-                            leaveTo="opacity-0"
-                          >
-                            <Listbox.Options className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
-                              {bloodTypeOptions.map((bloodType) => (
-                                <Listbox.Option
-                                  key={bloodType.id}
-                                  className={({ active }) =>
-                                    `${
-                                      active
-                                        ? "text-white bg-blue-600"
-                                        : "text-gray-900"
-                                    } cursor-default select-none relative py-2 pl-3 pr-9`
-                                  }
-                                  value={bloodType.value}
-                                >
-                                  {({ selected }) => (
-                                    <>
-                                      <span
-                                        className={`${
-                                          selected
-                                            ? "font-semibold"
-                                            : "font-normal"
-                                        } block truncate`}
-                                      >
-                                        {bloodType.name}
-                                      </span>
-                                    </>
-                                  )}
-                                </Listbox.Option>
-                              ))}
-                            </Listbox.Options>
-                          </Transition>
-                        </div>
-                      </>
-                    )}
-                  </Listbox>
                 </div>
 
                 {/* Phone */}

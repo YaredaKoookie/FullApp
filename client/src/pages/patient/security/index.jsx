@@ -21,19 +21,35 @@ import {
 import { toast } from "react-toastify";
 import apiClient from "@api/apiClient";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
 const passwordSchema = z.object({
-  currentPassword: z.string().min(1, "Current password is required").optional(),
+  currentPassword: z.string()
+    .min(1, "Current password is required")
+    .optional(),
   newPassword: z.string()
     .min(8, "Password must be at least 8 characters")
     .regex(/[A-Z]/, "Must contain at least one uppercase letter")
     .regex(/[a-z]/, "Must contain at least one lowercase letter")
     .regex(/[0-9]/, "Must contain at least one number")
-    .regex(/[@$#!%*?&]/, "Must contain at least one special character"),
+    .regex(/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/, "Must contain at least one special character"),
   confirmPassword: z.string(),
-}).refine(data => data.newPassword === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
+}).superRefine((data, ctx) => {
+  if (data.newPassword !== data.confirmPassword) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Passwords don't match",
+      path: ["confirmPassword"]
+    });
+  }
+  
+  if (data.isPasswordSet && !data.currentPassword) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Current password is required",
+      path: ["currentPassword"]
+    });
+  }
 });
 
 const PasswordRequirement = ({ met, text }) => (
@@ -48,6 +64,32 @@ const PasswordRequirement = ({ met, text }) => (
     </span>
   </div>
 );
+
+const PasswordRequirements = ({ password = "" }) => {
+  const requirements = [
+    { met: password.length >= 8, text: "At least 8 characters long" },
+    { met: /[A-Z]/.test(password), text: "At least one uppercase letter (A-Z)" },
+    { met: /[a-z]/.test(password), text: "At least one lowercase letter (a-z)" },
+    { met: /[0-9]/.test(password), text: "At least one number (0-9)" },
+    { met: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password), text: "At least one special character" },
+  ];
+
+  return (
+    <div className="bg-blue-50 p-4 rounded-lg mt-4">
+      <div className="flex items-start gap-3">
+        <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+        <div className="space-y-2">
+          <h4 className="font-medium text-blue-900">Password Requirements</h4>
+          <div className="space-y-1">
+            {requirements.map((req, index) => (
+              <PasswordRequirement key={index} met={req.met} text={req.text} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const SecurityCard = ({ title, description, icon: Icon, children }) => (
   <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -71,6 +113,8 @@ const SecurityPage = () => {
   const queryClient = useQueryClient();
   const [activeSection, setActiveSection] = useState("overview");
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const {logout } = useAuth();
+
 
   // User data query
   const { data: user } = useQuery({
@@ -108,7 +152,7 @@ const SecurityPage = () => {
     mutationFn: (data) => {
       const endpoint = user?.isPasswordSet ? "/auth/change-password" : "/auth/set-password";
       const payload = user?.isPasswordSet 
-        ? { currentPassword: data.currentPassword, newPassword: data.newPassword }
+        ? { currentPassword: data.currentPassword, newPassword: data.newPassword, confirmPassword: data.confirmPassword }
         : { password: data.newPassword };
       
       return apiClient.post(endpoint, payload);
@@ -119,7 +163,7 @@ const SecurityPage = () => {
       queryClient.invalidateQueries(["user"]);
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || "Failed to update password");
+      toast.error(error.message || "Failed to update password");
     },
   });
 
@@ -132,6 +176,7 @@ const SecurityPage = () => {
     onSuccess: () => {
       toast.success("Logged out successfully");
       queryClient.invalidateQueries(["sessions"]);
+      logout();
     },
     onError: (error) => {
       toast.error(error.message || "Failed to logout");
@@ -180,6 +225,7 @@ const SecurityPage = () => {
     { met: /[0-9]/.test(newPassword), text: "At least one number" },
     { met: /[@$!%*?&]/.test(newPassword), text: "At least one special character" },
   ];
+  
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -310,90 +356,82 @@ const SecurityPage = () => {
 
             {/* Password Section */}
             {activeSection === "password" && (
-              <SecurityCard
-                title="Password & Recovery"
-                description="Manage your password and recovery options"
-                icon={Lock}
-              >
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                  {user?.isPasswordSet && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Current Password
-                      </label>
-                      <input
-                        type="password"
-                        {...register("currentPassword")}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        autoComplete="current-password"
-                      />
-                      {errors.currentPassword && (
-                        <p className="mt-1 text-sm text-red-600">
-                          {errors.currentPassword.message}
-                        </p>
-                      )}
-                    </div>
+            <SecurityCard
+            title={user?.isPasswordSet ? "Change Password" : "Set Password"}
+            description={
+              user?.isPasswordSet 
+                ? "Update your existing password" 
+                : "Create a password for your account"
+            }
+            icon={Lock}
+          >
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              {user?.isPasswordSet && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    {...register("currentPassword")}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    autoComplete="current-password"
+                  />
+                  {errors.currentPassword && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.currentPassword.message}
+                    </p>
                   )}
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {user?.isPasswordSet ? "New Password" : "Set Password"}
-                    </label>
-                    <input
-                      type="password"
-                      {...register("newPassword")}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      autoComplete="new-password"
-                    />
-                    {errors.newPassword && (
-                      <p className="mt-1 text-sm text-red-600">
-                        {errors.newPassword.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Confirm {user?.isPasswordSet ? "New Password" : "Password"}
-                    </label>
-                    <input
-                      type="password"
-                      {...register("confirmPassword")}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      autoComplete="new-password"
-                    />
-                    {errors.confirmPassword && (
-                      <p className="mt-1 text-sm text-red-600">
-                        {errors.confirmPassword.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-                      <div className="space-y-2">
-                        <h4 className="font-medium text-blue-900">Password Requirements</h4>
-                        <div className="space-y-1">
-                          {passwordRequirements.map((req, index) => (
-                            <PasswordRequirement key={index} {...req} />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={passwordMutation.isPending}
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {passwordMutation.isPending
-                      ? (user?.isPasswordSet ? "Changing..." : "Setting...")
-                      : (user?.isPasswordSet ? "Change Password" : "Set Password")}
-                  </button>
-                </form>
-              </SecurityCard>
+                </div>
+              )}
+        
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {user?.isPasswordSet ? "New Password" : "Create Password"}
+                </label>
+                <input
+                  type="password"
+                  {...register("newPassword")}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  autoComplete="new-password"
+                />
+                {errors.newPassword && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.newPassword.message}
+                  </p>
+                )}
+              </div>
+        
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Confirm {user?.isPasswordSet ? "New Password" : "Password"}
+                </label>
+                <input
+                  type="password"
+                  {...register("confirmPassword")}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  autoComplete="new-password"
+                />
+                {errors.confirmPassword && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.confirmPassword.message}
+                  </p>
+                )}
+              </div>
+        
+              <PasswordRequirements password={newPassword} />
+        
+              <button
+                type="submit"
+                disabled={passwordMutation.isPending}
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {passwordMutation.isPending
+                  ? (user?.isPasswordSet ? "Changing..." : "Setting...")
+                  : (user?.isPasswordSet ? "Change Password" : "Set Password")}
+              </button>
+            </form>
+          </SecurityCard>
             )}
 
             {/* Sessions Section */}
