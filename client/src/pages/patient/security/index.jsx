@@ -3,12 +3,25 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Shield, Lock, LogOut, Smartphone, AlertCircle, CheckCircle2, Laptop, XCircle } from "lucide-react";
+import { 
+  Shield, 
+  Lock, 
+  LogOut, 
+  Smartphone, 
+  AlertCircle, 
+  CheckCircle2, 
+  XCircle,
+  Clock,
+  Globe,
+  Laptop,
+  Tablet,
+  Monitor,
+  ArrowRight
+} from "lucide-react";
 import { toast } from "react-toastify";
 import apiClient from "@api/apiClient";
 import { useNavigate } from "react-router-dom";
 
-// Simplified password schema
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required").optional(),
   newPassword: z.string()
@@ -16,7 +29,7 @@ const passwordSchema = z.object({
     .regex(/[A-Z]/, "Must contain at least one uppercase letter")
     .regex(/[a-z]/, "Must contain at least one lowercase letter")
     .regex(/[0-9]/, "Must contain at least one number")
-    .regex(/[@$!%*?&]/, "Must contain at least one special character"),
+    .regex(/[@$#!%*?&]/, "Must contain at least one special character"),
   confirmPassword: z.string(),
 }).refine(data => data.newPassword === data.confirmPassword, {
   message: "Passwords don't match",
@@ -33,6 +46,23 @@ const PasswordRequirement = ({ met, text }) => (
     <span className={`text-sm ${met ? "text-green-600" : "text-gray-500"}`}>
       {text}
     </span>
+  </div>
+);
+
+const SecurityCard = ({ title, description, icon: Icon, children }) => (
+  <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div className="p-6 border-b border-gray-100">
+      <div className="flex items-center gap-4">
+        <div className="bg-blue-50 p-3 rounded-lg">
+          <Icon className="h-6 w-6 text-blue-600" />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+          <p className="text-gray-500 mt-1">{description}</p>
+        </div>
+      </div>
+    </div>
+    <div className="p-6">{children}</div>
   </div>
 );
 
@@ -73,7 +103,7 @@ const SecurityPage = () => {
 
   const newPassword = watch("newPassword", "");
 
-  // Password change mutation
+  // Password mutation
   const passwordMutation = useMutation({
     mutationFn: (data) => {
       const endpoint = user?.isPasswordSet ? "/auth/change-password" : "/auth/set-password";
@@ -93,7 +123,7 @@ const SecurityPage = () => {
     },
   });
 
-  // Logout mutations
+  // Logout mutation
   const logoutMutation = useMutation({
     mutationFn: (sessionId) => 
       sessionId 
@@ -102,10 +132,9 @@ const SecurityPage = () => {
     onSuccess: () => {
       toast.success("Logged out successfully");
       queryClient.invalidateQueries(["sessions"]);
-      if (!sessionId) navigate("/");
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || "Failed to logout");
+      toast.error(error.message || "Failed to logout");
     },
   });
 
@@ -113,7 +142,7 @@ const SecurityPage = () => {
     passwordMutation.mutate(data);
   };
 
-  // Simplified device info display
+  // Device information helper
   const getDeviceInfo = (session) => {
     const device = session.device || {};
     const parts = [
@@ -122,29 +151,35 @@ const SecurityPage = () => {
       device.model
     ].filter(Boolean);
     
+    const icon = () => {
+      if (!device.type) return <Monitor className="h-5 w-5" />;
+      switch (device.type.toLowerCase()) {
+        case 'mobile': return <Smartphone className="h-5 w-5" />;
+        case 'tablet': return <Tablet className="h-5 w-5" />;
+        case 'desktop': return <Laptop className="h-5 w-5" />;
+        default: return <Monitor className="h-5 w-5" />;
+      }
+    };
+    
     return {
       name: parts.length ? parts.join(" - ") : "Unknown Device",
-      icon: device.type === 'mobile' ? <Smartphone /> : <Laptop />
+      icon: icon(),
+      isCurrent: session.isCurrent,
+      createdAt: session.createdAt,
+      location: session.address?.city && session.address?.country
+        ? `${session.address.city}, ${session.address.country}`
+        : "Unknown Location"
     };
   };
 
-  // Security card component
-  const SecurityCard = ({ title, description, icon: Icon, children }) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="p-6 border-b border-gray-100">
-        <div className="flex items-center gap-4">
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <Icon className="h-6 w-6 text-blue-600" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-            <p className="text-gray-500 mt-1">{description}</p>
-          </div>
-        </div>
-      </div>
-      <div className="p-6">{children}</div>
-    </div>
-  );
+  // Password requirements
+  const passwordRequirements = [
+    { met: newPassword.length >= 8, text: "At least 8 characters long" },
+    { met: /[A-Z]/.test(newPassword), text: "At least one uppercase letter" },
+    { met: /[a-z]/.test(newPassword), text: "At least one lowercase letter" },
+    { met: /[0-9]/.test(newPassword), text: "At least one number" },
+    { met: /[@$!%*?&]/.test(newPassword), text: "At least one special character" },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -191,6 +226,88 @@ const SecurityPage = () => {
 
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Overview Section */}
+            {activeSection === "overview" && (
+              <>
+                <SecurityCard
+                  title="Security Status"
+                  description="Your account security overview"
+                  icon={Shield}
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-green-100 p-2 rounded-lg">
+                          <CheckCircle2 className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">Email Verified</h4>
+                          <p className="text-sm text-gray-500">Your email is verified</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-yellow-100 p-2 rounded-lg">
+                          <AlertCircle className="h-5 w-5 text-yellow-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">Two-Factor Auth</h4>
+                          <p className="text-sm text-gray-500">Not enabled</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setActiveSection("password")}
+                        className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-2"
+                      >
+                        Enable
+                        <ArrowRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </SecurityCard>
+
+                <SecurityCard
+                  title="Recent Activity"
+                  description="Your recent security-related activities"
+                  icon={Clock}
+                >
+                  <div className="space-y-3">
+                    {Array.isArray(sessions) && sessions.slice(0, 3).map((session) => {
+                      const { name, icon, isCurrent, createdAt, location } = getDeviceInfo(session);
+                      return (
+                        <div key={session._id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                          {icon}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-gray-900">
+                                {name}
+                              </p>
+                              {isCurrent && (
+                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                                  Current
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              <div className="flex items-center gap-2">
+                                <Globe className="h-4 w-4" />
+                                {location}
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Clock className="h-4 w-4" />
+                                {new Date(createdAt).toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </SecurityCard>
+              </>
+            )}
+
             {/* Password Section */}
             {activeSection === "password" && (
               <SecurityCard
@@ -252,6 +369,20 @@ const SecurityPage = () => {
                     )}
                   </div>
 
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-blue-900">Password Requirements</h4>
+                        <div className="space-y-1">
+                          {passwordRequirements.map((req, index) => (
+                            <PasswordRequirement key={index} {...req} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   <button
                     type="submit"
                     disabled={passwordMutation.isPending}
@@ -306,9 +437,12 @@ const SecurityPage = () => {
                     </div>
                   ) : sessions?.length > 0 ? (
                     sessions?.map((session) => {
-                      const { name, icon } = getDeviceInfo(session);
+                      const { name, icon, isCurrent, createdAt, location } = getDeviceInfo(session);
                       return (
-                        <div key={session._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div
+                          key={session._id}
+                          className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                        >
                           <div className="flex items-center gap-4">
                             <div className="bg-white p-2 rounded-lg">
                               {icon}
@@ -316,7 +450,7 @@ const SecurityPage = () => {
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="font-medium">{name}</span>
-                                {session.isCurrent && (
+                                {isCurrent && (
                                   <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
                                     Current
                                   </span>
@@ -324,12 +458,17 @@ const SecurityPage = () => {
                               </div>
                               <div className="text-sm text-gray-500 mt-1">
                                 <div className="flex items-center gap-2">
-                                  Last active: {new Date(session.createdAt).toLocaleString()}
+                                  <Globe className="h-4 w-4" />
+                                  {location}
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Clock className="h-4 w-4" />
+                                  {new Date(createdAt).toLocaleString()}
                                 </div>
                               </div>
                             </div>
                           </div>
-                          {!session.isCurrent && (
+                          {!isCurrent && (
                             <button
                               onClick={() => logoutMutation.mutate(session._id)}
                               disabled={logoutMutation.isPending}
