@@ -74,25 +74,22 @@ const PaymentsPage = () => {
       <div className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-900">Payments Management</h1>
-          <button className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
-            <Plus className="h-4 w-4 mr-2" />
-            New Payment
-          </button>
+  
         </div>
       </div>
 
       {/* Filters */}
       <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
         <div className="bg-white p-4 rounded-lg shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 place-items-center">
             {/* Search */}
-            <div className="relative">
+            <div className="relative flex items-center h-full w-full">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-4 w-4 text-gray-400" />
               </div>
               <input
                 type="text"
-                className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className="input pl-10 w-full h-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 placeholder="Search payments..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -100,7 +97,7 @@ const PaymentsPage = () => {
             </div>
 
             {/* Status Filter */}
-            <Menu as="div" className="relative">
+            <Menu as="div" className="relative h-full w-full">
               <Menu.Button className="w-full flex justify-between items-center px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
                 <span className="flex items-center">
                   <Filter className="h-4 w-4 mr-2" />
@@ -144,7 +141,7 @@ const PaymentsPage = () => {
               </Transition>
             </Menu>
 
-            {/* Date Range */}
+            {/* Date Range
             <div className="grid grid-cols-2 gap-2">
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -152,7 +149,7 @@ const PaymentsPage = () => {
                 </div>
                 <input
                   type="date"
-                  className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  className="input pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   value={dateRange.start}
                   onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
                 />
@@ -163,12 +160,12 @@ const PaymentsPage = () => {
                 </div>
                 <input
                   type="date"
-                  className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  className="input pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   value={dateRange.end}
                   onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
                 />
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
