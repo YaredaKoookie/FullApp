@@ -5,11 +5,12 @@ import { Dashboard } from './pages/Dashboard';
 import Users from './pages/Users';
 import { Appointments } from './pages/Appointments';
 import DoctorManagement from './pages/DoctorManagement';
-import {Patients} from './pages/Patients';
+import Patients from './pages/Patients';
 import Schedule from './pages/Schedule';
 import ProfileManagement from './pages/ProfileManagement';
 import ReviewsRatings from './pages/ReviewsRatings';
 import Notifications from './pages/Notifications';
+import { VideoCall } from './pages/VideoCall';
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
         <Route path="/profile" element={<ProfileManagement />} />
         <Route path="/reviews" element={<ReviewsRatings />} />
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/VideoCall/:appointmentId" element={<VideoCall />} />
       </Route>
 
       {/* Redirects */}

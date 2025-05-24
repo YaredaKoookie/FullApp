@@ -3,6 +3,7 @@ import * as appointmentDoctorController from '../controllers/doctor/doctorApppoi
 import * as doctorPatientController from '../controllers/doctor/doctorPatients';
 import * as scheduleController from '../controllers/doctor/doctorScheduleController';
 import * as doctorController from '../controllers/doctor/doctorMain.controller';
+import * as doctorReviewController from '../controllers/doctor/doctorReviewController';
 import { upload } from '../config/cloudinary.config';
 
 const router = Router();
@@ -49,5 +50,7 @@ router.delete('/:doctorId/schedule/slots/:slotId', scheduleController.deleteSlot
 router.post('/:doctorId/schedule/blocked', scheduleController.addBlockedSlot);
 router.get('/:doctorId/schedule/blocked', scheduleController.getBlockedSlots);
 router.delete('/:doctorId/schedule/blocked/:slotId', scheduleController.removeBlockedSlot);
+
+router.get('/:doctorId/reviews', doctorReviewController.getReviews);
 
 export default router

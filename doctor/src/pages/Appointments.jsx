@@ -1,93 +1,101 @@
-import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-hot-toast';
-import { DoctorLayout } from '../layouts/DoctorLayout';
-import { adminAPI } from '../lib/api';
-import { Calendar, Search, Filter, ChevronDown } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "react-hot-toast";
+import { DoctorLayout } from "../layouts/DoctorLayout";
+import { adminAPI } from "../lib/api";
+import { Calendar, Search, Filter, ChevronDown } from "lucide-react";
+import { Link } from "react-router-dom";
+import { FaVideo } from "react-icons/fa";
 
 const AppointmentsContent = () => {
-  console.log('Appointments component rendering');
-  
+  console.log("Appointments component rendering");
+
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState({
-    status: 'all',
-    dateRange: 'all',
-    search: '',
+    status: "all",
+    dateRange: "all",
+    search: "",
     page: 1,
-    limit: 10
+    limit: 10,
   });
   const [selectedAppointment, setSelectedAppointment] = useState(null);
-  const [rejectionNote, setRejectionNote] = useState('');
+  const [rejectionNote, setRejectionNote] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
-    console.log('Current filters:', filters);
+    console.log("Current filters:", filters);
   }, [filters]);
 
   // Fetch appointments
-  const { data: appointmentsData, isLoading: isLoadingAppointments } = useQuery({
-    queryKey: ['appointments', filters],
-    queryFn: () => adminAPI.appointments.getAll(filters),
-    onSuccess: (response) => {
-      console.log('Appointments API Response:', response);
-    },
-    onError: (error) => {
-      console.error('Appointments API Error:', error);
+  const { data: appointmentsData, isLoading: isLoadingAppointments } = useQuery(
+    {
+      queryKey: ["appointments", filters],
+      queryFn: () => adminAPI.appointments.getAll(filters),
+      onSuccess: (response) => {
+        console.log("Appointments API Response:", response);
+      },
+      onError: (error) => {
+        console.error("Appointments API Error:", error);
+      },
     }
-  });
+  );
 
   // Fetch stats
   const { data: statsData } = useQuery({
-    queryKey: ['appointmentStats'],
+    queryKey: ["appointmentStats"],
     queryFn: () => adminAPI.appointments.getStats(),
     onSuccess: (response) => {
-      console.log('Stats API Response:', response);
+      console.log("Stats API Response:", response);
     },
     onError: (error) => {
-      console.error('Stats API Error:', error);
-    }
+      console.error("Stats API Error:", error);
+    },
   });
 
   // Accept appointment mutation
   const acceptMutation = useMutation({
     mutationFn: (id) => adminAPI.appointments.accept(id),
     onSuccess: () => {
-      queryClient.invalidateQueries(['appointments']);
-      queryClient.invalidateQueries(['appointmentStats']);
-      toast.success('Appointment accepted successfully');
+      queryClient.invalidateQueries(["appointments"]);
+      queryClient.invalidateQueries(["appointmentStats"]);
+      toast.success("Appointment accepted successfully");
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to accept appointment');
-    }
+      toast.error(
+        error.response?.data?.message || "Failed to accept appointment"
+      );
+    },
   });
 
   // Reject appointment mutation
   const rejectMutation = useMutation({
     mutationFn: ({ id, note }) => adminAPI.appointments.reject(id, note),
     onSuccess: () => {
-      queryClient.invalidateQueries(['appointments']);
-      queryClient.invalidateQueries(['appointmentStats']);
-      toast.success('Appointment rejected successfully');
+      queryClient.invalidateQueries(["appointments"]);
+      queryClient.invalidateQueries(["appointmentStats"]);
+      toast.success("Appointment rejected successfully");
       setSelectedAppointment(null);
-      setRejectionNote('');
+      setRejectionNote("");
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to reject appointment');
-    }
+      toast.error(
+        error.response?.data?.message || "Failed to reject appointment"
+      );
+    },
   });
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({
+    setFilters((prev) => ({
       ...prev,
       [key]: value,
-      page: 1 // Reset to first page when filters change
+      page: 1, // Reset to first page when filters change
     }));
   };
 
   const handlePageChange = (newPage) => {
-    setFilters(prev => ({
+    setFilters((prev) => ({
       ...prev,
-      page: newPage
+      page: newPage,
     }));
   };
 
@@ -101,7 +109,7 @@ const AppointmentsContent = () => {
               type="text"
               placeholder="Search appointments..."
               value={filters.search}
-              onChange={(e) => handleFilterChange('search', e.target.value)}
+              onChange={(e) => handleFilterChange("search", e.target.value)}
               className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
             <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
@@ -150,10 +158,12 @@ const AppointmentsContent = () => {
         <div className="bg-white p-4 rounded-lg shadow-sm space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Status</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Status
+              </label>
               <select
                 value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
+                onChange={(e) => handleFilterChange("status", e.target.value)}
                 className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
               >
                 <option value="all">All Status</option>
@@ -165,10 +175,14 @@ const AppointmentsContent = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Date Range</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Date Range
+              </label>
               <select
                 value={filters.dateRange}
-                onChange={(e) => handleFilterChange('dateRange', e.target.value)}
+                onChange={(e) =>
+                  handleFilterChange("dateRange", e.target.value)
+                }
                 className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
               >
                 <option value="all">All Time</option>
@@ -215,19 +229,31 @@ const AppointmentsContent = () => {
                 </tr>
               ) : !appointmentsData?.data?.data ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
-                    No data available (Debug: appointmentsData.data.data is null or undefined)
+                  <td
+                    colSpan="5"
+                    className="px-6 py-4 text-center text-gray-500"
+                  >
+                    No data available (Debug: appointmentsData.data.data is null
+                    or undefined)
                   </td>
                 </tr>
               ) : !appointmentsData.data.data.appointments ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
-                    No appointments array found (Debug: appointmentsData.data.data.appointments is null or undefined)
+                  <td
+                    colSpan="5"
+                    className="px-6 py-4 text-center text-gray-500"
+                  >
+                    No appointments array found (Debug:
+                    appointmentsData.data.data.appointments is null or
+                    undefined)
                   </td>
                 </tr>
               ) : appointmentsData.data.data.appointments.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
+                  <td
+                    colSpan="5"
+                    className="px-6 py-4 text-center text-gray-500"
+                  >
                     No appointments found (Debug: appointments array is empty)
                   </td>
                 </tr>
@@ -239,13 +265,17 @@ const AppointmentsContent = () => {
                         <div className="h-10 w-10 flex-shrink-0">
                           <img
                             className="h-10 w-10 rounded-full"
-                            src={appointment.patient.profileImage || 'https://via.placeholder.com/40'}
+                            src={
+                              appointment.patient.profileImage ||
+                              "https://via.placeholder.com/40"
+                            }
                             alt=""
                           />
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">
-                            {appointment.patient.firstName} {appointment.patient.lastName}
+                            {appointment.patient.firstName}{" "}
+                            {appointment.patient.lastName}
                           </div>
                         </div>
                       </div>
@@ -259,24 +289,50 @@ const AppointmentsContent = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">{appointment.reason}</div>
+                      <div className="text-sm text-gray-900">
+                        {appointment.reason}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${appointment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : ''}
-                        ${appointment.status === 'accepted' ? 'bg-blue-100 text-blue-800' : ''}
-                        ${appointment.status === 'confirmed' ? 'bg-green-100 text-green-800' : ''}
-                        ${appointment.status === 'completed' ? 'bg-gray-100 text-gray-800' : ''}
-                        ${appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' : ''}
-                      `}>
+                      <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${
+                          appointment.status === "pending"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : ""
+                        }
+                        ${
+                          appointment.status === "accepted"
+                            ? "bg-blue-100 text-blue-800"
+                            : ""
+                        }
+                        ${
+                          appointment.status === "confirmed"
+                            ? "bg-green-100 text-green-800"
+                            : ""
+                        }
+                        ${
+                          appointment.status === "completed"
+                            ? "bg-gray-100 text-gray-800"
+                            : ""
+                        }
+                        ${
+                          appointment.status === "cancelled"
+                            ? "bg-red-100 text-red-800"
+                            : ""
+                        }
+                      `}
+                      >
                         {appointment.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      {appointment.status === 'pending' && (
+                      {appointment.status === "pending" && (
                         <div className="flex space-x-2">
                           <button
-                            onClick={() => acceptMutation.mutate(appointment._id)}
+                            onClick={() =>
+                              acceptMutation.mutate(appointment._id)
+                            }
                             className="text-green-600 hover:text-green-900"
                           >
                             Accept
@@ -284,7 +340,7 @@ const AppointmentsContent = () => {
                           <button
                             onClick={() => {
                               setSelectedAppointment(appointment);
-                              setRejectionNote('');
+                              setRejectionNote("");
                             }}
                             className="text-red-600 hover:text-red-900"
                           >
@@ -292,7 +348,7 @@ const AppointmentsContent = () => {
                           </button>
                         </div>
                       )}
-                      {appointment.status === 'accepted' && (
+                      {appointment.status === "accepted" && (
                         <button
                           onClick={() => {
                             setSelectedAppointment(appointment);
@@ -302,7 +358,15 @@ const AppointmentsContent = () => {
                           Reschedule
                         </button>
                       )}
-                      {['pending', 'accepted', 'confirmed'].includes(appointment.status) && (
+                      {appointment.status === "confirmed" && (
+                        <Link
+                          to={`/VideoCall/${appointment._id}`}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          <FaVideo />
+                        </Link>
+                      )}
+                      {appointment.status === "confirmed" && (
                         <button
                           onClick={() => {
                             setSelectedAppointment(appointment);
@@ -368,7 +432,7 @@ const AppointmentsContent = () => {
                 onClick={() => {
                   rejectMutation.mutate({
                     id: selectedAppointment._id,
-                    note: rejectionNote
+                    note: rejectionNote,
                   });
                 }}
                 className="px-4 py-2 bg-red-600 text-white rounded-md"
@@ -389,4 +453,4 @@ export const Appointments = () => {
       <AppointmentsContent />
     </DoctorLayout>
   );
-}; 
+};

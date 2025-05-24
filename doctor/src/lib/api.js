@@ -110,6 +110,12 @@ const doctor = {
   getProfileViewById: (doctorId) => api.get(`/doctors/profile/view/${doctorId}`),
 };
 
+const videoCall = {
+  getToken: (channel) => api.get(`/video/token`, { params: { channel } }),
+};
+const reviews = {
+  getReviews: (doctorId, filters) => api.get(`/doctors/${doctorId}/reviews`, { params: filters }),
+};
 // Admin API client
 export const adminAPI = {
   auth,
@@ -121,5 +127,7 @@ export const adminAPI = {
   post: api.post,
   put: api.put,
   patch: api.patch,
-  delete: api.delete
+  delete: api.delete,
+  videoCall,
+  reviews
 }; 
