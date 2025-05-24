@@ -21,14 +21,38 @@ export const endpoints = {
             base: () => "/patient/profile",
             image: () => "/patient/profile/image"
         },
-        medicalHisotry: {
+        medicalHistory: {
             base: () => "/patient/medical-history",
             summary: () => "/patient/medical-history/summary",
+            conditions: {
+                base: () => "/patient/medical-history/conditions",
+                byId: (conditionId) => `/patient/medical-history/conditions/${conditionId}`
+            },
+            allergies: {
+                base: () => "/patient/medical-history/allergies",
+                byId: (allergyId) => `/patient/medical-history/allergies/${allergyId}`
+            },
+            surgeries: {
+                base: () => "/patient/medical-history/surgeries",
+                byId: (sergeryId) => `/patient/medical-history/surgeries/${sergeryId}`
+            },
+            medications: {
+                base: () => "/patient/medical-history/medications/current",
+                byId: (medicationId) => `/patient/medical-history/medications/${medicationId}`,
+                discontinue: (medicationId) => `/patient/medical-history/medications/${medicationId}/discontinue`
+            },
+            immunizations: {
+                base: () => "/patient/medical-history/immunizations",
+                byId: (immunizationId) => `/patient/medical-history/immunizations/${immunizationId}`
+            },
             timeline: {
                 medications: () => "/patient/medical-history/timeline/medications",
                 hospitalizations: () => "/patient/medical-history/hospitalizations"
             },
-            immunizations: () => "/patient/medical-history/immunizations",
+            hospitalizations: {
+                base: () => "/patient/medical-history/hospitalizations",
+                byId: (hospitalizationId) => `/patient/medical-history/hospitalizations/${hospitalizationId}`
+            },
             familyHistory: {
                 base: () => "/patient/medical-history/family-history",
                 byId: (recordId) => `/patient/medical-history/family-history/${recordId}`,

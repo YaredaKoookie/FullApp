@@ -1,11 +1,10 @@
 import { Dialog } from '@headlessui/react';
 import { X } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import apiClient from '@api/apiClient';
 import { toast } from 'react-toastify';
+import { useAddFamilyHistory } from '@api/patient';
 
 const familyHistorySchema = z.object({
   relation: z.string().min(1, 'Relationship is required'),
@@ -21,7 +20,6 @@ const RELATIONSHIPS = ['Mother', 'Father', 'Sister', 'Brother', 'Maternal Grandm
   'Paternal Grandmother', 'Paternal Grandfather', 'Aunt', 'Uncle', 'Cousin', 'Other'];
 
 const AddFamilyHistoryModal = ({ isOpen, onClose, onSuccess }) => {
-  const queryClient = useQueryClient();
 
   const {
     register,
@@ -39,23 +37,17 @@ const AddFamilyHistoryModal = ({ isOpen, onClose, onSuccess }) => {
     },
   });
 
-  const { mutate } = useMutation({
-    mutationFn: async (data) => {
-      const response = await apiClient.post('/medical-history/family-history', data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['medicalHistory']);
-      reset();
-      onSuccess();
-    },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to add family history record');
-    }
-  });
+  const { mutateAsync } = useAddFamilyHistory();
 
-  const onSubmit = (data) => {
-    mutate(data);
+  const onSubmit = async (data) => {
+    try {
+      await mutateAsync(data);
+      onSuccess();
+      onClose();
+      reset();
+    } catch (error) {
+      toast.error(error.message);
+    }
   };
 
   return (
@@ -63,7 +55,7 @@ const AddFamilyHistoryModal = ({ isOpen, onClose, onSuccess }) => {
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="mx-auto w-full max-w-2xl rounded-lg bg-white p-6">
+        <Dialog.Panel className="mx-auto md:w-lg w-full max-w-2xl rounded-lg bg-white p-6">
           <div className="flex items-center justify-between mb-4">
             <Dialog.Title className="text-lg font-medium text-gray-900">
               Add Family Medical History
@@ -87,7 +79,7 @@ const AddFamilyHistoryModal = ({ isOpen, onClose, onSuccess }) => {
               <select
                 id="relation"
                 {...register('relation')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               >
                 <option value="">Select relationship</option>
                 {RELATIONSHIPS.map((relationship) => (
@@ -112,7 +104,7 @@ const AddFamilyHistoryModal = ({ isOpen, onClose, onSuccess }) => {
                 type="text"
                 id="condition"
                 {...register('condition')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., Type 2 Diabetes, Heart Disease"
               />
               {errors.condition && (
@@ -134,7 +126,7 @@ const AddFamilyHistoryModal = ({ isOpen, onClose, onSuccess }) => {
                       {...register('ageAtDiagnosis')}
                   min="0"
                   max="120"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                   placeholder="Age in years"
                 />
                 {errors.ageAtDiagnosis && (
@@ -152,7 +144,7 @@ const AddFamilyHistoryModal = ({ isOpen, onClose, onSuccess }) => {
                 <select
                   id="status"
                   {...register('status')}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 >
                   <option value="alive">Alive</option>
                   <option value="deceased">Deceased</option>
@@ -175,7 +167,7 @@ const AddFamilyHistoryModal = ({ isOpen, onClose, onSuccess }) => {
                 id="notes"
                 {...register('notes')}
                 rows={3}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="Enter any additional details about the condition or family member"
               />
               {errors.notes && (

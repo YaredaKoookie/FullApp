@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import apiClient from '@api/apiClient';
+import { useAddMedication } from '@/api/patient/medicalHistory.mutations';
 
 const FREQUENCY_OPTIONS = [
   'Once daily',
@@ -46,20 +47,17 @@ const AddMedicationModal = ({ isOpen, onClose, onSuccess }) => {
     },
   });
 
-  const { mutate } = useMutation({
-    mutationFn: async (data) => {
-      const response = await apiClient.post('/medical-history/medications/current', data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['medicalHistory']);
-      reset();
-      onSuccess();
-    },
-  });
+  const { mutateAsync } = useAddMedication();
 
-  const onSubmit = (data) => {
-    mutate(data);
+  const onSubmit = async (data) => {
+    try {
+      await mutateAsync(data);
+      reset();
+      onClose();
+      onSuccess();
+    } catch (error) {
+      toast.error(error.message || "Failed to add medication");
+    }
   };
 
   return (

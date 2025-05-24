@@ -9,3 +9,7 @@ export * from "./profile.queries"
 export * from "./profile.mutations"
 export * from "./doctors.api";
 export * from "./doctors.queries";
+export * from "./medicalHistory.api";
+export * from "./medicalHistory.mutations";
+export * from "./medicalHistory.queries";
+

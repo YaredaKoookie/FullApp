@@ -1,10 +1,9 @@
 import { Dialog } from '@headlessui/react';
 import { X } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import apiClient from '@api/apiClient';
+import { useAddAllergy } from '@api/patient/medicalHistory.mutations';
 
 const ALLERGY_SEVERITY = ['Mild', 'Moderate', 'Severe', 'Life-threatening'];
 
@@ -15,7 +14,7 @@ const allergySchema = z.object({
     required_error: 'Please select a severity level',
   }),
   isCritical: z.boolean().default(false),
-   firstObserved: z.string().optional()
+  firstObserved: z.string().optional()
     .refine((date) => {
       if (!date) return true;
       return new Date(date) <= new Date();
@@ -25,8 +24,7 @@ const allergySchema = z.object({
 });
 
 const AddAllergyModal = ({ isOpen, onClose, onSuccess }) => {
-  const queryClient = useQueryClient();
-  
+
   const {
     register,
     handleSubmit,
@@ -43,24 +41,17 @@ const AddAllergyModal = ({ isOpen, onClose, onSuccess }) => {
     },
   });
 
-  const { mutate } = useMutation({
-    mutationFn: async (data) => {
-      const response = await apiClient.post('/medical-history/allergies', data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['medicalHistory']);
+  const { mutateAsync } = useAddAllergy();
+
+  const onSubmit = async (data) => {
+    try {
+      await mutateAsync(data);
       reset();
       onSuccess();
-    },
-    onError: (error) => {
-      toast.error(error.message);
+      onClose();
+    } catch (error) {
+      toast.error(error.message)
     }
-  });
-
-  const onSubmit = (data) => {
-    console.log("data", data)
-    mutate(data);
   };
 
   return (

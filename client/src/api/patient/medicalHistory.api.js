@@ -6,7 +6,11 @@ import apiClient from "../apiClient"
  * @returns {Promise<Object>} Medical history data
  */
 export const getMedicalHistory = () => {
-    return apiClient.get(endpoints.patient.medicalHisotry.base());
+    return apiClient.get(endpoints.patient.medicalHistory.base());
+};
+
+export const createMedicalHistory = (data) => {
+    return apiClient.post(endpoints.patient.medicalHistory.base(), data);
 };
 
 /**
@@ -14,7 +18,7 @@ export const getMedicalHistory = () => {
  * @returns {Promise<Object>} Health summary data
  */
 export const getHealthSummary = () => {
-    return apiClient.get(endpoints.patient.medicalHisotry.summary());
+    return apiClient.get(endpoints.patient.medicalHistory.summary());
 };
 
 /**
@@ -22,7 +26,7 @@ export const getHealthSummary = () => {
  * @returns {Promise<Array>} Medication timeline data
  */
 export const getMedicationTimeline = () => {
-    return apiClient.get(endpoints.patient.medicalHisotry.timeline.medications());
+    return apiClient.get(endpoints.patient.medicalHistory.timeline.medications());
 };
 
 /**
@@ -30,7 +34,7 @@ export const getMedicationTimeline = () => {
  * @returns {Promise<Array>} Hospitalization timeline data
  */
 export const getHospitalizationTimeline = () => {
-    return apiClient.get(endpoints.patient.medicalHisotry.timeline.hospitalizations());
+    return apiClient.get(endpoints.patient.medicalHistory.timeline.hospitalizations());
 };
 
 /**
@@ -38,7 +42,7 @@ export const getHospitalizationTimeline = () => {
  * @returns {Promise<Array>} Immunization history data
  */
 export const getImmunizationHistory = () => {
-    return apiClient.get(endpoints.patient.medicalHisotry.immunizations());
+    return apiClient.get(endpoints.patient.medicalHistory.immunizations());
 };
 
 /**
@@ -46,7 +50,7 @@ export const getImmunizationHistory = () => {
  * @returns {Promise<Array>} Family history data
  */
 export const getFamilyHistory = () => {
-    return apiClient.get(endpoints.patient.medicalHisotry.familyHistory.base());
+    return apiClient.get(endpoints.patient.medicalHistory.familyHistory.base());
 };
 
 /**
@@ -59,7 +63,7 @@ export const getFamilyHistory = () => {
  * @returns {Promise<Object>} Created family history record
  */
 export const addFamilyHistory = (data) => {
-    return apiClient.post(endpoints.patient.medicalHisotry.familyHistory.base(), data);
+    return apiClient.post(endpoints.patient.medicalHistory.familyHistory.base(), data);
 };
 
 /**
@@ -69,7 +73,7 @@ export const addFamilyHistory = (data) => {
  * @returns {Promise<Object>} Updated family history record
  */
 export const updateFamilyHistory = (recordId, data) => {
-    return apiClient.put(endpoints.patient.medicalHisotry.familyHistory.byId(recordId), data);
+    return apiClient.put(endpoints.patient.medicalHistory.familyHistory.byId(recordId), data);
 };
 
 /**
@@ -78,7 +82,7 @@ export const updateFamilyHistory = (recordId, data) => {
  * @returns {Promise<Object>} Deletion confirmation
  */
 export const deleteFamilyHistory = (recordId) => {
-    return apiClient.delete(endpoints.patient.medicalHisotry.familyHistory.byId(recordId));
+    return apiClient.delete(endpoints.patient.medicalHistory.familyHistory.byId(recordId));
 };
 
 /**
@@ -86,5 +90,81 @@ export const deleteFamilyHistory = (recordId) => {
  * @returns {Promise<Object>} Genetic risk report data
  */
 export const getGeneticRiskReport = () => {
-    return apiClient.get(endpoints.patient.medicalHisotry.familyHistory.geneticRisk());
+    return apiClient.get(endpoints.patient.medicalHistory.familyHistory.geneticRisk());
 };
+
+
+export const addAllergy = (data) => {
+    return apiClient.post(endpoints.patient.medicalHistory.allergies.base(), data);
+};
+
+export const updateAllergy = (allergyId, data) => {
+    return apiClient.put(endpoints.patient.medicalHistory.allergies.byId(allergyId), data);
+};
+
+export const deleteAllergy = (allergyId) => {
+    return apiClient.delete(endpoints.patient.medicalHistory.allergies.byId(allergyId));
+};
+
+// export const updateAllergy = (allergyId, data) => {
+//     return apiClient.put(endpoints.patient.medicalHistory.allergies(allergyId), data);
+// };
+
+export const addMedication = (data) => {
+    return apiClient.post(endpoints.patient.medicalHistory.medications.base(), data);
+};
+
+export const updateMedication = (medicationId, data) => {
+    return apiClient.put(endpoints.patient.medicalHistory.medications.byId(medicationId), data);
+};
+
+export const discontinueMedication = (medicationId, data) => {
+    console.log("data api", data)
+    return apiClient.post(endpoints.patient.medicalHistory.medications.discontinue(medicationId), {
+        reasonStopped: data.reasonStopped,
+        endDate: data.endDate
+    });
+};
+
+
+export const addMedicalCondition = (data) => {
+    return apiClient.post(endpoints.patient.medicalHistory.conditions.base(), data);
+}
+
+export const updateMedicalCondition = (conditionId, data) => {
+    return apiClient.put(endpoints.patient.medicalHistory.conditions.byId(conditionId), data);
+}
+
+
+export const addImunization = (data) => {
+    return apiClient.post(endpoints.patient.medicalHistory.immunizations.base(), data);
+}
+
+export const updateImmunization = (immunizationId, data) => {
+    return apiClient.put(endpoints.patient.medicalHistory.immunizations.byId(immunizationId), data);
+}
+
+export const deleteImmunization = (immunizationId) => {
+    return apiClient.delete(endpoints.patient.medicalHistory.immunizations.byId(immunizationId));
+}
+
+export const addSurgery = (data) => {       
+    return apiClient.post(endpoints.patient.medicalHistory.surgeries.base(), data);
+}
+
+export const updateSurgery = (surgeryId, data) => {
+    return apiClient.put(endpoints.patient.medicalHistory.surgeries.byId(surgeryId), data);
+}
+
+export const addHospitalization = (data) => {
+    return apiClient.post(endpoints.patient.medicalHistory.hospitalizations.base(), data);
+}
+
+export const updateHospitalization = (hospitalizationId, data) => {
+    return apiClient.put(endpoints.patient.medicalHistory.hospitalizations.byId(hospitalizationId), data);
+}
+
+export const deleteHospitalization = (hospitalizationId) => {
+    return apiClient.delete(endpoints.patient.medicalHistory.hospitalizations.byId(hospitalizationId));
+}
+    

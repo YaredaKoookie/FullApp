@@ -1,11 +1,10 @@
 import { Dialog } from '@headlessui/react';
 import { X } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import apiClient from '@api/apiClient';
 import { toast } from 'react-toastify';
+import {useUpdateImmunization} from "@api/patient"
 
 const immunizationSchema = z.object({
   vaccine: z.string().min(1, 'Vaccine name is required'),
@@ -20,7 +19,7 @@ const immunizationSchema = z.object({
 });
 
 const EditImmunizationModal = ({ isOpen, onClose, onSuccess, immunization }) => {
-  const queryClient = useQueryClient();
+
   
   const {
     register,
@@ -39,23 +38,16 @@ const EditImmunizationModal = ({ isOpen, onClose, onSuccess, immunization }) => 
 
   console.log("immunization", immunization);
 
-  const { mutate } = useMutation({
-    mutationFn: async (data) => {
-      const response = await apiClient.put(`/medical-history/immunizations/${immunization._id}`, data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['medicalHistory']);
-      reset();
-      onSuccess();
-    },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to update immunization record');
-    }
-  });
+  const { mutateAsync } = useUpdateImmunization();
 
-  const onSubmit = (data) => {
-    mutate(data);
+  const onSubmit = async (data) => {
+    try {
+      await mutateAsync({immunizationId: immunization._id, ...data});
+      onSuccess();
+      onClose();
+    } catch (error){
+      toast.error(error.message);
+    }
   };
 
   return (

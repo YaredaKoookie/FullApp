@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import apiClient from '@api/apiClient';
 import { toast } from 'react-toastify';
+import { useUpdateSurgery } from '@/api/patient';
 
 const surgerySchema = z.object({
   name: z.string().min(1, 'Surgery name is required'),
@@ -44,23 +45,16 @@ const EditSurgeryModal = ({ isOpen, onClose, onSuccess, surgery }) => {
     },
   });
 
-  const { mutate } = useMutation({
-    mutationFn: async (data) => {
-      const response = await apiClient.put(`/medical-history/surgeries/${surgery._id}`, data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['medicalHistory']);
-      reset();
-      onSuccess();
-    },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to update surgery record');
-    }
-  });
+  const { mutateAsync } = useUpdateSurgery();
 
-  const onSubmit = (data) => {
-    mutate(data);
+  const onSubmit = async (data) => {
+    try {
+      await mutateAsync(surgery._id, data);
+      onSuccess();
+      onClose();
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
@@ -68,7 +62,7 @@ const EditSurgeryModal = ({ isOpen, onClose, onSuccess, surgery }) => {
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="mx-auto max-w-lg rounded-lg bg-white p-6">
+        <Dialog.Panel className="mx-auto md:w-lg max-w-lg rounded-lg bg-white p-6">
           <div className="flex items-center justify-between mb-4">
             <Dialog.Title className="text-lg font-medium text-gray-900">
               Edit Surgical Procedure
@@ -85,7 +79,7 @@ const EditSurgeryModal = ({ isOpen, onClose, onSuccess, surgery }) => {
             <div>
               <label
                 htmlFor="name"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium mb-2 text-gray-700"
               >
                 Procedure Name
               </label>
@@ -93,7 +87,7 @@ const EditSurgeryModal = ({ isOpen, onClose, onSuccess, surgery }) => {
                 type="text"
                 id="name"
                 {...register('name')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input *:mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., Appendectomy, Knee Replacement"
               />
               {errors.name && (
@@ -104,7 +98,7 @@ const EditSurgeryModal = ({ isOpen, onClose, onSuccess, surgery }) => {
             <div>
               <label
                 htmlFor="date"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium mb-2 text-gray-700"
               >
                 Surgery Date
               </label>
@@ -112,7 +106,7 @@ const EditSurgeryModal = ({ isOpen, onClose, onSuccess, surgery }) => {
                 type="date"
                 id="date"
                 {...register('date')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input *:mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
               {errors.date && (
                 <p className="mt-1 text-sm text-red-600">{errors.date.message}</p>
@@ -122,7 +116,7 @@ const EditSurgeryModal = ({ isOpen, onClose, onSuccess, surgery }) => {
             <div>
               <label
                 htmlFor="outcome"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium mb-2 text-gray-700"
               >
                 Outcome (Optional)
               </label>
@@ -130,7 +124,7 @@ const EditSurgeryModal = ({ isOpen, onClose, onSuccess, surgery }) => {
                 id="outcome"
                 {...register('outcome')}
                 rows={3}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input *:mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="Describe the outcome of the surgery"
               />
               {errors.outcome && (
@@ -141,7 +135,7 @@ const EditSurgeryModal = ({ isOpen, onClose, onSuccess, surgery }) => {
             <div>
               <label
                 htmlFor="hospital"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium mb-2 text-gray-700"
               >
                 Hospital (Optional)
               </label>
@@ -149,7 +143,7 @@ const EditSurgeryModal = ({ isOpen, onClose, onSuccess, surgery }) => {
                 type="text"
                 id="hospital"
                 {...register('hospital')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input *:mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., City General Hospital"
               />
               {errors.hospital && (
@@ -160,7 +154,7 @@ const EditSurgeryModal = ({ isOpen, onClose, onSuccess, surgery }) => {
             <div>
               <label
                 htmlFor="surgeonName"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium mb-2 text-gray-700"
               >
                 Surgeon (Optional)
               </label>
@@ -168,7 +162,7 @@ const EditSurgeryModal = ({ isOpen, onClose, onSuccess, surgery }) => {
                 type="text"
                 id="surgeon"
                 {...register('surgeon.name')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input *:mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., Dr. John Smith"
               />
               {errors.surgeon?.name && (

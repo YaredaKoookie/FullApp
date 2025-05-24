@@ -26,8 +26,8 @@ export const getMedicalHistory = async (req, res) => {
   if (!medicalHistory) {
     throw ServerError.notFound("Medical history not found");
   }
-  const pastConditions = medicalHistory.conditions.filter(c => (c.status === "Resolved" && c.isChronic === true) || (c.status === "In Remission" && c.isChronic === false));
-  const chronicConditions = medicalHistory.conditions.filter(c => c.status === "Active"  || (c.isChronic === true && c.status !== "Resolved"));
+  const pastConditions = medicalHistory.conditions.filter(c => (c.status === "Resolved" || c.status === "In Remission"));
+  const chronicConditions = medicalHistory.conditions.filter(c => (c.status !== "Resolved" || c.status !== "In Remission"));
 
   // Calculate additional virtual fields
   const enhancedHistory = {

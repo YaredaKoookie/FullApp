@@ -1,11 +1,10 @@
 import { Dialog } from '@headlessui/react';
 import { X } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import apiClient from '@api/apiClient';
 import { toast } from 'react-toastify';
+import { useUpdateHospitaliztion } from '@/api/patient';
 
 const hospitalizationSchema = z.object({
   reason: z.string().min(1, 'Reason for hospitalization is required'),
@@ -16,7 +15,7 @@ const hospitalizationSchema = z.object({
       message: 'Admission date cannot be in the future',
     }),
   dischargeDate: z.string().optional(),
-  hospital: z.string().min(1, 'Hospital name is required'),
+  hospitalName: z.string().min(1, 'Hospital name is required'),
   department: z.string().optional(),
   diagnosis: z.string().optional(),
   treatment: z.string().optional(),
@@ -24,8 +23,7 @@ const hospitalizationSchema = z.object({
 });
 
 const EditHospitalizationModal = ({ isOpen, onClose, onSuccess, hospitalization }) => {
-  const queryClient = useQueryClient();
-  
+  console.log("hospitalization", hospitalization)
   const {
     register,
     handleSubmit,
@@ -35,9 +33,9 @@ const EditHospitalizationModal = ({ isOpen, onClose, onSuccess, hospitalization 
     resolver: zodResolver(hospitalizationSchema),
     defaultValues: {
       reason: hospitalization?.reason || '',
-      admissionDate: hospitalization?.admissionDate || '',
-      dischargeDate: hospitalization?.dischargeDate || '',
-      hospital: hospitalization?.hospital || '',
+      admissionDate: hospitalization?.admissionDate ? new Date(hospitalization.admissionDate).toISOString().split('T')[0] : '',
+      dischargeDate: hospitalization?.dischargeDate ? new Date(hospitalization.dischargeDate).toISOString().split('T')[0] : '',
+      hospitalName: hospitalization?.hospitalName || '',
       department: hospitalization?.department || '',
       diagnosis: hospitalization?.diagnosis || '',
       treatment: hospitalization?.treatment || '',
@@ -45,24 +43,16 @@ const EditHospitalizationModal = ({ isOpen, onClose, onSuccess, hospitalization 
     },
   });
 
-  const { mutate } = useMutation({
-    mutationFn: async (data) => {
-      const response = await apiClient.put(`/medical-history/hospitalizations/${hospitalization._id}`, data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['medicalHistory']);
-      reset();
-      onSuccess();
-      toast.success('Hospitalization record updated successfully');
-    },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to update hospitalization record');
-    }
-  });
+  const { mutate } = useUpdateHospitaliztion();
 
   const onSubmit = (data) => {
-    mutate(data);
+    try {
+      mutate(data);
+      onSuccess();
+      onClose();
+    } catch (error) {
+      toast.error(error.message);
+    }
   };
 
   return (
@@ -70,7 +60,7 @@ const EditHospitalizationModal = ({ isOpen, onClose, onSuccess, hospitalization 
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="mx-auto max-w-lg rounded-lg bg-white p-6">
+        <Dialog.Panel className="mx-auto md:w-lg max-w-lg rounded-lg bg-white p-6">
           <div className="flex items-center justify-between mb-4">
             <Dialog.Title className="text-lg font-medium text-gray-900">
               Edit Hospitalization Record
@@ -95,7 +85,7 @@ const EditHospitalizationModal = ({ isOpen, onClose, onSuccess, hospitalization 
                 type="text"
                 id="reason"
                 {...register('reason')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., Heart Attack, Appendicitis"
               />
               {errors.reason && (
@@ -115,7 +105,7 @@ const EditHospitalizationModal = ({ isOpen, onClose, onSuccess, hospitalization 
                   type="date"
                   id="admissionDate"
                   {...register('admissionDate')}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
                 {errors.admissionDate && (
                   <p className="mt-1 text-sm text-red-600">{errors.admissionDate.message}</p>
@@ -133,7 +123,7 @@ const EditHospitalizationModal = ({ isOpen, onClose, onSuccess, hospitalization 
                   type="date"
                   id="dischargeDate"
                   {...register('dischargeDate')}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
                 {errors.dischargeDate && (
                   <p className="mt-1 text-sm text-red-600">{errors.dischargeDate.message}</p>
@@ -151,12 +141,12 @@ const EditHospitalizationModal = ({ isOpen, onClose, onSuccess, hospitalization 
               <input
                 type="text"
                 id="hospital"
-                {...register('hospital')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                {...register('hospitalName')}
+                className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., City General Hospital"
               />
-              {errors.hospital && (
-                <p className="mt-1 text-sm text-red-600">{errors.hospital.message}</p>
+              {errors.hospitalName && (
+                <p className="mt-1 text-sm text-red-600">{errors.hospitalName.message}</p>
               )}
             </div>
 
@@ -171,7 +161,7 @@ const EditHospitalizationModal = ({ isOpen, onClose, onSuccess, hospitalization 
                 type="text"
                 id="department"
                 {...register('department')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., Cardiology, Emergency"
               />
               {errors.department && (
@@ -190,7 +180,7 @@ const EditHospitalizationModal = ({ isOpen, onClose, onSuccess, hospitalization 
                 id="diagnosis"
                 {...register('diagnosis')}
                 rows={2}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="Enter the diagnosis"
               />
               {errors.diagnosis && (
@@ -209,7 +199,7 @@ const EditHospitalizationModal = ({ isOpen, onClose, onSuccess, hospitalization 
                 id="treatment"
                 {...register('treatment')}
                 rows={2}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="Enter the treatment received"
               />
               {errors.treatment && (
@@ -228,7 +218,7 @@ const EditHospitalizationModal = ({ isOpen, onClose, onSuccess, hospitalization 
                 id="notes"
                 {...register('notes')}
                 rows={3}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="Enter any additional notes or observations"
               />
               {errors.notes && (

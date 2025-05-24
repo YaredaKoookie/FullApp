@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import apiClient from '@api/apiClient';
 import { toast } from 'react-toastify';
+import { useUpdateMedication } from '@/api/patient/medicalHistory.mutations';
 
 const FREQUENCY_OPTIONS = [
   'Once daily',
@@ -30,7 +31,7 @@ const medicationSchema = z.object({
 
 const EditMedicationModal = ({ isOpen, onClose, medication, onSuccess }) => {
   const queryClient = useQueryClient();
-  
+
   const {
     register,
     handleSubmit,
@@ -47,23 +48,17 @@ const EditMedicationModal = ({ isOpen, onClose, medication, onSuccess }) => {
     },
   });
 
-  const { mutate } = useMutation({
-    mutationFn: async (data) => {
-      const response = await apiClient.put(`/medical-history/medications/${medication._id}`, data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['medicalHistory']);
-      reset();
-      onSuccess();
-    },
-    onError(error){
-      toast.error(error.message);
-    }
-  });
+  const { mutateAsync } = useUpdateMedication();
 
-  const onSubmit = (data) => {
-    mutate(data);
+  const onSubmit = async (data) => {
+    try {
+      await mutateAsync(medication._id, data);
+      reset();
+      onClose();
+      onSuccess();
+    } catch (error) {
+      toast.error(error.message || "Failed to update medication");
+    }
   };
 
   return (

@@ -1,11 +1,10 @@
 import { Dialog } from '@headlessui/react';
 import { X } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import apiClient from '@api/apiClient';
 import { toast } from 'react-toastify';
+import { useUpdateAllergy } from "@api/patient";
 
 const ALLERGY_SEVERITY = ['Mild', 'Moderate', 'Severe', 'Life-threatening'];
 
@@ -25,7 +24,6 @@ const allergySchema = z.object({
 });
 
 const EditAllergyModal = ({ isOpen, onClose, allergy, onSuccess }) => {
-  const queryClient = useQueryClient();
   
   const {
     register,
@@ -44,26 +42,18 @@ const EditAllergyModal = ({ isOpen, onClose, allergy, onSuccess }) => {
   });
 
 
-  console.log("allergy", allergy)
-  const { mutate } = useMutation({
-    mutationFn: async (data) => {
-      const response = await apiClient.put(`/medical-history/allergies/${allergy._id}`, data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['medicalHistory']);
-      reset();
+  const { mutateAsync } = useUpdateAllergy();
+
+
+  const onSubmit = async (data) => {
+    try {
+      await mutateAsync({allergyId: allergy._id, ...data});
+      onClose();
       onSuccess();
-    },
-    onError: (error) => {
+    } catch (error){
       toast.error(error.message);
     }
-  });
-
-  const onSubmit = (data) => {
-    console.log("data", data)
-    mutate(data);
-  };
+  }
 
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">

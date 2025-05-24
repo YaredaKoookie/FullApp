@@ -1,10 +1,9 @@
 import { Dialog } from '@headlessui/react';
 import { X } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import apiClient from '@api/apiClient';
+import {useAddHospitalization} from '@api/patient';
 import { toast } from 'react-toastify';
 
 const hospitalizationSchema = z.object({
@@ -24,7 +23,6 @@ const hospitalizationSchema = z.object({
 });
 
 const AddHospitalizationModal = ({ isOpen, onClose, onSuccess }) => {
-  const queryClient = useQueryClient();
   
   const {
     register,
@@ -45,26 +43,16 @@ const AddHospitalizationModal = ({ isOpen, onClose, onSuccess }) => {
     },
   });
 
-  const { mutate } = useMutation({
-    mutationFn: async (data) => {
-      const response = await apiClient.post('/medical-history/hospitalizations', data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['medicalHistory']);
-      reset();
-      onSuccess();
-    },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to add hospitalization record');
-    }
-  });
+  const { mutateAsync } = useAddHospitalization();
 
-  console.log("errors", errors)
-  const onSubmit = (data) => {
-    console.log("Form submitted with data:", data);
-    console.log("Form validation errors:", errors);
-    mutate(data);
+  const onSubmit = async (data) => {
+    try {
+      await mutateAsync(data);
+      onSuccess();
+      onClose();
+    } catch(error){
+      toast.error(error.message)
+    }
   };
 
   return (
@@ -72,7 +60,7 @@ const AddHospitalizationModal = ({ isOpen, onClose, onSuccess }) => {
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="mx-auto max-w-lg rounded-lg bg-white p-6">
+        <Dialog.Panel className="mx-auto md:w-lg max-w-lg rounded-lg bg-white p-6">
           <div className="flex items-center justify-between mb-4">
             <Dialog.Title className="text-lg font-medium text-gray-900">
               Add Hospitalization Record
@@ -97,7 +85,7 @@ const AddHospitalizationModal = ({ isOpen, onClose, onSuccess }) => {
                 type="text"
                 id="reason"
                 {...register('reason')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., Heart Attack, Appendicitis"
               />
               {errors.reason && (
@@ -117,7 +105,7 @@ const AddHospitalizationModal = ({ isOpen, onClose, onSuccess }) => {
                   type="date"
                   id="admissionDate"
                   {...register('admissionDate')}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
                 {errors.admissionDate && (
                   <p className="mt-1 text-sm text-red-600">{errors.admissionDate.message}</p>
@@ -135,7 +123,7 @@ const AddHospitalizationModal = ({ isOpen, onClose, onSuccess }) => {
                   type="date"
                   id="dischargeDate"
                   {...register('dischargeDate')}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
                 {errors.dischargeDate && (
                   <p className="mt-1 text-sm text-red-600">{errors.dischargeDate.message}</p>
@@ -154,7 +142,7 @@ const AddHospitalizationModal = ({ isOpen, onClose, onSuccess }) => {
                 type="text"
                 id="hospital"
                 {...register('hospitalName')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., City General Hospital"
               />
               {errors.hospitalName && (
@@ -173,7 +161,7 @@ const AddHospitalizationModal = ({ isOpen, onClose, onSuccess }) => {
                 type="text"
                 id="department"
                 {...register('department')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., Cardiology, Emergency"
               />
               {errors.department && (
@@ -192,7 +180,7 @@ const AddHospitalizationModal = ({ isOpen, onClose, onSuccess }) => {
                 id="diagnosis"
                 {...register('diagnosis')}
                 rows={2}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="Enter the diagnosis"
               />
               {errors.diagnosis && (
@@ -211,7 +199,7 @@ const AddHospitalizationModal = ({ isOpen, onClose, onSuccess }) => {
                 id="treatment"
                 {...register('treatment')}
                 rows={2}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="Enter the treatment received"
               />
               {errors.treatment && (
@@ -230,7 +218,7 @@ const AddHospitalizationModal = ({ isOpen, onClose, onSuccess }) => {
                 id="notes"
                 {...register('notes')}
                 rows={3}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="Enter any additional notes or observations"
               />
               {errors.notes && (

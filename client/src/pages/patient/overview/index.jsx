@@ -36,6 +36,7 @@ import {
 } from "recharts";
 import apiClient from "@api/apiClient";
 import { format } from "date-fns";
+import Loading from "@/components/Loading";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
@@ -365,13 +366,8 @@ const OverviewPage = () => {
 
   console.log("overview", overview)
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  if (isLoading) 
+    return <Loading />
 
   if (error) {
     return (

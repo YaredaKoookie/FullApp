@@ -3,12 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
 import { Tab } from '@headlessui/react';
-import { 
-  Heart, 
-  Pill, 
-  AlertTriangle, 
-  Activity, 
-  Calendar, 
+import {
+  Heart,
+  Pill,
+  AlertTriangle,
+  Activity,
+  Calendar,
   Search,
   Plus,
   Edit2,
@@ -26,9 +26,9 @@ import {
 } from 'lucide-react';
 import apiClient from '@api/apiClient';
 import MedicalHistorySkeleton from '@/components/skeletons/MedicalHistorySkeleton';
-import { 
-  AddConditionModal, 
-  AddMedicationModal, 
+import {
+  AddConditionModal,
+  AddMedicationModal,
   AddAllergyModal,
   EditConditionModal,
   EditMedicationModal,
@@ -52,7 +52,9 @@ import {
 import {
   useAddFamilyHistory,
   useUpdateFamilyHistory,
-  useDeleteFamilyHistory
+  useDeleteFamilyHistory,
+  userCreateMedicalHistory,
+  useDiscontinueMedication
 } from '@/api/patient/medicalHistory.mutations';
 
 const EmptyState = ({ icon: Icon, title, description, action }) => (
@@ -81,61 +83,49 @@ const MedicalHistory = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [discontinuingMedication, setDiscontinuingMedication] = useState(null);
   const queryClient = useQueryClient();
-  
+
   const calculateBMI = (weight, height) => {
     if (!weight || !height) return null;
     const heightInMeters = height / 100;
     return (weight / (heightInMeters ** 2)).toFixed(2);
   };
 
-  const { data: medicalHistory, isLoading, error, refetch } = useMedicalHistory();
-  const { data: medicationTimeline } = useMedicationTimeline();
-  const { data: healthSummary } = useHealthSummary();
+  const { data: medicalHistoryData, isLoading, error, refetch } = useMedicalHistory();
+  const { data: medicationTimelineData } = useMedicationTimeline();
+  const { data: healthSummaryData } = useHealthSummary();
 
+  const medicalHistory = medicalHistoryData?.data;
+  const medicationTimeline = medicationTimelineData?.data;
+  const healthSummary = healthSummaryData?.data;
   // Calculate BMI if not provided in response
   const bmi = medicalHistory?.bmi || calculateBMI(medicalHistory?.weight, medicalHistory?.height);
 
-  const { mutate: createMedicalHistory, isPending: isCreating } = useMutation({
-    mutationFn: async () => {
-      const response = await apiClient.post('/patient/medical-history');
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['medicalHistory']);
-      toast.success('Medical history created successfully');
-    },
-    onError: (error) => {
-      toast.error(error.message || "Failed to create medical history");
-    }
-  });
+  const { mutate: createMedicalHistory, isPending: isCreating } = userCreateMedicalHistory();
 
-  const {mutate: discontinueMedication, isPending: isDiscontinuingMedication} = useMutation({
-    mutationFn: async ({ medicationId, reasonStopped, endDate }) => {
-      const response = await apiClient.post(`/patient/medical-history/medications/${medicationId}/discontinue`, {
-        reasonStopped,
-        endDate
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['medicalHistory']);
-      toast.success('Medication discontinued successfully');
-      setDiscontinuingMedication(null);
-    },
-    onError: (error) => {
-      toast.error(error.message || "Failed to discontinue medication");
-    }
-  });
+
+  const { mutateAsync: discontinueMedication, isPending: isDiscontinuingMedication } = useDiscontinueMedication();
 
   const handleDiscontinueMedication = (medication) => {
     setDiscontinuingMedication(medication);
   };
 
-  const handleConfirmDiscontinue = (data) => {
-    discontinueMedication({
-      medicationId: discontinuingMedication._id,
-      ...data
-    });
+  const handleConfirmDiscontinue = async (data) => {
+    try {
+      const discontinueData = {
+        ...discontinuingMedication,
+        endDate: data.endDate,
+        reasonStopped: data.reasonStopped
+      };
+
+      await discontinueMedication({ 
+        medicationId: discontinuingMedication._id, 
+        data: discontinueData 
+      });
+      toast.success("Medication discontinued successfully");
+      setDiscontinuingMedication(null);
+    } catch (error) {
+      toast.error(error.message || "Failed to discontinue medication");
+    }
   };
 
   if (isLoading) return <MedicalHistorySkeleton />;
@@ -414,10 +404,9 @@ const MedicalHistory = () => {
                       key={tab.name}
                       className={({ selected }) =>
                         `flex items-center space-x-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap
-                        ${
-                          selected
-                            ? 'bg-white text-blue-600 shadow-md transform scale-105'
-                            : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
+                        ${selected
+                          ? 'bg-white text-blue-600 shadow-md transform scale-105'
+                          : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
                         }`
                       }
                     >
@@ -509,11 +498,10 @@ const MedicalHistory = () => {
                                   Diagnosed: {format(new Date(condition.diagnosisDate), 'MMM d, yyyy')}
                                 </p>
                                 <div className="mt-1  gap-2">
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                    condition.status === 'Resolved' 
-                                      ? 'bg-green-100 text-green-800'
-                                      : 'bg-yellow-100 text-yellow-800'
-                                  }`}>
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${condition.status === 'Resolved'
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-yellow-100 text-yellow-800'
+                                    }`}>
                                     {condition.status}
                                   </span>
                                   {condition.resolvedDate && (
@@ -964,7 +952,7 @@ const MedicalHistory = () => {
                             {index !== 0 && (
                               <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200" />
                             )}
-                            
+
                             <div className="relative flex items-start space-x-4">
                               {/* Icon */}
                               <div className={`flex-shrink-0 w-12 h-12 rounded-full ${medication.type === 'current' ? 'bg-blue-100' : 'bg-gray-100'} flex items-center justify-center`}>

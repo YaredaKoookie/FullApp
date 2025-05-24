@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import apiClient from '@api/apiClient';
+import { useUpdateMedicalCondition } from '@/api/patient/medicalHistory.mutations';
 
 const CONDITION_STATUS = ['Active', 'In Remission', 'Resolved'];
 
@@ -36,7 +37,7 @@ const conditionSchema = z.object({
 
 const EditConditionModal = ({ isOpen, onClose, condition, onSuccess }) => {
   const queryClient = useQueryClient();
-  
+
   const {
     register,
     handleSubmit,
@@ -59,31 +60,23 @@ const EditConditionModal = ({ isOpen, onClose, condition, onSuccess }) => {
   const isChronic = watch('isChronic');
   const status = watch("status")
 
-  const { mutate } = useMutation({
-    mutationFn: async (data) => {
-      const response = await apiClient.put(`/medical-history/conditions/${condition._id}`, {
-        ...data,
-        conditionType: data.isChronic ? 'chronic' : 'past',
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['medicalHistory']);
-      reset();
-      onSuccess();
-    },
-  });
+  const { mutateAsync: updateMedicalConditionAsync } = useUpdateMedicalCondition();
 
   const onSubmit = (data) => {
     // Transform the data before sending to server
     const transformedData = {
       ...data,
-      // Only include resolvedDate if it exists and status is Resolved
       resolvedDate: data.status === 'Resolved' ? data.resolvedDate : undefined,
       diagnosisDate: data.diagnosisDate,
+      conditionId: condition._id
     };
-    console.log("transformedData", transformedData)
-    mutate(transformedData);
+    try {
+      updateMedicalConditionAsync(transformedData);
+      onSuccess();
+      onClose();
+  } catch (error) {
+      toast.error(error.message || "Failed to update condition")
+    }
   };
 
   return (
@@ -156,29 +149,29 @@ const EditConditionModal = ({ isOpen, onClose, condition, onSuccess }) => {
               </label>
             </div>
 
-            
-              <div>
-                <label
-                  htmlFor="status"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Status
-                </label>
-                <select
-                  id="status"
-                  {...register('status')}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                >
-                  {CONDITION_STATUS.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-                {errors.status && (
-                  <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>
-                )}
-              </div>
+
+            <div>
+              <label
+                htmlFor="status"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Status
+              </label>
+              <select
+                id="status"
+                {...register('status')}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              >
+                {CONDITION_STATUS.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+              {errors.status && (
+                <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>
+              )}
+            </div>
             {status === "Resolved" &&
               <div>
                 <label

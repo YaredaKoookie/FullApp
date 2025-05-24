@@ -4,8 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import apiClient from '@api/apiClient';
-import { toast } from 'react-toastify';
+import { useAddSurgery } from '@api/patient';
 
 const surgerySchema = z.object({
   name: z.string().min(1, 'Surgery name is required'),
@@ -24,7 +23,6 @@ const surgerySchema = z.object({
 });
 
 const AddSurgeryModal = ({ isOpen, onClose, onSuccess }) => {
-  const queryClient = useQueryClient();
   
   const {
     register,
@@ -44,32 +42,26 @@ const AddSurgeryModal = ({ isOpen, onClose, onSuccess }) => {
     },
   });
 
-  const { mutate } = useMutation({
-    mutationFn: async (data) => {
-      const response = await apiClient.post('/medical-history/surgeries', data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['medicalHistory']);
-      reset();
-      onSuccess();
-    },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to add surgery record');
-    }
-  });
+  const { mutateAsync } = useAddSurgery()
 
-  const onSubmit = (data) => {
-    console.log("surgery data", data);
-    mutate(data);
+  const onSubmit = async (data) => {
+    try {
+      await mutateAsync(data);
+      onSuccess();
+      onClose();
+    } catch (error) {
+      console.error(error);
+    }
+  
   };
+
 
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="mx-auto max-w-lg rounded-lg bg-white p-6">
+        <Dialog.Panel className="mx-auto md:w-lg max-w-lg rounded-lg bg-white p-6">
           <div className="flex items-center justify-between mb-4">
             <Dialog.Title className="text-lg font-medium text-gray-900">
               Add Surgical Procedure
@@ -94,7 +86,7 @@ const AddSurgeryModal = ({ isOpen, onClose, onSuccess }) => {
                 type="text"
                 id="name"
                 {...register('name')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., Appendectomy, Knee Replacement"
               />
               {errors.name && (
@@ -113,7 +105,7 @@ const AddSurgeryModal = ({ isOpen, onClose, onSuccess }) => {
                 type="date"
                 id="date"
                 {...register('date')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
               {errors.date && (
                 <p className="mt-1 text-sm text-red-600">{errors.date.message}</p>
@@ -131,7 +123,7 @@ const AddSurgeryModal = ({ isOpen, onClose, onSuccess }) => {
                 id="outcome"
                 {...register('outcome')}
                 rows={3}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="Describe the outcome of the surgery"
               />
               {errors.outcome && (
@@ -150,7 +142,7 @@ const AddSurgeryModal = ({ isOpen, onClose, onSuccess }) => {
                 type="text"
                 id="hospital"
                 {...register('hospital')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., City General Hospital"
               />
               {errors.hospital && (
@@ -169,7 +161,7 @@ const AddSurgeryModal = ({ isOpen, onClose, onSuccess }) => {
                 type="text"
                 id="surgeon"
                 {...register('surgeon.name')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., Dr. John Smith"
               />
               {errors.surgeon?.name && (

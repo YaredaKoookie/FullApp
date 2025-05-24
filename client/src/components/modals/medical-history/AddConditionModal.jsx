@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import apiClient from '@api/apiClient';
+import { useAddMedicalCondition } from '@/api/patient/medicalHistory.mutations';
 
 const CONDITION_STATUS = ['Active', 'In Remission', 'Resolved'];
 
@@ -58,27 +59,20 @@ const AddConditionModal = ({ isOpen, onClose, onSuccess }) => {
     },
   });
 
-  const isChronic = watch('isChronic');
   const status = watch("status");
 
-  const { mutate } = useMutation({
-    mutationFn: async (data) => {
-      const response = await apiClient.post('/medical-history/conditions', data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['medicalHistory']);
-      reset();
-      onSuccess();
-    },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to add condition');
-    }
-  });
+  const { mutateAsync: addMedicalConditionAsync } = useAddMedicalCondition();
 
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
     console.log("condition", data)
-    mutate(data);
+    addMedicalConditionAsync(data)
+      .then(() => {
+        onSuccess();
+        onClose();
+      }
+      ).catch(error => {
+        toast.error(error.message || "Failed to add condition")
+      })
   };
 
   return (
@@ -151,47 +145,47 @@ const AddConditionModal = ({ isOpen, onClose, onSuccess }) => {
               </label>
             </div>
 
-            
-              <div>
-                <label
-                  htmlFor="status"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Status
-                </label>
-                <select
-                  id="status"
-                  {...register('status')}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                >
-                  {CONDITION_STATUS.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-                {errors.status && (
-                  <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>
-                )}
-              </div>
-            
-             {status === "Resolved" && <div>
-                <label
-                  htmlFor="resolvedDate"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Resolved Date
-                </label>
-                <input
-                  type="date"
-                  id="resolvedDate"
-                  {...register('resolvedDate')}
-                  className="input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                />
-                {errors.resolvedDate && (
-                  <p className="mt-1 text-sm text-red-600">{errors.resolvedDate.message}</p>
-                )}
-              </div>}
+
+            <div>
+              <label
+                htmlFor="status"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Status
+              </label>
+              <select
+                id="status"
+                {...register('status')}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              >
+                {CONDITION_STATUS.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+              {errors.status && (
+                <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>
+              )}
+            </div>
+
+            {status === "Resolved" && <div>
+              <label
+                htmlFor="resolvedDate"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Resolved Date
+              </label>
+              <input
+                type="date"
+                id="resolvedDate"
+                {...register('resolvedDate')}
+                className="input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              />
+              {errors.resolvedDate && (
+                <p className="mt-1 text-sm text-red-600">{errors.resolvedDate.message}</p>
+              )}
+            </div>}
 
             <div className="mt-6 flex justify-end space-x-3">
               <button
