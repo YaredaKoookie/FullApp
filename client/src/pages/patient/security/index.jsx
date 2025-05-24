@@ -1,4 +1,4 @@
-import React, { useState, memo } from "react";
+import React, { useState, memo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,17 +28,17 @@ const passwordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required").optional(),
   newPassword: z
     .string()
-    .min(8, "Password must be at least 8 characters"),
-    // .regex(
-    // //   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-    //   "Password must contain at least one uppercase letter, one lowercase letter, one number and one special character"
-    // ),
+    .min(8, "Password must be at least 8 characters")
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+      "Password must contain at least one uppercase letter, one lowercase letter, one number and one special character"
+    ),
   confirmPassword: z.string(),
+  isPasswordSet: z.boolean().optional()
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
 }).refine((data) => {
-  // Only require currentPassword if isPasswordSet is true
   if (data.isPasswordSet) {
     return !!data.currentPassword;
   }
@@ -177,13 +177,24 @@ const SecurityPage = () => {
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(passwordSchema),
     defaultValues: {
-      isPasswordSet: user?.isPasswordSet || false
+      isPasswordSet: false,
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: ""
     }
   });
+
+  // Update isPasswordSet when user data is loaded
+  useEffect(() => {
+    if (user) {
+      setValue("isPasswordSet", user.isPasswordSet || false);
+    }
+  }, [user, setValue]);
 
   const newPassword = watch("newPassword") || "";
 
@@ -247,16 +258,21 @@ const SecurityPage = () => {
     },
   });
 
-  const onSubmit = (data) => {
-    if (user?.isPasswordSet) {
-      changePasswordMutation.mutate({
-        currentPassword: data.currentPassword,
-        newPassword: data.newPassword
-      });
-    } else {
-      setPasswordMutation.mutate({
-        password: data.newPassword
-      });
+  const onSubmit = async (data) => {
+    try {
+      if (user?.isPasswordSet) {
+        await changePasswordMutation.mutateAsync({
+          currentPassword: data.currentPassword,
+          newPassword: data.newPassword
+        });
+      } else {
+        await setPasswordMutation.mutateAsync({
+          password: data.newPassword
+        });
+      }
+    } catch (error) {
+      // Error is already handled in mutation callbacks
+      console.error("Password change/set error:", error);
     }
   };
 
@@ -436,6 +452,7 @@ const SecurityPage = () => {
                         type="password"
                         {...register("currentPassword")}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        autoComplete="current-password"
                       />
                       {errors.currentPassword && (
                         <p className="mt-1 text-sm text-red-600">
@@ -453,6 +470,7 @@ const SecurityPage = () => {
                       type="password"
                       {...register("newPassword")}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      autoComplete="new-password"
                     />
                     {errors.newPassword && (
                       <p className="mt-1 text-sm text-red-600">
@@ -470,6 +488,7 @@ const SecurityPage = () => {
                       type="password"
                       {...register("confirmPassword")}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      autoComplete="new-password"
                     />
                     {errors.confirmPassword && (
                       <p className="mt-1 text-sm text-red-600">

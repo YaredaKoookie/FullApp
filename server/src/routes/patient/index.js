@@ -13,7 +13,7 @@ const router = Router();
 // Overview route
 router.get("/overview", isPatient, isProfileCompleted, getPatientOverview);
 router.use("/medical-history", isPatient, isProfileCompleted, medicalHistoryRoutes);
-router.use("/profile", profileRoutes);
+router.use("/profile", isPatient,profileRoutes);
 router.use("/appointments", isPatient, isProfileCompleted, appointmentRoutes);
 router.use("/doctors", doctorRoutes)
 router.use("/reviews", isPatient, reviewRoutes);
