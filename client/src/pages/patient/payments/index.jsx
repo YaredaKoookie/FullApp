@@ -23,6 +23,9 @@ const PaymentsPage = () => {
 
 
   const payments = response?.data?.payments;
+  const stats = response?.data?.stats;
+
+  console.log("stats", response)
 
 
   if(isLoading)
@@ -183,7 +186,7 @@ const PaymentsPage = () => {
                 <div className="ml-5 w-0 flex-1">
                   <dt className="text-sm font-medium text-gray-500 truncate">Total Payments</dt>
                   <dd className="text-2xl font-semibold text-gray-900">
-                    2100 ETB
+                    {stats?.totalSuccessAmount} ETB
                   </dd>
                 </div>
               </div>
@@ -198,8 +201,8 @@ const PaymentsPage = () => {
                   <CheckCircle2 className="h-6 w-6 text-white" />
                 </div>
                 <div className="ml-5 w-0 flex-1">
-                  <dt className="text-sm font-medium text-gray-500 truncate">Successful</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">128</dd>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Refunded</dt>
+                  <dd className="text-2xl font-semibold text-gray-900">{stats?.totalRefunded}</dd>
                 </div>
               </div>
             </div>
@@ -214,7 +217,7 @@ const PaymentsPage = () => {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dt className="text-sm font-medium text-gray-500 truncate">Pending</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">12</dd>
+                  <dd className="text-2xl font-semibold text-gray-900">{stats?.totalPending}</dd>
                 </div>
               </div>
             </div>
@@ -229,7 +232,7 @@ const PaymentsPage = () => {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dt className="text-sm font-medium text-gray-500 truncate">Failed</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">5</dd>
+                      <dd className="text-2xl font-semibold text-gray-900">{stats?.totalFailed}</dd>
                 </div>
               </div>
             </div>

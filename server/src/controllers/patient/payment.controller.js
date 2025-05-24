@@ -526,18 +526,69 @@ export const getPayments = async (req, res) => {
   const skip = (page - 1) * limit;
 
   const patient = await Patient.findOne({ user: userId }).select("_id");
-
   if (!patient) throw ServerError.notFound("Patient profile not found");
 
   const query = { patient: patient._id };
   if (status) query.status = status;
 
+  // Get paginated payments
   const payments = await Payment.find(query)
     .populate("doctor")
     .populate("patient")
     .skip(skip)
     .limit(limit)
     .sort({ createdAt: -1 });
+
+  // Get payment statistics
+  const stats = await Payment.aggregate([
+    { $match: { patient: patient._id } },
+    {
+      $group: {
+        _id: null,
+        totalSuccessAmount: {
+          $sum: {
+            $cond: [{ $eq: ["$status", PAYMENT_STATUS.PAID] }, "$amount", 0]
+          }
+        },
+        totalPending: {
+          $sum: { $cond: [{ $eq: ["$status", PAYMENT_STATUS.PENDING] }, 1, 0] }
+        },
+        totalPaid: {
+          $sum: { $cond: [{ $eq: ["$status", PAYMENT_STATUS.PAID] }, 1, 0] }
+        },
+        totalFailed: {
+          $sum: { $cond: [{ $eq: ["$status", PAYMENT_STATUS.FAILED] }, 1, 0] }
+        },
+        totalCancelled: {
+          $sum: { $cond: [{ $eq: ["$status", PAYMENT_STATUS.CANCELLED] }, 1, 0] }
+        },
+        totalRefunded: {
+          $sum: { $cond: [{ $eq: ["$status", PAYMENT_STATUS.REFUNDED] }, 1, 0] }
+        },
+        totalPartiallyRefunded: {
+          $sum: { $cond: [{ $eq: ["$status", PAYMENT_STATUS.PARTIALLY_REFUNDED] }, 1, 0] }
+        },
+        totalRefundInitiated: {
+          $sum: { $cond: [{ $eq: ["$status", PAYMENT_STATUS.REFUND_INITIATED] }, 1, 0] }
+        },
+        totalPayments: { $sum: 1 }
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        totalSuccessAmount: 1,
+        totalPending: 1,
+        totalPaid: 1,
+        totalFailed: 1,
+        totalCancelled: 1,
+        totalRefunded: 1,
+        totalPartiallyRefunded: 1,
+        totalRefundInitiated: 1,
+        totalPayments: 1
+      }
+    }
+  ]);
 
   const totalPayments = await Payment.countDocuments(query);
   const totalPages = Math.ceil(totalPayments / limit);
@@ -546,6 +597,17 @@ export const getPayments = async (req, res) => {
     success: true,
     data: {
       payments,
+      stats: stats[0] || {
+        totalSuccessAmount: 0,
+        totalPending: 0,
+        totalPaid: 0,
+        totalFailed: 0,
+        totalCancelled: 0,
+        totalRefunded: 0,
+        totalPartiallyRefunded: 0,
+        totalRefundInitiated: 0,
+        totalPayments: 0
+      }
     },
     pagination: {
       totalPages,
