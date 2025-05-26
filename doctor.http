@@ -1,0 +1,65 @@
+@BASE_URL = http://localhost:3000
+@AUTH_URL = http://localhost:3000/auth
+@DOCTOR_URL = http://localhost:3000/doctors
+
+@ACCESS_TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2ODMzNDk3YzUwNjQyYjJhYWQwY2MzOWEiLCJyb2xlIjoiZG9jdG9yIiwiaXNQcm9maWxlQ29tcGxldGVkIjpmYWxzZSwiaWF0IjoxNzQ4MTkyMjIxLCJleHAiOjE3NDgyMDMwMjF9.iYaO0tMv1Rbl2ruYWbwtOhz_eYJnwY9PkpmvdVGPPZg
+
+POST {{AUTH_URL}}/login
+Content-Type: application/json
+
+{
+    "email": "eyobdoctor@gmail.com",
+    "password": "123456789"
+}
+
+###
+
+PUT {{DOCTOR_URL}}/profile
+Content-Type: application/json
+Authorization: Bearer {{ACCESS_TOKEN}}
+
+{
+    "firstName": "Belachew", 
+    "lastName": "Atenafu", 
+    "specialization": "Cardiology", 
+    "phoneNumber": "0976664321", 
+    "bio": "I am professional cardiology doctor based on Bahir Dar, Ethiopia.",
+    "yearsOfExperience": 8,
+    "languages": "English",
+    "hospitalName": "Felege Hiwot",
+    "consultationFee": 200,
+    "serviceAreas": "Gondar"
+}
+
+###
+
+POST {{DOCTOR_URL}}/68336aad50642b2aad0cc3cc/schedule
+Content-Type: application/json
+Authorization: Bearer {{ACCESS_TOKEN}}
+
+{
+    "workingHours": [
+    {
+        "day": "Sunday",
+        "startTime": "2:00",
+        "endTime": "23:00"
+    }, 
+    {
+        "day": "Monday",
+        "startTime": "2:00",
+        "endTime": "23:00"
+    }
+    ]
+}
+
+
+###
+
+POST {{DOCTOR_URL}}/68336aad50642b2aad0cc3cc/schedule/slots/generate
+Content-Type: application/json
+Authorization: Bearer {{ACCESS_TOKEN}}
+
+{
+    "startDate": "2025-05-25T01:12:17.017Z",
+    "endDate": "2025-06-02T23:59:59.017Z"
+}

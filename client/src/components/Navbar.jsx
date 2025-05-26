@@ -7,165 +7,145 @@ import {
   LogIn,
   LogOut,
   Menu as MenuIcon,
+  MessageCircle,
   X,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { useLogout } from "@api/auth";
 import { useAuth } from "@/context/AuthContext";
+import { motion, AnimatePresence } from "framer-motion";
+
+const publicLinks = [
+  { to: "/", label: "Home", icon: Home },
+  { to: "/about", label: "About", icon: HeartPulse },
+  { to: "/contact", label: "Contact", icon: MessageCircle },
+];
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user } = useAuth();
   const logout = useLogout();
-  // console.log(user);
   return (
-    <header className="bg-white shadow-sm">
-      <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8" aria-label="Top">
-        <div className="flex w-full items-center justify-between border-b border-gray-200 py-6 lg:border-none">
-          {/* Logo and Home Link */}
-          <div className="flex items-center">
-            <Link to="/">
-              <div className="flex items-center space-x-2">
-                <HeartPulse className="text-blue-600 h-8 w-8" />
-                <span className="text-2xl font-bold text-blue-800">
-                  CureLogic
-                </span>
-              </div>
-            </Link>
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="flex lg:hidden">
-            <button
-              type="button"
-              className="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-gray-700"
-              onClick={() => setMobileMenuOpen(true)}
-            >
-              <span className="sr-only">Open main menu</span>
-              <MenuIcon className="h-6 w-6" aria-hidden="true" />
-            </button>
-          </div>
-
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex lg:items-center lg:space-x-10">
-            <Link
-              to="/"
-              className="text-sm font-medium text-gray-900 hover:text-indigo-600 flex items-center"
-            >
-              <Home className="h-5 w-5 mr-1" />
-              Home
-            </Link>
-            {user ? (
-              <Link
-                to={user.role === "patient" ? "/patient/dashboard" : user.role === "doctor" ? "/doctor/dashboard" : user.role === "admin" ? "admin/dashboard" : ""}
-                className="text-sm font-medium text-gray-900 hover:text-indigo-600 flex items-center"
-              >
-                <LayoutDashboardIcon className="h-5 w-5 mr-1" />
-                Dashboard
-              </Link>
-            ) : (
-              ""
-            )}
-            {user ? (
-              <button
-                onClick={logout.mutate}
-                disabled={logout.isPending}
-                className="flex items-center text-sm font-medium text-gray-900 hover:text-indigo-600"
-              >
-                <LogOut className="h-5 w-5 mr-1" />
-                {logout.isPending ? "Loading..." : "Logout"}
-              </button>
-            ) : (
-              <Link
-                to="/auth/login"
-                className="flex items-center text-sm font-medium text-gray-900 hover:text-indigo-600"
-              >
-                <LogIn className="h-5 w-5 mr-1" />
-                Login
-              </Link>
-            )}
-          </div>
+    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-sm border-b border-gray-100">
+      <nav className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="flex items-center">
+          <a to="/" className="flex items-center">
+            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              CureLogic
+            </span>
+          </a>
         </div>
 
-        {/* Mobile menu */}
-        <Transition
-          show={mobileMenuOpen}
-          enter="transition ease-out duration-100"
-          enterFrom="opacity-0 scale-95"
-          enterTo="opacity-100 scale-100"
-          leave="transition ease-in duration-75"
-          leaveFrom="opacity-100 scale-100"
-          leaveTo="opacity-0 scale-95"
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center space-x-8">
+          {publicLinks.map((link) => {
+            return (
+              <NavLink  className={({isActive}) => `flex items-center space-x-2 hover:text-blue-600 transition-colors ${isActive ? "text-blue-600 font-semibold" : "text-gray-700"}`} to={link.to}>
+                  <link.icon className="h-5 w-5" />
+                  <span>{link.label}</span>
+              </NavLink>
+            );
+          })}
+        </div>
+
+        <div className="hidden md:flex items-center space-x-4">
+          {!user ? (
+            <>
+              <Link
+                to="/auth/login"
+                className="px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
+              >
+                Sign In
+              </Link>
+              <Link
+                to="/auth/register"
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-md transition-all"
+              >
+                Get Started
+              </Link>
+            </>
+          ) : (
+            <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-md transition-all">
+              Logout
+            </button>
+          )}
+        </div>
+
+        {/* Mobile menu button */}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="md:hidden p-2 rounded-md text-gray-700 hover:text-blue-600 hover:bg-gray-100"
         >
-          <div className="absolute inset-x-0 top-0 origin-top-right transform p-2 transition lg:hidden z-50">
-            <div className="divide-y-2 divide-gray-50 rounded-lg bg-white shadow-lg ring-1 ring-black ring-opacity-5">
-              <div className="px-5 pt-5 pb-6">
-                <div className="flex items-center justify-between">
-                  <Link to="/" onClick={() => setMobileMenuOpen(false)}>
-                    <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">YL</span>
-                    </div>
-                  </Link>
-                  <div className="-mr-2">
-                    <button
-                      type="button"
-                      className="inline-flex items-center justify-center rounded-md p-2 text-gray-700"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      <span className="sr-only">Close menu</span>
-                      <X className="h-6 w-6" aria-hidden="true" />
-                    </button>
-                  </div>
-                </div>
-                <div className="mt-6">
-                  <nav className="grid gap-y-4">
+          <svg
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            {mobileMenuOpen ? (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            ) : (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            )}
+          </svg>
+        </button>
+      </nav>
+
+      {/* Mobile Navigation */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="md:hidden overflow-hidden"
+          >
+            <div className="px-4 py-4 space-y-4 bg-white border-t border-gray-100">
+              {publicLinks.map((link) => {
+                return (
+                 <NavLink  className={({isActive}) => `flex items-center space-x-2 hover:text-blue-600 transition-colors ${isActive ? "text-blue-600 font-semibold" : "text-gray-700"}`} to={link.to}>
+                  <link.icon className="h-5 w-5" />
+                  <span>{link.label}</span>
+              </NavLink>
+                );
+              })}
+              <div className="pt-4 space-y-3 flex flex-col text-center">
+                {!user ? (
+                  <>
                     <Link
-                      to="/"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center rounded-md p-3 text-base font-medium text-gray-900 hover:bg-gray-50"
+                      to="/auth/login"
+                      className="px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                     >
-                      <Home className="h-5 w-5 mr-3" />
-                      Home
+                      Sign In
                     </Link>
-
-                    {user ? (
-                      <>
-                        <Link
-                          to="/patient/dashboard"
-                          className="flex items-center rounded-md p-3 text-base font-medium text-gray-900 hover:bg-gray-50 w-full"
-                        >
-                          <LayoutDashboardIcon className="h-5 w-5 mr-3" />
-                          Dashboard
-                        </Link>
-                        <button
-                          onClick={() => {
-                            logout.mutate(); // Properly invoke the logout function
-                            setMobileMenuOpen(false);
-                          }}
-                          className="flex items-center rounded-md p-3 text-base font-medium text-gray-900 hover:bg-gray-50 w-full"
-                        >
-                          <LogOut className="h-5 w-5 mr-3" />
-                          Logout
-                        </button>
-
-                      </>
-                    ) : (
-                      <Link
-                        to="/auth/login"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center rounded-md p-3 text-base font-medium text-gray-900 hover:bg-gray-50"
-                      >
-                        <LogIn className="h-5 w-5 mr-3" />
-                        Login
-                      </Link>
-                    )}
-                  </nav>
-                </div>
+                    <Link
+                      to="/auth/register"
+                      className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-md transition-all"
+                    >
+                      Get Started
+                    </Link>
+                  </>
+                ) : (
+                  <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-md transition-all">
+                    Logout
+                  </button>
+                )}
               </div>
             </div>
-          </div>
-        </Transition>
-      </nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 };

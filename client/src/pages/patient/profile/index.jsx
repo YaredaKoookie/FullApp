@@ -254,7 +254,7 @@ const PatientProfile = () => {
                     {...register("phone", {
                       required: "Phone is required",
                       pattern: {
-                        value: /^\+?[1-9]\d{1,14}$/,
+                        value: /^(\+251|0)(9|7)\d{8}$|^\+?\d{1,3}[-. ]?\(?\d{3}\)?[-. ]?\d{3}[-. ]?\d{4}$/,
                         message: "Invalid phone number format",
                       },
                     })}
@@ -287,7 +287,7 @@ const PatientProfile = () => {
                         new Date(value) < new Date() ||
                         "Date must be in the past",
                     })}
-                    defaultValue={profile.dateOfBirth}
+                    defaultValue={profile.dateOfBirth?.split("T")[0]}
                     type="date"
                     className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
@@ -340,7 +340,7 @@ const PatientProfile = () => {
                 {isEditing ? (
                   <select
                     {...register("preferredLanguage")}
-                    defaultValue={profile.phone}
+                    defaultValue={profile.preferredLanguage}
                     className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   >
                     <option value="English">English</option>

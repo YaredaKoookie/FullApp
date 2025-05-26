@@ -1,27 +1,78 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dialog } from "@headlessui/react";
-import { 
-  ArrowRight, Check, Shield, Clock, Star, Calendar, 
-  HeartPulse, X, ChevronRight, Play
+import {
+  ArrowRight,
+  Check,
+  Shield,
+  Clock,
+  Star,
+  Calendar,
+  HeartPulse,
+  X,
+  ChevronRight,
+  Play,
+  Phone,
+  Mail,
+  MapPin,
+  Facebook,
+  Twitter,
+  Instagram,
+  Linkedin,
 } from "lucide-react";
+import Footer from "@/components/Footer";
 
 const CureLogicHomepage = () => {
   const [symptomInput, setSymptomInput] = useState("");
   const [isDemoOpen, setIsDemoOpen] = useState(false);
-  
-  // Sample data
-  // const doctors = [
-  //   { id: 1, name: "Dr. Alemnesh Kassahun", specialty: "Cardiology", rating: 4.9 },
-  //   { id: 2, name: "Dr. Michael Getachew", specialty: "Pediatrics", rating: 4.8 },
-  //   { id: 3, name: "Dr. Selamawit Y.", specialty: "Dermatology", rating: 4.7 },
-  // ];
 
   const features = [
-    { icon: Shield, title: "Verified Doctors", desc: "All specialists are licensed and vetted" },
-    { icon: Clock, title: "24/7 Access", desc: "Get care anytime with telemedicine" },
-    { icon: Calendar, title: "Instant Booking", desc: "Real-time availability matching" },
-    { icon: HeartPulse, title: "AI Triage", desc: "Smart symptom assessment" }
+    {
+      icon: Shield,
+      title: "Verified Doctors",
+      desc: "All specialists are licensed and vetted",
+    },
+    {
+      icon: Clock,
+      title: "24/7 Access",
+      desc: "Get care anytime with telemedicine",
+    },
+    {
+      icon: Calendar,
+      title: "Instant Booking",
+      desc: "Real-time availability matching",
+    },
+    { icon: HeartPulse, title: "AI Triage", desc: "Smart symptom assessment" },
+  ];
+
+  const footerLinks = [
+    {
+      title: "Company",
+      links: [
+        { name: "About Us", href: "/about" },
+        { name: "Careers", href: "/careers" },
+        { name: "Press", href: "/press" },
+        { name: "Blog", href: "/blog" },
+      ],
+    },
+    {
+      title: "Resources",
+      links: [
+        { name: "Help Center", href: "/help" },
+        { name: "Privacy Policy", href: "/privacy" },
+        { name: "Terms of Service", href: "/terms" },
+        { name: "Health Library", href: "/health-library" },
+      ],
+    },
+    {
+      title: "Specialties",
+      links: [
+        { name: "Primary Care", href: "/specialties/primary" },
+        { name: "Cardiology", href: "/specialties/cardio" },
+        { name: "Dermatology", href: "/specialties/derm" },
+        { name: "Pediatrics", href: "/specialties/peds" },
+      ],
+    },
   ];
 
   return (
@@ -29,13 +80,13 @@ const CureLogicHomepage = () => {
       {/* Animated Hero Section */}
       <section className="relative bg-gradient-to-br from-blue-50 to-indigo-50 py-28 overflow-hidden">
         {/* Background shapes */}
-        <motion.div 
+        <motion.div
           initial={{ x: -100, y: -100, opacity: 0 }}
           animate={{ x: 0, y: 0, opacity: 0.1 }}
           transition={{ duration: 1 }}
           className="absolute -left-20 -top-20 w-96 h-96 rounded-full bg-blue-200 blur-3xl"
         />
-        <motion.div 
+        <motion.div
           initial={{ x: 100, y: 100, opacity: 0 }}
           animate={{ x: 0, y: 0, opacity: 0.1 }}
           transition={{ duration: 1, delay: 0.2 }}
@@ -49,7 +100,7 @@ const CureLogicHomepage = () => {
             transition={{ duration: 0.8 }}
             className="max-w-3xl mx-auto text-center"
           >
-            <motion.div 
+            <motion.div
               whileHover={{ scale: 1.05 }}
               className="inline-flex items-center px-4 py-2 bg-white rounded-full shadow-sm mb-6"
             >
@@ -61,11 +112,14 @@ const CureLogicHomepage = () => {
             </motion.div>
 
             <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-              Healthcare <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">reimagined</span>
+              Healthcare{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
+                reimagined
+              </span>
             </h1>
-            
+
             <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
-              AI-powered medical guidance and seamless doctor appointments. 
+              AI-powered medical guidance and seamless doctor appointments.
               Precision care tailored just for you.
             </p>
 
@@ -78,7 +132,7 @@ const CureLogicHomepage = () => {
                 Start Symptom Check
                 <ArrowRight className="inline ml-2 h-5 w-5" />
               </motion.button>
-              
+
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.98 }}
@@ -100,9 +154,9 @@ const CureLogicHomepage = () => {
           >
             <div className="relative">
               <div className="absolute -inset-4 bg-blue-100 rounded-2xl blur-lg opacity-30"></div>
-              <img 
-                src="/doctor-illustration.svg" 
-                alt="Doctor consultation" 
+              <img
+                src="/doctor-illustration.svg"
+                alt="Doctor consultation"
                 className="relative w-full max-w-md"
               />
             </div>
@@ -123,7 +177,9 @@ const CureLogicHomepage = () => {
             <span className="inline-block bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm font-medium mb-4">
               SIMPLE PROCESS
             </span>
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">How CureLogic Works</h2>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              How CureLogic Works
+            </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Three simple steps to better health
             </p>
@@ -151,9 +207,12 @@ const CureLogicHomepage = () => {
                   {index === 2 && "Book Appointment"}
                 </h3>
                 <p className="text-gray-600">
-                  {index === 0 && "Use our AI assistant to describe how you're feeling in natural language."}
-                  {index === 1 && "Receive tailored suggestions for specialists and next steps."}
-                  {index === 2 && "Schedule instantly with verified doctors in your area."}
+                  {index === 0 &&
+                    "Use our AI assistant to describe how you're feeling in natural language."}
+                  {index === 1 &&
+                    "Receive tailored suggestions for specialists and next steps."}
+                  {index === 2 &&
+                    "Schedule instantly with verified doctors in your area."}
                 </p>
               </motion.div>
             ))}
@@ -175,10 +234,16 @@ const CureLogicHomepage = () => {
               <div className="md:w-1/2 bg-gradient-to-br from-blue-600 to-indigo-600 p-8 text-white">
                 <h3 className="text-2xl font-bold mb-3">AI Symptom Checker</h3>
                 <p className="mb-6 opacity-90">
-                  Get instant preliminary assessment based on your symptoms and medical history.
+                  Get instant preliminary assessment based on your symptoms and
+                  medical history.
                 </p>
                 <ul className="space-y-3">
-                  {["No wait times", "Privacy-first", "Evidence-based", "Doctor-reviewed"].map((item, i) => (
+                  {[
+                    "No wait times",
+                    "Privacy-first",
+                    "Evidence-based",
+                    "Doctor-reviewed",
+                  ].map((item, i) => (
                     <li key={i} className="flex items-center">
                       <Check className="h-5 w-5 mr-2 text-blue-200" />
                       {item}
@@ -207,7 +272,10 @@ const CureLogicHomepage = () => {
                   Analyze Symptoms
                 </motion.button>
                 <p className="text-sm text-gray-500 mt-3 text-center">
-                  For full analysis, <a href="/signup" className="text-blue-600 hover:underline">create a free account</a>
+                  For full analysis,{" "}
+                  <a href="/signup" className="text-blue-600 hover:underline">
+                    create a free account
+                  </a>
                 </p>
               </div>
             </div>
@@ -224,7 +292,9 @@ const CureLogicHomepage = () => {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Why Choose CureLogic?</h2>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Why Choose CureLogic?
+            </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Healthcare designed around your needs
             </p>
@@ -244,7 +314,9 @@ const CureLogicHomepage = () => {
                 <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center mb-4 text-blue-600">
                   <feature.icon className="h-6 w-6" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2 text-gray-900">{feature.title}</h3>
+                <h3 className="text-xl font-semibold mb-2 text-gray-900">
+                  {feature.title}
+                </h3>
                 <p className="text-gray-600">{feature.desc}</p>
               </motion.div>
             ))}
@@ -252,12 +324,14 @@ const CureLogicHomepage = () => {
         </div>
       </section>
 
+      <Footer />
+
       {/* Demo Video Modal */}
       <AnimatePresence>
         {isDemoOpen && (
-          <Dialog 
-            open={isDemoOpen} 
-            onClose={() => setIsDemoOpen(false)} 
+          <Dialog
+            open={isDemoOpen}
+            onClose={() => setIsDemoOpen(false)}
             as="div"
             className="fixed inset-0 z-50 overflow-y-auto"
           >
@@ -279,7 +353,19 @@ const CureLogicHomepage = () => {
                 <div className="relative pt-[56.25%] bg-gray-900">
                   {/* Replace with actual video embed */}
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <button 
+                    <iframe
+                      // width="560"
+                      // height="315"
+                      style={{width: "100%", height: "100%"}}
+                      src="https://www.youtube.com/embed/QR-tZqiKCrg?si=7swu1IfMehOfrlEW"
+                      title="YouTube video player"
+                      frameborder="0"
+                      autoPlay
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerpolicy="strict-origin-when-cross-origin"
+                      allowfullscreen
+                    ></iframe>
+                    {/* <button
                       onClick={() => setIsDemoOpen(false)}
                       className="absolute top-4 right-4 text-white hover:text-gray-200"
                     >
@@ -290,7 +376,7 @@ const CureLogicHomepage = () => {
                         <Play className="h-6 w-6 text-white ml-1" />
                       </div>
                       <p className="text-white font-medium">Product Demo</p>
-                    </div>
+                    </div> */}
                   </div>
                 </div>
                 <div className="p-6">
@@ -298,7 +384,8 @@ const CureLogicHomepage = () => {
                     CureLogic Platform Demo
                   </Dialog.Title>
                   <p className="text-gray-600 mb-4">
-                    See how our platform helps patients find the right care quickly and easily.
+                    See how our platform helps patients find the right care
+                    quickly and easily.
                   </p>
                   <button
                     onClick={() => setIsDemoOpen(false)}

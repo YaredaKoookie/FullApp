@@ -22,3 +22,7 @@ export const cancelAppointment = async (id, data) => {
 export const bookAppointment = async (doctorId, data) => {
     return await apiClient.post(appointments.book(doctorId), data)
 }
+
+export const rescheduleAppointment = async (appointmentId, data) => {
+    return await apiClient.post(appointments.reschedule(appointmentId), data);
+}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import {
-  MutationCache,
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
@@ -9,7 +9,6 @@ import {
   Tab,
   Transition,
   Listbox,
-  Switch,
   Dialog,
   DialogPanel,
   DialogTitle,
@@ -19,17 +18,14 @@ import {
   Calendar,
   Clock,
   CheckCircle,
-  XCircle,
   RotateCw,
   ChevronDown,
   ChevronUp,
   Search,
-  Filter,
-  MapPin,
-  User,
+  Loader2,
+  ArrowRight,
   Stethoscope,
   DollarSign,
-  MoreVertical,
   AlertCircle,
   X,
   Sliders,
@@ -41,8 +37,10 @@ import {
   formatDistanceToNow,
   isPast,
   isToday,
-  subDays,
+  addDays,
+  isTomorrow,
 } from "date-fns";
+
 import AppointmentStatusBadge from "./AppointmentStatusBadge";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -50,6 +48,8 @@ import apiClient from "@api/apiClient";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Atom, ThreeDot } from "react-loading-indicators";
+import { useRescheduleAppointment } from "@/api/patient";
+import { queryKeys } from "@/api/queryClient";
 
 const fetchAppointments = async (params, patientId) => {
   const queryParams = new URLSearchParams();
@@ -130,8 +130,8 @@ const AppointmentsPage = () => {
     isError,
     error,
   } = useQuery({
-    queryKey: ["appointments", searchParams, patientId],
-    queryFn: () => fetchAppointments(searchParams, patientId),
+    queryKey: queryKeys.patient.appointments.search(),
+    queryFn: () => fetchAppointments(searchParams),
     enabled: true, // Only fetch when patientId is available
     keepPreviousData: true,
   });
@@ -190,9 +190,10 @@ const AppointmentsPage = () => {
                   <Tab
                     key={filter.value}
                     className={({ selected }) =>
-                      `whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${selected
-                        ? "bg-white shadow text-blue-600"
-                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                      `whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                        selected
+                          ? "bg-white shadow text-blue-600"
+                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                       }`
                     }
                     onClick={() => {
@@ -254,17 +255,19 @@ const AppointmentsPage = () => {
                             key={filter.value}
                             value={filter}
                             className={({ active }) =>
-                              `relative cursor-default select-none py-2 pl-3 pr-9 ${active
-                                ? "bg-blue-100 text-blue-900"
-                                : "text-gray-900"
+                              `relative cursor-default select-none py-2 pl-3 pr-9 ${
+                                active
+                                  ? "bg-blue-100 text-blue-900"
+                                  : "text-gray-900"
                               }`
                             }
                           >
                             {({ selected }) => (
                               <>
                                 <span
-                                  className={`block truncate ${selected ? "font-medium" : "font-normal"
-                                    }`}
+                                  className={`block truncate ${
+                                    selected ? "font-medium" : "font-normal"
+                                  }`}
                                 >
                                   {filter.name}
                                 </span>
@@ -278,7 +281,7 @@ const AppointmentsPage = () => {
                 </Listbox>
               </div>
 
-              <div>
+              <div className="">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Appointment Date Range
                 </label>
@@ -289,7 +292,7 @@ const AppointmentsPage = () => {
                   onChange={(update) => setDateRange(update)}
                   isClearable
                   placeholderText="Select date range"
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
               </div>
 
@@ -304,7 +307,7 @@ const AppointmentsPage = () => {
                   onChange={(update) => setCreatedDateRange(update)}
                   isClearable
                   placeholderText="Select creation date range"
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="input block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
               </div>
 
@@ -450,10 +453,11 @@ const AppointmentsPage = () => {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className={`px-4 py-2 border border-gray-300 rounded-md text-sm font-medium ${page === 1
+                  className={`px-4 py-2 border border-gray-300 rounded-md text-sm font-medium ${
+                    page === 1
                       ? "text-gray-400 bg-gray-50 cursor-not-allowed"
                       : "text-gray-700 bg-white hover:bg-gray-50"
-                    }`}
+                  }`}
                 >
                   Previous
                 </button>
@@ -466,17 +470,18 @@ const AppointmentsPage = () => {
                         if (
                           pageNumber === 1 ||
                           pageNumber ===
-                          Math.ceil(result?.pagination.total / limit) ||
+                            Math.ceil(result?.pagination.total / limit) ||
                           (pageNumber >= page - 2 && pageNumber <= page + 2)
                         ) {
                           return (
                             <button
                               key={pageNumber}
                               onClick={() => setPage(pageNumber)}
-                              className={`px-3 py-1 rounded-md text-sm font-medium ${page === pageNumber
+                              className={`px-3 py-1 rounded-md text-sm font-medium ${
+                                page === pageNumber
                                   ? "bg-blue-600 text-white"
                                   : "text-gray-700 hover:bg-gray-100"
-                                }`}
+                              }`}
                             >
                               {pageNumber}
                             </button>
@@ -486,7 +491,7 @@ const AppointmentsPage = () => {
                           (pageNumber === page - 3 && page > 4) ||
                           (pageNumber === page + 3 &&
                             page <
-                            Math.ceil(result?.pagination.total / limit) - 3)
+                              Math.ceil(result?.pagination.total / limit) - 3)
                         ) {
                           return (
                             <span
@@ -514,10 +519,11 @@ const AppointmentsPage = () => {
                   disabled={
                     page === Math.ceil(result?.pagination.total / limit)
                   }
-                  className={`px-4 py-2 border border-gray-300 rounded-md text-sm font-medium ${page === Math.ceil(result?.pagination.total / limit)
+                  className={`px-4 py-2 border border-gray-300 rounded-md text-sm font-medium ${
+                    page === Math.ceil(result?.pagination.total / limit)
                       ? "text-gray-400 bg-gray-50 cursor-not-allowed"
                       : "text-gray-700 bg-white hover:bg-gray-50"
-                    }`}
+                  }`}
                 >
                   Next
                 </button>
@@ -544,8 +550,9 @@ const StatCard = ({ icon, iconBg, title, value, change }) => (
             <div className="text-2xl font-semibold text-gray-900">{value}</div>
             {change !== null && (
               <span
-                className={`ml-2 text-sm font-medium ${change >= 0 ? "text-green-600" : "text-red-600"
-                  }`}
+                className={`ml-2 text-sm font-medium ${
+                  change >= 0 ? "text-green-600" : "text-red-600"
+                }`}
               >
                 {change >= 0 ? "+" : ""}
                 {change}%
@@ -561,9 +568,9 @@ const StatCard = ({ icon, iconBg, title, value, change }) => (
 // Add CountdownTimer component before AppointmentCard
 const CountdownTimer = ({ startDate }) => {
   const [timeInfo, setTimeInfo] = useState({
-    remaining: '',
-    elapsed: '',
-    status: 'upcoming' // 'upcoming', 'ongoing', 'ended'
+    remaining: "",
+    elapsed: "",
+    status: "upcoming", // 'upcoming', 'ongoing', 'ended'
   });
   const [isUrgent, setIsUrgent] = useState(false);
 
@@ -582,15 +589,15 @@ const CountdownTimer = ({ startDate }) => {
       if (difference <= 0) {
         if (isEnded) {
           setTimeInfo({
-            remaining: '',
+            remaining: "",
             elapsed: formatDistanceToNow(start, { addSuffix: true }),
-            status: 'ended'
+            status: "ended",
           });
         } else {
           setTimeInfo({
-            remaining: '',
+            remaining: "",
             elapsed: formatDistanceToNow(start, { addSuffix: true }),
-            status: 'ongoing'
+            status: "ongoing",
           });
         }
         return;
@@ -608,9 +615,9 @@ const CountdownTimer = ({ startDate }) => {
       if (seconds > 0) parts.push(`${seconds}s`);
 
       setTimeInfo({
-        remaining: parts.join(' '),
-        elapsed: '',
-        status: 'upcoming'
+        remaining: parts.join(" "),
+        elapsed: "",
+        status: "upcoming",
       });
     };
 
@@ -622,48 +629,48 @@ const CountdownTimer = ({ startDate }) => {
 
   const getStatusColor = () => {
     switch (timeInfo.status) {
-      case 'ongoing':
-        return 'bg-green-50 border-green-200 text-green-600';
-      case 'ended':
-        return 'bg-gray-50 border-gray-200 text-gray-600';
+      case "ongoing":
+        return "bg-green-50 border-green-200 text-green-600";
+      case "ended":
+        return "bg-gray-50 border-gray-200 text-gray-600";
       default:
-        return isUrgent 
-          ? 'bg-red-50 border-red-200 text-red-600' 
-          : 'bg-blue-50 border-blue-200 text-blue-600';
+        return isUrgent
+          ? "bg-red-50 border-red-200 text-red-600"
+          : "bg-blue-50 border-blue-200 text-blue-600";
     }
   };
 
   return (
-    <div className={`flex flex-col gap-1 px-3 py-2 rounded-lg border transition-all duration-300 ${getStatusColor()}`}>
+    <div
+      className={`flex flex-col gap-1 px-3 py-2 rounded-lg border transition-all duration-300 ${getStatusColor()}`}
+    >
       <div className="flex items-center gap-2">
         <Clock className="h-4 w-4" />
-        {timeInfo.status === 'upcoming' && (
+        {timeInfo.status === "upcoming" && (
           <span className="text-sm font-medium">
             Starts in: {timeInfo.remaining}
           </span>
         )}
-        {timeInfo.status === 'ongoing' && (
+        {timeInfo.status === "ongoing" && (
           <span className="text-sm font-medium">
             Started {timeInfo.elapsed}
           </span>
         )}
-        {timeInfo.status === 'ended' && (
-          <span className="text-sm font-medium">
-            Ended {timeInfo.elapsed}
-          </span>
+        {timeInfo.status === "ended" && (
+          <span className="text-sm font-medium">Ended {timeInfo.elapsed}</span>
         )}
       </div>
-      {isUrgent && timeInfo.status === 'upcoming' && (
+      {isUrgent && timeInfo.status === "upcoming" && (
         <div className="flex items-center gap-1 text-xs font-medium">
           <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-600">
             Join Soon
           </span>
           <span className="text-red-600">
-            Session starts at {format(new Date(startDate), 'h:mm a')}
+            Session starts at {format(new Date(startDate), "h:mm a")}
           </span>
         </div>
       )}
-      {timeInfo.status === 'ongoing' && (
+      {timeInfo.status === "ongoing" && (
         <div className="flex items-center gap-1 text-xs font-medium text-green-600">
           <span className="px-2 py-0.5 rounded-full bg-green-100">
             Session in Progress
@@ -686,22 +693,8 @@ const AppointmentCard = ({ appointment, onAction }) => {
   const isPastAppointment = isPast(endDate);
   const isTodayAppointment = isToday(startDate);
 
-  const { mutate: rescheduleAppointment, isLoading: isRescheduling } =
-    useMutation({
-      mutationFn: async (newSlot) => {
-        await apiClient.post(`/appointments/${appointment._id}/reschedule`, {
-          newSlot,
-          reason: rescheduleReason,
-        });
-      },
-      onSuccess: () => {
-        setIsRescheduleOpen(false);
-        setRescheduleReason("");
-      },
-      onError: (error) => {
-        alert(`Rescheduling failed: ${error.message}`);
-      },
-    });
+  const { mutateAsync: rescheduleAppointment, isLoading: isRescheduling } = useRescheduleAppointment();
+
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all duration-200 hover:shadow-md">
@@ -728,7 +721,7 @@ const AppointmentCard = ({ appointment, onAction }) => {
                     to={"../doctors/" + appointment.doctor._id + "/details"}
                   >
                     Dr. {appointment.doctor.firstName}{" "}
-                    {appointment.doctor.lastName}
+                    {appointment.doctor.middleName}
                   </Link>
                 </h3>
                 <AppointmentStatusBadge status={appointment.status} />
@@ -874,7 +867,10 @@ const AppointmentCard = ({ appointment, onAction }) => {
                   >
                     Cancel
                   </button>
-                  <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">
+                  <button
+                    onClick={() => setIsRescheduleOpen(true)}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
+                  >
                     Reschedule
                   </button>
                 </>
@@ -887,13 +883,17 @@ const AppointmentCard = ({ appointment, onAction }) => {
                       Join Session
                     </button>
                   )}
-                  <button className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  <button
+                    onClick={() => setIsRescheduleOpen(true)}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
                     Reschedule
                   </button>
                 </>
               )}
 
-              {(appointment.status === "accepted" || appointment.status === "payment_pending") && (
+              {(appointment.status === "accepted" ||
+                appointment.status === "payment_pending") && (
                 <>
                   <button
                     onClick={() => setIsPaymentOpen(true)}
@@ -917,9 +917,11 @@ const AppointmentCard = ({ appointment, onAction }) => {
                 </button>
               )}
 
-
               {appointment.status === "confirmed" && (
-                <Link to={`${appointment._id}/join`} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 flex items-center justify-center gap-2">
+                <Link
+                  to={`${appointment._id}/join`}
+                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 flex items-center justify-center gap-2"
+                >
                   <VideoIcon className="h-4 w-4" />
                   Join Session
                 </Link>
@@ -942,6 +944,7 @@ const AppointmentCard = ({ appointment, onAction }) => {
           setReason={setRescheduleReason}
           doctorId={appointment.doctor._id}
           currentSlot={appointment.slot}
+          appointmentId={appointment._id}
         />
         <PaymentDialog
           open={isPaymentOpen}
@@ -961,59 +964,204 @@ const RescheduleDialog = ({
   reason,
   setReason,
   doctorId,
+  appointmentId,
 }) => {
-  const [availableSlots, setAvailableSlots] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedSlot, setSelectedSlot] = useState(null);
 
-  useEffect(() => {
-    const fetchSlots = async () => {
-      const { data } = await apiClient.get(`/doctors/${doctorId}/slots`);
-      setAvailableSlots(data);
-    };
-    if (isOpen) fetchSlots();
-  }, [isOpen, doctorId]);
+  const { data: schedule, isFetching: isScheduleFetching } = useQuery({
+    queryKey: ["schedule", doctorId, selectedDate],
+    queryFn: async () => {
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
+      const response = await apiClient.get(
+        `/patient/doctors/${doctorId}/schedule/slots?date=${dateStr}&upcomingOnly=true`
+      );
+      return response;
+    },
+    placeholderData: keepPreviousData,
+    select: (data) => {
+      console.log("select", data);
+      const now = new Date();
+      const filteredSlots = data.slots.filter((slot) => {
+        const slotDate = new Date(slot.date);
+        const slotDateTime = new Date(
+          slot.date.split("T")[0] + "T" + slot.startTime
+        );
+        console.log(slotDateTime, now);
+        return (
+          slotDate.toDateString() === selectedDate.toDateString() &&
+          !slot.isBooked &&
+          slotDateTime > now
+        );
+      });
+      return { ...data, filteredSlots };
+    },
+    enabled: !!doctorId,
+  });
+
+  const handlePreviousDay = () => {
+    const newDate = addDays(selectedDate, -1);
+    setSelectedDate(newDate);
+    setSelectedSlot(null);
+  };
+
+  const handleNextDay = () => {
+    const newDate = addDays(selectedDate, 1);
+    setSelectedDate(newDate);
+    setSelectedSlot(null);
+  };
+
+  const handleDateSelect = (date) => {
+    setSelectedDate(date);
+    setSelectedSlot(null);
+  };
 
   return (
     <Dialog open={isOpen} onClose={onClose}>
-      <Dialog.Panel className="fixed inset-0 bg-black/30 flex items-center justify-center p-4">
+      <Dialog.Panel className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 overflow-auto">
         <div className="bg-white rounded-lg p-6 max-w-md w-full">
           <Dialog.Title className="font-bold text-lg mb-2">
             Reschedule Appointment
           </Dialog.Title>
-          <div className="mb-4 space-y-4">
-            <div>
-              <label className="block mb-2">Available Time Slots</label>
-              <div className="max-h-40 overflow-y-auto border rounded p-2">
-                {availableSlots.map((slot) => (
-                  <div
-                    key={slot._id}
-                    className={`p-2 mb-2 cursor-pointer ${selectedSlot?._id === slot._id
-                        ? "bg-blue-50"
-                        : "hover:bg-gray-50"
-                      }`}
-                    onClick={() => setSelectedSlot(slot)}
-                  >
-                    {format(new Date(slot.start), "MMM d, h:mm a")}
-                  </div>
-                ))}
+
+          <div className="border-b border-gray-100 mb-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-medium text-gray-900">Select Date</h3>
+              <div className="flex space-x-2">
+                <button
+                  onClick={handlePreviousDay}
+                  className="p-1 rounded-full hover:bg-gray-100"
+                >
+                  <ChevronDown className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={handleNextDay}
+                  className="p-1 rounded-full hover:bg-gray-100"
+                >
+                  <ChevronUp className="h-5 w-5" />
+                </button>
               </div>
             </div>
-            <div>
-              <label className="block mb-2">Reason for rescheduling</label>
-              <textarea
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                className="w-full border rounded p-2"
-                rows={3}
-              />
+
+            <div className="text-center py-2 px-4 bg-blue-100 rounded-lg mb-4">
+              <span className="font-medium text-blue-800">
+                {isToday(selectedDate)
+                  ? "Today"
+                  : isTomorrow(selectedDate)
+                  ? "Tomorrow"
+                  : format(selectedDate, "EEEE, MMM d")}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1">
+              {[0, 1, 2, 3, 4, 5, 6].map((dayOffset) => {
+                const date = addDays(new Date(), dayOffset);
+                const isSelected =
+                  date.toDateString() === selectedDate.toDateString();
+                const isDisabled = isPast(date) && !isToday(date);
+
+                return (
+                  <button
+                    key={dayOffset}
+                    onClick={() => !isDisabled && handleDateSelect(date)}
+                    disabled={isDisabled}
+                    className={`py-2 rounded-lg flex flex-col items-center ${
+                      isSelected
+                        ? "bg-blue-600 text-white"
+                        : isDisabled
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : "bg-gray-100 hover:bg-gray-200"
+                    }`}
+                  >
+                    <span className="text-xs">{format(date, "EEE")}</span>
+                    <span className="text-sm font-medium">
+                      {format(date, "d")}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
+
+          {/* Time Slots */}
+          <div className="border-b border-gray-100 pb-4 mb-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-medium text-gray-900">
+                Available Time Slots
+              </h3>
+              {schedule?.filteredSlots?.length > 0 && (
+                <span className="text-xs text-gray-500">
+                  {schedule.appointmentDuration} min each
+                </span>
+              )}
+            </div>
+
+            <div className="max-h-[250px] overflow-auto">
+              {isScheduleFetching ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 text-blue-600 animate-spin mb-3" />
+                  <p className="text-sm text-gray-500">
+                    Loading available slots...
+                  </p>
+                </div>
+              ) : schedule?.filteredSlots?.length ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {schedule.filteredSlots.map((slot) => {
+                    const slotTime = new Date(
+                      slot.date.split("T")[0] + "T" + slot.startTime
+                    );
+                    const isSelected = selectedSlot === slot._id;
+
+                    return (
+                      <button
+                        key={slot._id}
+                        onClick={() => setSelectedSlot(slot._id)}
+                        className={`py-2 px-3 rounded-lg text-sm transition-colors flex items-center justify-center ${
+                          isSelected
+                            ? "bg-blue-600 text-white"
+                            : "bg-gray-100 hover:bg-gray-200"
+                        }`}
+                      >
+                        {format(slotTime, "h:mm a")}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-gray-500">
+                  {isPast(selectedDate) && !isToday(selectedDate)
+                    ? "This date has passed"
+                    : "No available slots for this date"}
+                </div>
+              )}
+            </div>
+          </div>
+
+
+          <div className="mb-4">
+            <label className="block mb-2 text-gray-800">Reason for rescheduling</label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="input w-full"
+              rows={3}
+            />
+          </div>
+
           <div className="flex justify-end space-x-2">
             <button onClick={onClose} className="px-4 py-2 border rounded">
               Cancel
             </button>
             <button
-              onClick={() => onConfirm(selectedSlot)}
+              onClick={async () => {
+                const response = await onConfirm({appointmentId, slotId: selectedSlot, reason})
+                onClose();
+                selectedSlot(null);
+                selectedDate(null);
+                setReason("");
+                toast.success(response?.message || "Reschedule request have been sent to the doctor")
+                console.log("reset");
+              }}
               disabled={!selectedSlot || !reason || isLoading}
               className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
             >
@@ -1115,7 +1263,7 @@ const PaymentDialog = ({ open, onClose, appointment }) => {
     isPending: isInitiating,
     isError,
     data: payment,
-    reset
+    reset,
   } = useMutation({
     mutationFn: async () => {
       const { data } = await apiClient.post(
@@ -1133,9 +1281,7 @@ const PaymentDialog = ({ open, onClose, appointment }) => {
 
   const { mutate: initializePayment, isPending: isPaying } = useMutation({
     mutationFn: async (payment) => {
-      const { data } = await apiClient.post(
-      `/patient/payments/${payment._id}`
-      );
+      const { data } = await apiClient.post(`/patient/payments/${payment._id}`);
       return data;
     },
     onSuccess: (data) => {
@@ -1143,7 +1289,7 @@ const PaymentDialog = ({ open, onClose, appointment }) => {
     },
     onError: (error) => {
       toast.error(error.message);
-      onClose()
+      onClose();
     },
   });
 
@@ -1213,8 +1359,15 @@ const PaymentDialog = ({ open, onClose, appointment }) => {
         <h1 className="text-lg font-semibold mb-2">Initializing Error</h1>
         <p className="mb-4">Unable to initiate payment please try again</p>
         <div className="flex items-center gap-4 justify-end">
-          <button onClick={() => !isInitiating && initiatePayment(appointment._id)} className="px-4 py-2 bg-sky-600 text-white text-sm font-medium rounded-md hover:bg-sky-700 disabled:opacity-50">
-            {isInitiating ? <RotateCw className="animate-spin h-4 w-4 mx-2" /> : "Try Again"}
+          <button
+            onClick={() => !isInitiating && initiatePayment(appointment._id)}
+            className="px-4 py-2 bg-sky-600 text-white text-sm font-medium rounded-md hover:bg-sky-700 disabled:opacity-50"
+          >
+            {isInitiating ? (
+              <RotateCw className="animate-spin h-4 w-4 mx-2" />
+            ) : (
+              "Try Again"
+            )}
           </button>
           <button
             onClick={onClose}

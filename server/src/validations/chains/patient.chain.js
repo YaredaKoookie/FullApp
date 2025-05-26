@@ -248,7 +248,7 @@ export const validatePatientUpdate = [
 
   body("phone")
     .optional()
-    .matches(/^\+?[1-9]\d{1,14}$/)
+    .matches(phoneRegex)
     .withMessage("Invalid phone number format (E.164 recommended)"),
 
   body("notificationPreferences.systemNotification")
@@ -280,7 +280,7 @@ export const validatePatientUpdate = [
     .withMessage("Emergency contact name is required"),
   body("emergencyContact.*.phone")
     .optional()
-    .matches(/^\+?[1-9]\d{1,14}$/)
+    .matches(phoneRegex)
     .withMessage("Invalid emergency contact phone format"),
   body("emergencyContact.*.email")
     .optional()

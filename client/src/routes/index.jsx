@@ -31,6 +31,9 @@ import DoctorProfileDetails from "@/pages/patient/doctors/DoctorProfileDetails";
 import MedicalHistoryPage from "@/pages/patient/medical-history";
 import VideoCall from "@/pages/patient/VideoCall";
 import SecurityPage from "@/pages/patient/security";
+import Register from "@/pages/auth/Register";
+import ContactPage from "@/pages/Public/Contact";
+import About from "@/pages/Public/About";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -38,6 +41,8 @@ const router = createBrowserRouter(
 
       <Route path="/" element={<App />}>
         <Route index element={<CureLogicHomepage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/about" element={<About />} />
       </Route>
 
 
@@ -155,7 +160,7 @@ const router = createBrowserRouter(
 
       <Route path="auth" element={<RedirectIfLoggedIn />}>
         <Route index element={<Navigate to="/auth/login" replace />} />
-        <Route path="register" element={<RegistrationTab />} />
+        <Route path="register" element={<Register />} />
         <Route path="login" element={<Login />} />
         <Route path="google/callback" element={<GoogleCallback />} />
         <Route path="email/verify" element={<EmailVerifyCallback />} />

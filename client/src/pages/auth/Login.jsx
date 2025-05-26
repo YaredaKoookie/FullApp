@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link as RouterLink } from "react-router-dom";
 import { Dialog } from "@headlessui/react";
 import GoogleLoginBtn from "./GoogleLoginBtn";
-import { MarsStrokeIcon } from "lucide-react";
+import { Eye, EyeOff, MarsStrokeIcon } from "lucide-react";
 import { useLogin } from "@api/auth";
 
 const Login = () => {
@@ -11,7 +12,8 @@ const Login = () => {
     handleSubmit,
     formState: { errors },
   } = useForm();
-
+  
+  const [showPassword, setShowPassword] = useState(false);
   const loginMutation = useLogin();
 
   const onSubmit = async (data) => {
@@ -19,23 +21,28 @@ const Login = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-xl sm:min-w-[540px]">
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Login</h2>
-          </div>
+    <div className="flex bg-pattern min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="w-full animate-slide max-w-md rounded-2xl z-10 bg-white p-8 shadow-xl transition-all duration-300 hover:shadow-2xl sm:min-w-[480px]">
+        <div className="mb-8 text-center">
+          <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
+          <p className="mt-2 text-gray-600">Sign in to your account</p>
+        </div>
 
-          <div className="mb-4">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              Email Address
             </label>
-            <div className="relative mt-1">
+            <div className="relative">
               <input
                 id="email"
                 type="email"
                 placeholder="me@example.com"
-                className={`block w-full rounded-md border ${errors.email ? "border-red-300 pr-10 text-red-900 placeholder-red-300 focus:border-red-500 focus:outline-none focus:ring-red-500" : "border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"} p-2`}
+                className={`block w-full rounded-lg border-2 p-3 transition-all ${
+                  errors.email
+                    ? "border-red-300 pr-10 text-red-900 placeholder-red-300 focus:border-red-500 focus:ring-red-500"
+                    : "border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                }`}
                 {...register("email", {
                   required: "Email is required",
                   pattern: {
@@ -51,36 +58,62 @@ const Login = () => {
               )}
             </div>
             {errors.email && (
-              <p className="mt-2 text-sm text-red-600">{errors.email.message}</p>
+              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
             )}
           </div>
 
-          <div className="mb-6">
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
               Password
             </label>
-            <div className="relative mt-1">
+            <div className="relative">
               <input
                 id="password"
-                type="password"
-                className={`block w-full rounded-md border ${errors.password ? "border-red-300 pr-10 text-red-900 placeholder-red-300 focus:border-red-500 focus:outline-none focus:ring-red-500" : "border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"} p-2`}
-                {...register("password", { required: "Password is required" })}
+                type={showPassword ? "text" : "password"}
+                className={`block w-full rounded-lg border-2 p-3 transition-all ${
+                  errors.password
+                    ? "border-red-300 pr-10 text-red-900 placeholder-red-300 focus:border-red-500 focus:ring-red-500"
+                    : "border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                }`}
+                {...register("password", { 
+                  required: "Password is required",
+                  minLength: {
+                    value: 6,
+                    message: "Password must be at least 6 characters"
+                  }
+                })}
               />
-              {errors.password && (
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                  <MarsStrokeIcon className="h-5 w-5 text-red-500" aria-hidden="true" />
-                </div>
-              )}
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
             </div>
             {errors.password && (
-              <p className="mt-2 text-sm text-red-600">{errors.password.message}</p>
+              <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
             )}
+            <div className="mt-2 text-right">
+              <RouterLink
+                to="/auth/forgot-password"
+                className="text-sm font-medium text-blue-600 hover:text-blue-500 hover:underline"
+              >
+                Forgot password?
+              </RouterLink>
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={loginMutation.isPending}
-            className={`flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${loginMutation.isPending ? "opacity-70" : ""}`}
+            className={`flex w-full justify-center rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 py-3 px-4 text-sm font-medium text-white shadow-md transition-all hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+              loginMutation.isPending ? "opacity-80" : "hover:shadow-lg"
+            }`}
           >
             {loginMutation.isPending ? (
               <span className="flex items-center">
@@ -97,10 +130,10 @@ const Login = () => {
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
+              <div className="w-full border-t border-gray-200"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="bg-white px-2 text-gray-500">or</span>
+              <span className="bg-white px-3 text-gray-500">or continue with</span>
             </div>
           </div>
 
@@ -108,13 +141,13 @@ const Login = () => {
             <GoogleLoginBtn />
           </div>
 
-          <div className="text-center text-sm text-gray-500">
-            No account yet?{" "}
+          <div className="text-center text-sm text-gray-600">
+            Don't have an account?{" "}
             <RouterLink
               to="/auth/register"
               className="font-medium text-blue-600 hover:text-blue-500 hover:underline"
             >
-              Register
+              Sign up
             </RouterLink>
           </div>
         </form>

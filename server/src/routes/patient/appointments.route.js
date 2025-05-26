@@ -39,7 +39,7 @@ router.put(
     "/:appointmentId/reschedule/:action",
     validate(appointmentChains.validateRespondToReschedule),
     appointmentController.respondToReschedule
-)
+)  
 
 
 export default router;

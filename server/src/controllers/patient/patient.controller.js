@@ -872,15 +872,14 @@ export const getApprovedDoctorById = async (req, res) => {
 
   const query = {
     _id: req.params.doctorId,
-    isActive: true,
   };
   console.log(query);
 
-  const doctor = await Doctor.findOne(query);
+  const doctor = await Doctor.findOne(query).populate("userId", "isActive");
   // .select(
   //   "-licenseNumber -licenseDocument -idProof -withdrawalBalance -adminRemarks -applicationNotes"
   // );
-  if (!doctor) throw ServerError.notFound("Doctor doesn't exist");
+  if (!doctor?.isActive) throw ServerError.notFound("Doctor doesn't exist");
 
   res.json({
     success: true,

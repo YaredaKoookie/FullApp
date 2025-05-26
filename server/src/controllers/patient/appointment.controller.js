@@ -145,7 +145,9 @@ export const patientCancelAppointment = async (req, res) => {
       cancelledAt: new Date(),
     };
 
-    if (appointment.status === APPOINTMENT_STATUS.PAYMENT_PENDING) {
+    const isPendingOrPaymentPending = appointment.status === APPOINTMENT_STATUS.PAYMENT_PENDING || appointment.status === APPOINTMENT_STATUS.PENDING; 
+    
+    if (isPendingOrPaymentPending) {
       await Payment.findOneAndUpdate(
         { appointment: appointment._id },
         { status: PAYMENT_STATUS.CANCELLED }
@@ -352,6 +354,8 @@ export const requestAppointmentReschedule = async (req, res) => {
     }
   }
 
+  console.log("not have pending reschedules yet");
+
   const { start, end } = await handleSlotConflict(
     slotId,
     appointment.doctor,
@@ -381,6 +385,7 @@ export const requestAppointmentReschedule = async (req, res) => {
       },
     };
 
+    
     await slotUtils.releaseBlockedSlot(
       appointment.doctor,
       appointment.slot.slotId
@@ -409,7 +414,7 @@ export const requestAppointmentReschedule = async (req, res) => {
     success: true,
     message: "Appointment rescheduled requested",
     data: {
-      appointment,
+      appointment: updatedAppointment,
     },
   });
 };
@@ -730,8 +735,8 @@ export const searchAppointments = async (req, res) => {
     // Get appointments with population
     const [appointments, total, stats] = await Promise.all([
       Appointment.find(filter)
-        .populate("patient", "firstName lastName profileImage")
-        .populate("doctor", "firstName lastName specialization profilePhoto")
+        .populate("patient", "firstName middleName lastName profileImage")
+        .populate("doctor", "firstName middleName lastName specialization profilePhoto")
         .sort({ "slot.start": 1 })
         .skip(skip)
         .limit(limitNumber)
