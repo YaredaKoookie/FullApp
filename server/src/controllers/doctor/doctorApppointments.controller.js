@@ -93,9 +93,6 @@ export const getAppointments = async (req, res) => {
   }
 };
 
-// @desc    Get appointment statistics
-// @route   GET /api/appointments/stats
-// @access  Private (Doctor)
 export const getAppointmentStats = async (req, res) => {
   try {
     const { sub: userId } = req.user;
@@ -138,9 +135,6 @@ export const getAppointmentStats = async (req, res) => {
   }
 };
 
-// @desc    Accept an appointment
-// @route   POST /api/appointments/:id/accept
-// @access  Private (Doctor)
 export const acceptAppointment = async (req, res) => {
   try {
     const { id: appointmentId } = req.params;
@@ -184,9 +178,8 @@ export const acceptAppointment = async (req, res) => {
   }
 };
 
-// @desc    Reject an appointment
-// @route   POST /api/appointments/:id/reject
-// @access  Private (Doctor)
+
+
 export const rejectAppointment = async (req, res) => {
   try {
     const { id: appointmentId } = req.params;
@@ -240,9 +233,7 @@ export const rejectAppointment = async (req, res) => {
   }
 };
 
-// @desc    Reschedule an appointment
-// @route   POST /api/appointments/:id/reschedule
-// @access  Private (Doctor)
+
 export const rescheduleAppointment = async (req, res) => {
   try {
     const { id: appointmentId } = req.params;

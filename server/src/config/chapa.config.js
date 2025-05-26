@@ -7,7 +7,7 @@ const CHAPA_BASE_URL = 'https://api.chapa.co/v1'
 const chapa = new Chapa({
     secretKey: env.CHAPA_SECRET_KEY,
 })
-
+console.log("chapa secret key",env.CHAPA_SECRET_KEY)
 export const refundChapaPayment = async (tx_ref, amount, reason, meta) => {
   try {
     const response = await axios.post(

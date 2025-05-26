@@ -14,4 +14,4 @@ mongoose.connection.on("connected", () => {
   logger.info("Database connected successfully");
 });
 
-export const connection = mongoose.connection;
+export const connection = mongoose.connection; 

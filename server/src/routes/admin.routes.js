@@ -70,11 +70,16 @@ router.get(
   adminController.viewDoctorProfile
 );
 
-
 router.get("/users", adminController.listUsers);
 router.get("/users/:id", adminController.getUserDetails);
 router.put("/users/:id", adminController.updateUser);
 router.patch("/users/:id/status", adminController.toggleUserStatus);
 router.delete("/users/:id", adminController.deleteUser);
 
+// Appointment management (read-only for admin)
+router.get("/appointments", adminController.listAppointments); // List all appointments
+router.get("/appointments/:id", adminController.getAppointmentDetails); // View appointment details
+
+
+router.get("/banks", adminController.getBanks)
 export default router;

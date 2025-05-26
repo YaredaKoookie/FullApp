@@ -5,7 +5,7 @@ import {
   ArrowRight, Check, Shield, Clock, Star, Calendar, 
   HeartPulse, X, ChevronRight, Play
 } from "lucide-react";
-
+import Header_Img from '@/assets/assets_frontend/header_img.png'
 const CureLogicHomepage = () => {
   const [symptomInput, setSymptomInput] = useState("");
   const [isDemoOpen, setIsDemoOpen] = useState(false);
@@ -101,7 +101,7 @@ const CureLogicHomepage = () => {
             <div className="relative">
               <div className="absolute -inset-4 bg-blue-100 rounded-2xl blur-lg opacity-30"></div>
               <img 
-                src="/doctor-illustration.svg" 
+                src={Header_Img} 
                 alt="Doctor consultation" 
                 className="relative w-full max-w-md"
               />

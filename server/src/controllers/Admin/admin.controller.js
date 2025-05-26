@@ -1,9 +1,12 @@
-import Doctor from '../../models/doctors/doctor.model.js';
-import User from '../../models/user.model.js';
-import { hashUtil } from '../../utils/index.js';
-import ServerError from '../../utils/ServerError.js';
-import { uploadImageCloud } from '../../config/cloudinary.config.js';
-import Patient from '../../models/patient/patient.model.js';
+import Doctor from "../../models/doctors/doctor.model.js";
+import User from "../../models/user.model.js";
+import { hashUtil } from "../../utils/index.js";
+import ServerError from "../../utils/ServerError.js";
+import { uploadImageCloud } from "../../config/cloudinary.config.js";
+import Patient from "../../models/patient/patient.model.js";
+import axios from "axios";
+import Appointment from "../../models/appointment/appointment.model.js";
+import env from "../../config/env.config.js";
 
 // 1. List Doctors with Pagination
 export const listDoctors = async (req, res) => {
@@ -11,31 +14,33 @@ export const listDoctors = async (req, res) => {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'createdAt',
-      sortOrder = 'desc'
+      sortBy = "createdAt",
+      sortOrder = "desc",
     } = req.query;
 
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     // Build sort object
     const sort = {};
-    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
 
     // Get total count for pagination
     const total = await Doctor.countDocuments();
 
     // Get doctors with pagination
     const doctors = await Doctor.find()
-      .populate('userId', 'email isActive')
-      .select('firstName lastName specialization phoneNumber createdAt profilePhoto')
+      .populate("userId", "email isActive")
+      .select(
+        "firstName lastName specialization phoneNumber createdAt profilePhoto"
+      )
       .sort(sort)
       .skip(skip)
       .limit(parseInt(limit));
 
     res.json({
       success: true,
-      data: doctors.map(doc => ({
+      data: doctors.map((doc) => ({
         _id: doc._id,
         fullName: `${doc.firstName} ${doc.lastName}`,
         email: doc.userId.email,
@@ -43,165 +48,283 @@ export const listDoctors = async (req, res) => {
         phoneNumber: doc.phoneNumber,
         isActive: doc.userId.isActive,
         createdAt: doc.createdAt,
-        profilePhoto: doc.profilePhoto
+        profilePhoto: doc.profilePhoto,
       })),
       pagination: {
         total,
         page: parseInt(page),
         limit: parseInt(limit),
-        pages: Math.ceil(total / parseInt(limit))
-      }
+        pages: Math.ceil(total / parseInt(limit)),
+      },
     });
   } catch (error) {
     if (error instanceof ServerError) throw error;
-    throw ServerError.internal('Failed to list doctors', error);
+    throw ServerError.internal("Failed to list doctors", error);
   }
 };
 
 // 2. Add New Doctor
 export const addNewDoctor = async (req, res) => {
   try {
-    const { email, password, ...doctorData } = req.body;
-    
-    // Check if email already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      throw ServerError.conflict('Email already exists');
+    const { email, password, paymentDetails, ...doctorData } = req.body;
+
+    // Parse paymentDetails if it's a string (from multipart/form-data)
+    let parsedPaymentDetails = paymentDetails;
+    if (typeof paymentDetails === "string") {
+      try {
+        parsedPaymentDetails = JSON.parse(paymentDetails);
+      } catch {
+        parsedPaymentDetails = {};
+      }
     }
 
-    // Hash password
+    // 1. Validate required payment details
+    if (
+      !parsedPaymentDetails ||
+      !parsedPaymentDetails.bankName ||
+      !parsedPaymentDetails.accountNumber ||
+      !parsedPaymentDetails.businessName ||
+      !parsedPaymentDetails.bankCode
+    ) {
+      // Require bankCode
+      throw ServerError.badRequest(
+        "Payment details (bankName, accountNumber, businessName, bankCode) are required"
+      );
+    }
+
+    // 2. Check if email exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      throw ServerError.conflict("Email already exists");
+    }
+
+    // 3. Hash password
     const hashedPassword = await hashUtil.hashPassword(password);
-    
-    // Create User with all boolean fields set to true
+
+    // 4. Create User first (without doctor dependency)
     const user = new User({
       email,
       password: hashedPassword,
-      role: 'doctor',
+      role: "doctor",
       isActive: true,
       isEmailVerified: true,
-      isProfileCompleted: true,
+      isProfileCompleted: false, // Will be true after doctor creation
       isPhoneVerified: true,
       isApproved: true,
-      isPasswordSet: true
+      isPasswordSet: true,
     });
 
-    // Save user first
     await user.save();
 
-    // Handle image uploads if files are present
+    // 5. Handle image uploads
     let uploadedFiles = {};
     if (req.files) {
-      const { profilePhoto, boardCertificationsDocument, educationDocument } = req.files;
+      try {
+        const { profilePhoto, boardCertificationsDocument, educationDocument } =
+          req.files;
 
-      if (profilePhoto) {
-        const profilePhotoResult = await uploadImageCloud(profilePhoto[0].path, 'doctors/profile');
-        uploadedFiles.profilePhoto = profilePhotoResult.secure_url;
-        uploadedFiles.profilePhotoId = profilePhotoResult.public_id;
-      }
+        if (profilePhoto) {
+          const profilePhotoResult = await uploadImageCloud(
+            profilePhoto[0].path,
+            "doctors/profile"
+          );
+          uploadedFiles.profilePhoto = profilePhotoResult.secure_url;
+          uploadedFiles.profilePhotoId = profilePhotoResult.public_id;
+        }
 
-      if (boardCertificationsDocument) {
-        const boardCertResult = await uploadImageCloud(boardCertificationsDocument[0].path, 'doctors/certifications');
-        uploadedFiles.boardCertificationsDocument = boardCertResult.secure_url;
-      }
+        if (boardCertificationsDocument) {
+          const boardCertResult = await uploadImageCloud(
+            boardCertificationsDocument[0].path,
+            "doctors/certifications"
+          );
+          uploadedFiles.boardCertificationsDocument =
+            boardCertResult.secure_url;
+        }
 
-      if (educationDocument) {
-        const educationDocResult = await uploadImageCloud(educationDocument[0].path, 'doctors/education');
-        uploadedFiles.educationDocument = educationDocResult.secure_url;
+        if (educationDocument) {
+          const educationDocResult = await uploadImageCloud(
+            educationDocument[0].path,
+            "doctors/education"
+          );
+          uploadedFiles.educationDocument = educationDocResult.secure_url;
+        }
+      } catch (uploadError) {
+        console.error("File upload failed:", uploadError);
+        await User.findByIdAndDelete(user._id);
+        throw ServerError.internal("Failed to upload doctor documents");
       }
     }
 
-    // Parse and validate the data
+    // 6. Create Chapa subaccount (with transaction safety)
+    let chapaSubaccountId;
+    try {
+      const chapaResponse = await axios.post(
+        "https://api.chapa.co/v1/subaccount",
+        {
+          business_name: parsedPaymentDetails.businessName,
+          account_name:
+            parsedPaymentDetails.accountName ||
+            parsedPaymentDetails.businessName,
+          bank_code: parsedPaymentDetails.bankCode, // Must be present
+          bank_name: parsedPaymentDetails.bankName,
+          account_number: parsedPaymentDetails.accountNumber,
+          account_type: parsedPaymentDetails.accountType || "business",
+          split_type: "percentage",
+          split_value: 0.8, // 95% to doctor, 5% to platform
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${env.CHAPA_SECRET_KEY}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 10000, // 10 second timeout
+        }
+      );
+
+      if (!chapaResponse.data?.id) {
+        throw new Error("Invalid response from Chapa API");
+      }
+      chapaSubaccountId = chapaResponse.data.id;
+    } catch (chapaError) {
+      console.error(
+        "Chapa subaccount creation failed:",
+        chapaError.response?.data || chapaError.message
+      );
+      await User.findByIdAndDelete(user._id);
+
+      if (chapaError.response?.status === 400) {
+        throw ServerError.badRequest(
+          "Invalid payment details provided to Chapa"
+        );
+      }
+      throw ServerError.internal("Payment system temporarily unavailable");
+    }
+
+    // 7. Parse and validate doctor data
     const parsedDoctorData = {
       ...doctorData,
-      // Parse qualifications from string to array of objects if needed
-      qualifications: Array.isArray(doctorData.qualifications) 
-        ? doctorData.qualifications 
-        : JSON.parse(doctorData.qualifications || '[]'),
-      
-      // Parse hospital address from string to object if needed
-      hospitalAddress: typeof doctorData.hospitalAddress === 'object'
-        ? doctorData.hospitalAddress
-        : JSON.parse(doctorData.hospitalAddress || '{}'),
-      
-      // Handle languages - could be string, array string, or array
-      languages: (() => {
-        if (Array.isArray(doctorData.languages)) return doctorData.languages;
-        if (typeof doctorData.languages === 'string') {
-          try {
-            // Try parsing as JSON first (in case it's a stringified array)
-            const parsed = JSON.parse(doctorData.languages);
-            return Array.isArray(parsed) ? parsed : doctorData.languages.split(',').map(lang => lang.trim()).filter(Boolean);
-          } catch {
-            // If not JSON, treat as comma-separated string
-            return doctorData.languages.split(',').map(lang => lang.trim()).filter(Boolean);
-          }
-        }
-        return [];
-      })(),
-      
-      // Set boolean fields according to schema defaults
+      qualifications: parseQualifications(doctorData.qualifications),
+      hospitalAddress: parseHospitalAddress(doctorData.hospitalAddress),
+      languages: parseLanguages(doctorData.languages),
       verificationStatus: true,
       isActive: true,
-      isProfileCompleted: true
+      isProfileCompleted: true,
     };
 
-    // Create Doctor Profile
+    // 8. Create Doctor Profile
     const doctor = new Doctor({
       userId: user._id,
       ...parsedDoctorData,
       ...uploadedFiles,
-      approvedAt: new Date()
+      paymentDetails: {
+        ...parsedPaymentDetails,
+        chapaSubaccountId,
+        isVerified: true,
+      },
+      approvedAt: new Date(),
     });
 
-    // Save doctor profile
     await doctor.save();
 
-    // If doctor profile creation fails, delete the user
-    if (!doctor) {
-      await User.findByIdAndDelete(user._id);
-      throw ServerError.internal('Failed to create doctor profile');
-    }
+    // 9. Update user profile completion status
+    await User.findByIdAndUpdate(user._id, { isProfileCompleted: true });
 
-    res.status(201).json({ 
+    res.status(201).json({
       success: true,
-      data: { 
-        doctor,
-        user: { 
-          email: user.email,
-          role: user.role,
-          isActive: user.isActive,
-          isEmailVerified: user.isEmailVerified,
-          isProfileCompleted: user.isProfileCompleted
-        }
-      }
+      data: {
+        doctor: formatDoctorResponse(doctor),
+        user: formatUserResponse(user),
+      },
     });
   } catch (error) {
-    console.error('Doctor creation error:', error);
-    if (error instanceof ServerError) throw error;
-    throw ServerError.internal('Failed to create doctor', error);
+    console.error("Doctor creation error:", error);
+    if (error instanceof ServerError) {
+      throw error;
+    }
+    throw ServerError.internal("Failed to create doctor");
   }
 };
+
+// Helper functions
+function parseQualifications(qualifications) {
+  if (Array.isArray(qualifications)) return qualifications;
+  try {
+    return JSON.parse(qualifications || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function parseHospitalAddress(address) {
+  if (typeof address === "object") return address;
+  try {
+    return JSON.parse(address || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function parseLanguages(languages) {
+  if (Array.isArray(languages)) return languages;
+  if (typeof languages === "string") {
+    try {
+      const parsed = JSON.parse(languages);
+      return Array.isArray(parsed)
+        ? parsed
+        : languages
+            .split(",")
+            .map((l) => l.trim())
+            .filter(Boolean);
+    } catch {
+      return languages
+        .split(",")
+        .map((l) => l.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+}
+
+function formatDoctorResponse(doctor) {
+  return {
+    id: doctor._id,
+    fullName: `${doctor.firstName} ${doctor.lastName}`,
+    specialization: doctor.specialization,
+    // Add other necessary fields
+  };
+}
+
+function formatUserResponse(user) {
+  return {
+    id: user._id,
+    email: user.email,
+    role: user.role,
+    isActive: user.isActive,
+  };
+}
 
 // 3. Get Doctor for Edit
 export const getDoctorForEdit = async (req, res) => {
   try {
-    const doctor = await Doctor.findOne({ _id: req.params.id })
-      .populate('userId', 'email');
-      
+    const doctor = await Doctor.findOne({ _id: req.params.id }).populate(
+      "userId",
+      "email"
+    );
+
     if (!doctor) {
-      throw ServerError.notFound('Doctor not found');
+      throw ServerError.notFound("Doctor not found");
     }
-    
+
     res.json({
       success: true,
       data: {
         email: doctor.userId.email,
-        ...doctor.toObject()
-      }
+        ...doctor.toObject(),
+      },
     });
   } catch (error) {
     if (error instanceof ServerError) throw error;
-    throw ServerError.internal('Failed to get doctor details', error);
+    throw ServerError.internal("Failed to get doctor details", error);
   }
 };
 
@@ -210,41 +333,54 @@ export const updateDoctor = async (req, res) => {
   try {
     const { email, ...doctorData } = req.body;
     const doctor = await Doctor.findById(req.params.id);
-    
+
     if (!doctor) {
-      throw ServerError.notFound('Doctor not found');
+      throw ServerError.notFound("Doctor not found");
     }
-    
+
     // Update User (email only)
     if (email) {
-      const existingUser = await User.findOne({ email, _id: { $ne: doctor.userId } });
-      if (existingUser) {
-        throw ServerError.conflict('Email already exists');
-      }
-      
-      await User.findByIdAndUpdate(doctor.userId, { 
+      const existingUser = await User.findOne({
         email,
-        isEmailVerified: false // Reset on email change
+        _id: { $ne: doctor.userId },
+      });
+      if (existingUser) {
+        throw ServerError.conflict("Email already exists");
+      }
+
+      await User.findByIdAndUpdate(doctor.userId, {
+        email,
+        isEmailVerified: false, // Reset on email change
       });
     }
 
     // Handle file uploads if files are present
     if (req.files) {
-      const { profilePhoto, boardCertificationsDocument, educationDocument } = req.files;
+      const { profilePhoto, boardCertificationsDocument, educationDocument } =
+        req.files;
 
       if (profilePhoto) {
-        const profilePhotoResult = await uploadImageCloud(profilePhoto[0].path, 'doctors/profile');
+        const profilePhotoResult = await uploadImageCloud(
+          profilePhoto[0].path,
+          "doctors/profile"
+        );
         doctorData.profilePhoto = profilePhotoResult.secure_url;
         doctorData.profilePhotoId = profilePhotoResult.public_id;
       }
 
       if (boardCertificationsDocument) {
-        const boardCertResult = await uploadImageCloud(boardCertificationsDocument[0].path, 'doctors/certifications');
+        const boardCertResult = await uploadImageCloud(
+          boardCertificationsDocument[0].path,
+          "doctors/certifications"
+        );
         doctorData.boardCertificationsDocument = boardCertResult.secure_url;
       }
 
       if (educationDocument) {
-        const educationDocResult = await uploadImageCloud(educationDocument[0].path, 'doctors/education');
+        const educationDocResult = await uploadImageCloud(
+          educationDocument[0].path,
+          "doctors/education"
+        );
         doctorData.educationDocument = educationDocResult.secure_url;
       }
     }
@@ -254,15 +390,15 @@ export const updateDoctor = async (req, res) => {
       req.params.id,
       doctorData,
       { new: true }
-    ).populate('userId', 'email isActive');
+    ).populate("userId", "email isActive");
 
     res.json({
       success: true,
-      data: updatedDoctor
+      data: updatedDoctor,
     });
   } catch (error) {
     if (error instanceof ServerError) throw error;
-    throw ServerError.internal('Failed to update doctor', error);
+    throw ServerError.internal("Failed to update doctor", error);
   }
 };
 
@@ -271,7 +407,7 @@ export const toggleDoctorStatus = async (req, res) => {
   try {
     const doctor = await Doctor.findById(req.params.id);
     if (!doctor) {
-      throw ServerError.notFound('Doctor not found');
+      throw ServerError.notFound("Doctor not found");
     }
 
     const user = await User.findByIdAndUpdate(
@@ -279,37 +415,39 @@ export const toggleDoctorStatus = async (req, res) => {
       { isActive: req.body.isActive },
       { new: true }
     );
-    
-    res.json({ 
+
+    res.json({
       success: true,
       data: {
-        message: `Doctor ${user.isActive ? 'activated' : 'deactivated'}`,
-        isActive: user.isActive
-      }
+        message: `Doctor ${user.isActive ? "activated" : "deactivated"}`,
+        isActive: user.isActive,
+      },
     });
   } catch (error) {
     if (error instanceof ServerError) throw error;
-    throw ServerError.internal('Failed to update doctor status', error);
+    throw ServerError.internal("Failed to update doctor status", error);
   }
 };
 
 // 6. View Full Profile (Read-only)
 export const viewDoctorProfile = async (req, res) => {
   try {
-    const doctor = await Doctor.findById(req.params.id)
-      .populate('userId', 'email isActive');
-      
+    const doctor = await Doctor.findById(req.params.id).populate(
+      "userId",
+      "email isActive"
+    );
+
     if (!doctor) {
-      throw ServerError.notFound('Doctor not found');
+      throw ServerError.notFound("Doctor not found");
     }
-    
+
     res.json({
       success: true,
-      data: doctor
+      data: doctor,
     });
   } catch (error) {
     if (error instanceof ServerError) throw error;
-    throw ServerError.internal('Failed to get doctor profile', error);
+    throw ServerError.internal("Failed to get doctor profile", error);
   }
 };
 
@@ -317,9 +455,9 @@ export const viewDoctorProfile = async (req, res) => {
 export const deleteDoctor = async (req, res) => {
   try {
     const doctor = await Doctor.findById(req.params.id);
-    
+
     if (!doctor) {
-      throw ServerError.notFound('Doctor not found');
+      throw ServerError.notFound("Doctor not found");
     }
 
     // Delete associated user
@@ -331,12 +469,12 @@ export const deleteDoctor = async (req, res) => {
     res.json({
       success: true,
       data: {
-        message: 'Doctor deleted successfully'
-      }
+        message: "Doctor deleted successfully",
+      },
     });
   } catch (error) {
     if (error instanceof ServerError) throw error;
-    throw ServerError.internal('Failed to delete doctor', error);
+    throw ServerError.internal("Failed to delete doctor", error);
   }
 };
 
@@ -348,30 +486,30 @@ export const listUsers = async (req, res) => {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-      search = '',
-      status = 'all'
+      sortBy = "createdAt",
+      sortOrder = "desc",
+      search = "",
+      status = "all",
     } = req.query;
 
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     // Build sort object
     const sort = {};
-    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
 
     // Build query - only patients
-    const query = { role: 'patient' };
+    const query = { role: "patient" };
     if (search) {
       query.$or = [
-        { email: { $regex: search, $options: 'i' } },
-        { 'firstName': { $regex: search, $options: 'i' } },
-        { 'lastName': { $regex: search, $options: 'i' } }
+        { email: { $regex: search, $options: "i" } },
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
       ];
     }
-    if (status !== 'all') {
-      query.isActive = status === 'active';
+    if (status !== "all") {
+      query.isActive = status === "active";
     }
 
     // Get total count for pagination
@@ -379,7 +517,7 @@ export const listUsers = async (req, res) => {
 
     // Get users with pagination
     const users = await User.find(query)
-      .select('-password')
+      .select("-password")
       .sort(sort)
       .skip(skip)
       .limit(parseInt(limit));
@@ -387,12 +525,13 @@ export const listUsers = async (req, res) => {
     // Get patient details for each user
     const patientsWithDetails = await Promise.all(
       users.map(async (user) => {
-        const patient = await Patient.findOne({ user: user._id })
-          .select('firstName middleName lastName profileImage gender phone bloodType dateOfBirth emergencyContact location maritalStatus preferredLanguage');
-        
+        const patient = await Patient.findOne({ user: user._id }).select(
+          "firstName middleName lastName profileImage gender phone bloodType dateOfBirth emergencyContact location maritalStatus preferredLanguage"
+        );
+
         return {
           ...user.toObject(),
-          patientDetails: patient || {}
+          patientDetails: patient || {},
         };
       })
     );
@@ -404,43 +543,45 @@ export const listUsers = async (req, res) => {
         total,
         page: parseInt(page),
         limit: parseInt(limit),
-        pages: Math.ceil(total / parseInt(limit))
-      }
+        pages: Math.ceil(total / parseInt(limit)),
+      },
     });
   } catch (error) {
     if (error instanceof ServerError) throw error;
-    throw ServerError.internal('Failed to list patients', error);
+    throw ServerError.internal("Failed to list patients", error);
   }
 };
 
 // 2. Get User Details (Patient)
 export const getUserDetails = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id)
-      .select('-password');
-      
+    const user = await User.findById(req.params.id).select("-password");
+
     if (!user) {
-      throw ServerError.notFound('Patient not found');
+      throw ServerError.notFound("Patient not found");
     }
 
-    if (user.role !== 'patient') {
-      throw ServerError.forbidden('Access denied. This endpoint is for patients only.');
+    if (user.role !== "patient") {
+      throw ServerError.forbidden(
+        "Access denied. This endpoint is for patients only."
+      );
     }
-    
+
     // Get patient details
-    const patient = await Patient.findOne({ user: user._id })
-      .select('firstName middleName lastName profileImage gender phone bloodType dateOfBirth emergencyContact location maritalStatus preferredLanguage');
-    
+    const patient = await Patient.findOne({ user: user._id }).select(
+      "firstName middleName lastName profileImage gender phone bloodType dateOfBirth emergencyContact location maritalStatus preferredLanguage"
+    );
+
     res.json({
       success: true,
       data: {
         ...user.toObject(),
-        patientDetails: patient || {}
-      }
+        patientDetails: patient || {},
+      },
     });
   } catch (error) {
     if (error instanceof ServerError) throw error;
-    throw ServerError.internal('Failed to get patient details', error);
+    throw ServerError.internal("Failed to get patient details", error);
   }
 };
 
@@ -449,31 +590,34 @@ export const updateUser = async (req, res) => {
   try {
     const { email, ...userData } = req.body;
     const user = await User.findById(req.params.id);
-    
+
     if (!user) {
-      throw ServerError.notFound('Patient not found');
+      throw ServerError.notFound("Patient not found");
     }
 
-    if (user.role !== 'patient') {
-      throw ServerError.forbidden('Access denied. This endpoint is for patients only.');
+    if (user.role !== "patient") {
+      throw ServerError.forbidden(
+        "Access denied. This endpoint is for patients only."
+      );
     }
-    
+
     // Check if email is being changed and if it already exists
     if (email && email !== user.email) {
-      const existingUser = await User.findOne({ email, _id: { $ne: user._id } });
+      const existingUser = await User.findOne({
+        email,
+        _id: { $ne: user._id },
+      });
       if (existingUser) {
-        throw ServerError.conflict('Email already exists');
+        throw ServerError.conflict("Email already exists");
       }
       userData.email = email;
       userData.isEmailVerified = false; // Reset email verification on email change
     }
 
     // Update user
-    const updatedUser = await User.findByIdAndUpdate(
-      req.params.id,
-      userData,
-      { new: true }
-    ).select('-password');
+    const updatedUser = await User.findByIdAndUpdate(req.params.id, userData, {
+      new: true,
+    }).select("-password");
 
     // Update patient details if provided
     if (req.body.patientDetails) {
@@ -488,7 +632,7 @@ export const updateUser = async (req, res) => {
         emergencyContact: req.body.patientDetails.emergencyContact,
         location: req.body.patientDetails.location,
         maritalStatus: req.body.patientDetails.maritalStatus,
-        preferredLanguage: req.body.patientDetails.preferredLanguage
+        preferredLanguage: req.body.patientDetails.preferredLanguage,
       };
 
       await Patient.findOneAndUpdate(
@@ -499,19 +643,20 @@ export const updateUser = async (req, res) => {
     }
 
     // Get updated patient details
-    const patient = await Patient.findOne({ user: user._id })
-      .select('firstName middleName lastName profileImage gender phone bloodType dateOfBirth emergencyContact location maritalStatus preferredLanguage');
+    const patient = await Patient.findOne({ user: user._id }).select(
+      "firstName middleName lastName profileImage gender phone bloodType dateOfBirth emergencyContact location maritalStatus preferredLanguage"
+    );
 
     res.json({
       success: true,
       data: {
         ...updatedUser.toObject(),
-        patientDetails: patient || {}
-      }
+        patientDetails: patient || {},
+      },
     });
   } catch (error) {
     if (error instanceof ServerError) throw error;
-    throw ServerError.internal('Failed to update patient', error);
+    throw ServerError.internal("Failed to update patient", error);
   }
 };
 
@@ -520,29 +665,33 @@ export const toggleUserStatus = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) {
-      throw ServerError.notFound('Patient not found');
+      throw ServerError.notFound("Patient not found");
     }
 
-    if (user.role !== 'patient') {
-      throw ServerError.forbidden('Access denied. This endpoint is for patients only.');
+    if (user.role !== "patient") {
+      throw ServerError.forbidden(
+        "Access denied. This endpoint is for patients only."
+      );
     }
 
     const updatedUser = await User.findByIdAndUpdate(
       req.params.id,
       { isActive: !user.isActive },
       { new: true }
-    ).select('-password');
-    
-    res.json({ 
+    ).select("-password");
+
+    res.json({
       success: true,
       data: {
-        message: `Patient ${updatedUser.isActive ? 'activated' : 'deactivated'}`,
-        isActive: updatedUser.isActive
-      }
+        message: `Patient ${
+          updatedUser.isActive ? "activated" : "deactivated"
+        }`,
+        isActive: updatedUser.isActive,
+      },
     });
   } catch (error) {
     if (error instanceof ServerError) throw error;
-    throw ServerError.internal('Failed to update patient status', error);
+    throw ServerError.internal("Failed to update patient status", error);
   }
 };
 
@@ -550,13 +699,15 @@ export const toggleUserStatus = async (req, res) => {
 export const deleteUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    
+
     if (!user) {
-      throw ServerError.notFound('Patient not found');
+      throw ServerError.notFound("Patient not found");
     }
 
-    if (user.role !== 'patient') {
-      throw ServerError.forbidden('Access denied. This endpoint is for patients only.');
+    if (user.role !== "patient") {
+      throw ServerError.forbidden(
+        "Access denied. This endpoint is for patients only."
+      );
     }
 
     // Delete patient details first
@@ -568,11 +719,129 @@ export const deleteUser = async (req, res) => {
     res.json({
       success: true,
       data: {
-        message: 'Patient deleted successfully'
-      }
+        message: "Patient deleted successfully",
+      },
     });
   } catch (error) {
     if (error instanceof ServerError) throw error;
-    throw ServerError.internal('Failed to delete patient', error);
+    throw ServerError.internal("Failed to delete patient", error);
+  }
+};
+
+export const listAppointments = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      date,
+      search,
+      sortField = "date",
+      sortOrder = "desc",
+    } = req.query;
+
+    // Build the base query
+    let query = Appointment.find().populate("patient").populate("doctor");
+
+    // Apply status filter if provided
+    if (status) {
+      query = query.where("status", status);
+    }
+
+    // Apply date filter if provided
+    if (date) {
+      const startDate = new Date(date);
+      startDate.setHours(0, 0, 0, 0);
+
+      const endDate = new Date(date);
+      endDate.setHours(23, 59, 59, 999);
+
+      query = query.where("date").gte(startDate).lte(endDate);
+    }
+
+    // Apply search filter if provided (search by patient or doctor name)
+    if (search && search.length >= 2) {
+      const searchRegex = new RegExp(search, "i");
+      query = query.or([
+        { "patient.firstName": searchRegex },
+        { "doctor.lastName": searchRegex },
+      ]);
+    }
+
+    // Apply sorting
+    const sort = {};
+    if (sortField) {
+      sort[sortField] = sortOrder === "desc" ? -1 : 1;
+    }
+    query = query.sort(sort);
+
+    // Get total count for pagination
+    const total = await Appointment.countDocuments(query.getFilter());
+
+    // Apply pagination
+    const skip = (page - 1) * limit;
+    query = query.skip(skip).limit(Number(limit));
+
+    const appointments = await query.exec();
+
+    res.json({
+      appointments,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching appointments",
+      error: error.message,
+    });
+  }
+};
+
+export const getAppointmentDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const appointment = await Appointment.findById(id)
+      .populate("patient")
+      .populate("doctor")
+      .lean();
+
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+
+    // Format date for easier frontend display
+    if (appointment.date) {
+      appointment.formattedDate = new Date(appointment.date)
+        .toISOString()
+        .split("T")[0];
+    }
+
+    res.json({ appointment });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching appointment details",
+      error: error.message,
+    });
+  }
+};
+
+export const getBanks = async (req, res) => {
+  try {
+    const banks = await axios.get("https://api.chapa.co/v1/banks", {
+      headers: {
+        Authorization: `Bearer ${env.CHAPA_SECRET_KEY}`,
+        accept: "application/json",
+      },
+    });
+    return res.json({banks : banks?.data?.data || []});
+  } catch {
+    res.status(500).json({
+      message: "There is no banks go find ur banks banks ass",
+      error: error.message,
+    });
   }
 };
