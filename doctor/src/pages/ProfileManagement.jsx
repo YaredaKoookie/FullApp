@@ -232,6 +232,7 @@ const ProfileManagementContent = () => {
       </div>
     );
   }
+  
 
   const profileData = profile?.data?.data;
 

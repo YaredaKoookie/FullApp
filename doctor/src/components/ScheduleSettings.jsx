@@ -5,7 +5,8 @@ export const ScheduleSettings = ({
   schedule,
   onUpdateSchedule,
   onUpdateRecurringSchedule,
-  onUpdateBreakSettings
+  onUpdateBreakSettings,
+  onCreateSchedule
 }) => {
   const [workingHours, setWorkingHours] = useState(schedule?.workingHours || []);
   const [appointmentDuration, setAppointmentDuration] = useState(schedule?.appointmentDuration || 30);
@@ -68,6 +69,13 @@ export const ScheduleSettings = ({
   };
 
   const handleSave = () => {
+    onCreateSchedule({
+      workingHours,
+      appointmentDuration,
+      timeSlotSettings
+    });
+  };
+  const handleUpdate = () => {
     onUpdateSchedule({
       workingHours,
       appointmentDuration,
@@ -300,6 +308,12 @@ export const ScheduleSettings = ({
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         >
           Save Changes
+        </button>
+        <button
+          onClick={handleUpdate}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          Update Schedule
         </button>
       </div>
     </div>

@@ -366,7 +366,7 @@ const AppointmentsContent = () => {
                           <FaVideo />
                         </Link>
                       )}
-                      {appointment.status === "confirmed" && (
+                      {/* {appointment.status === "confirmed" && (
                         <button
                           onClick={() => {
                             setSelectedAppointment(appointment);
@@ -375,7 +375,7 @@ const AppointmentsContent = () => {
                         >
                           Cancel
                         </button>
-                      )}
+                      )} */}
                     </td>
                   </tr>
                 ))

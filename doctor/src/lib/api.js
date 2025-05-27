@@ -61,6 +61,7 @@ const auth = {
     return api.post('/auth/logout');
   },
   getCurrentUser: () => api.get('/auth/me'),
+  getSessions: () => api.get('/auth/sessions'),
   requestPasswordReset: (email) => api.post('/auth/password-reset', { email }),
   resetPassword: (data) => api.post('/auth/password-reset/confirm', data),
 };

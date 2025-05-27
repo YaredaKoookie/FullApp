@@ -27,7 +27,7 @@ export const DoctorLayout = ({ children }) => {
     { name: 'Schedule', href: '/schedule', icon: Calendar },
     { name: 'Appointments', href: '/appointments', icon: FaCalendarAlt },
     { name: 'Patients', href: '/patients', icon: FaUserInjured },
-    { name: 'Messages', href: '/messages', icon: MessageSquare },
+    // { name: 'Messages', href: '/messages', icon: MessageSquare },
     { name: 'Profile', href: '/profile', icon: User },
     { name: 'Reviews', href: '/reviews', icon: Star },
     { name: 'Notifications', href: '/notifications', icon: Bell },

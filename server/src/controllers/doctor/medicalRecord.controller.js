@@ -1,8 +1,11 @@
-import MedicalRecord from "../models/medicalRecord.model.js";
-import Appointment from "../models/appointment.model.js";
-import Patient from "../models/patient.model.js";
+import MedicalRecord from "../../models/patient/medicalRecord.model.js";
+import Appointment from "../../models/appointment/appointment.model.js";
+import Patient from "../../models/patient/patient.model.js";
 import mongoose from "mongoose";
 import { APPOINTMENT_STATUS } from "../../models/appointment/appointment.model.js";
+
+const SOURCE_OPTIONS = ["Doctor", "System"];
+const CONDITION_STATUS = ["Active", "Resolved", "In Remission", "Chronic"];
 
 class MedicalRecordController {
   /**
@@ -15,17 +18,11 @@ class MedicalRecordController {
         return res.status(403).json({ error: "Only doctors can create medical records" });
       }
 
-      const { patient, appointment } = req.body;
+      const { patient, appointment, clinicalNotes, diagnoses, prescriptions, labResults, imagingReports, procedures, hospitalizations, vitalSigns, immunizations } = req.body;
 
       // Validate required fields
-      if (!patient || !appointment) {
-        return res.status(400).json({ error: "Patient and appointment are required" });
-      }
-
-      // Check if appointment exists and is completed
-      const existingAppointment = await Appointment.findById(appointment);
-      if (!existingAppointment || existingAppointment.status !== APPOINTMENT_STATUS.COMPLETED) {
-        return res.status(400).json({ error: "Medical records can only be created for completed appointments" });
+      if (!patient) {
+        return res.status(400).json({ error: "Patient is required" });
       }
 
       // Check if patient exists
@@ -34,20 +31,75 @@ class MedicalRecordController {
         return res.status(404).json({ error: "Patient not found" });
       }
 
-      // Check if record already exists for this appointment
-      const existingRecord = await MedicalRecord.findOne({ appointment });
-      if (existingRecord) {
-        return res.status(400).json({ error: "Medical record already exists for this appointment" });
+      // If appointment is provided, validate it
+      if (appointment) {
+        const existingAppointment = await Appointment.findById(appointment);
+        if (!existingAppointment || existingAppointment.status !== APPOINTMENT_STATUS.COMPLETED) {
+          return res.status(400).json({ error: "Medical records can only be created for completed appointments" });
+        }
+
+        // Check if record already exists for this appointment
+        const existingRecord = await MedicalRecord.findOne({ appointment });
+        if (existingRecord) {
+          return res.status(400).json({ error: "Medical record already exists for this appointment" });
+        }
       }
 
-      // Create new record with doctor as the creator
+      // Validate clinical notes
+      if (clinicalNotes && clinicalNotes.length > 0) {
+        for (const note of clinicalNotes) {
+          if (!note.note || !note.date) {
+            return res.status(400).json({ error: "Each clinical note must have content and date" });
+          }
+        }
+      }
+
+      // Validate diagnoses
+      if (diagnoses && diagnoses.length > 0) {
+        for (const diagnosis of diagnoses) {
+          if (!diagnosis.name) {
+            return res.status(400).json({ error: "Each diagnosis must have a name" });
+          }
+          if (diagnosis.status && !CONDITION_STATUS.includes(diagnosis.status)) {
+            return res.status(400).json({ error: "Invalid diagnosis status" });
+          }
+        }
+      }
+
+      // Validate prescriptions
+      if (prescriptions && prescriptions.length > 0) {
+        for (const prescription of prescriptions) {
+          if (!prescription.medication || !prescription.dosage) {
+            return res.status(400).json({ error: "Each prescription must have medication name and dosage" });
+          }
+        }
+      }
+
+      // Create new record
       const newRecord = new MedicalRecord({
-        ...req.body,
-        addedBy: existingAppointment.doctor,
-        source: "Doctor"
+        patient,
+        appointment,
+        addedBy: req.user.sub,
+        source: "Doctor",
+        clinicalNotes: clinicalNotes || [],
+        diagnoses: diagnoses || [],
+        prescriptions: prescriptions || [],
+        labResults: labResults || [],
+        imagingReports: imagingReports || [],
+        procedures: procedures || [],
+        hospitalizations: hospitalizations || [],
+        vitalSigns: vitalSigns || [],
+        immunizations: immunizations || []
       });
 
       await newRecord.save();
+
+      // Populate references before sending response
+      await newRecord.populate([
+        { path: "patient", select: "fullName dob gender" },
+        { path: "addedBy", select: "fullName specialty" },
+        { path: "appointment", select: "date reason" }
+      ]);
 
       res.status(201).json(newRecord);
     } catch (error) {
@@ -76,6 +128,7 @@ class MedicalRecordController {
       const records = await MedicalRecord.find({ patient: patientId })
         .populate("addedBy", "fullName specialty")
         .populate("appointment", "date reason")
+        .populate("patient", "fullName dob gender")
         .sort({ createdAt: -1 });
 
       res.json(records);
@@ -122,7 +175,7 @@ class MedicalRecordController {
   static async addClinicalNote(req, res) {
     try {
       // Verify user is a doctor
-      if (req.user.role !== "Doctor") {
+      if (req.user.role !== "doctor") {
         return res.status(403).json({ error: "Only doctors can add clinical notes" });
       }
 
@@ -144,7 +197,11 @@ class MedicalRecordController {
           }
         },
         { new: true }
-      );
+      ).populate([
+        { path: "patient", select: "fullName dob gender" },
+        { path: "addedBy", select: "fullName specialty" },
+        { path: "appointment", select: "date reason" }
+      ]);
 
       if (!updatedRecord) {
         return res.status(404).json({ error: "Medical record not found" });
@@ -162,7 +219,7 @@ class MedicalRecordController {
   static async addDiagnosis(req, res) {
     try {
       // Verify user is a doctor
-      if (req.user.role !== "Doctor") {
+      if (req.user.role !== "doctor") {
         return res.status(403).json({ error: "Only doctors can add diagnoses" });
       }
 
@@ -171,6 +228,10 @@ class MedicalRecordController {
 
       if (!name) {
         return res.status(400).json({ error: "Diagnosis name is required" });
+      }
+
+      if (status && !CONDITION_STATUS.includes(status)) {
+        return res.status(400).json({ error: "Invalid diagnosis status" });
       }
 
       const diagnosisData = {
@@ -195,56 +256,14 @@ class MedicalRecordController {
           }
         },
         { new: true }
-      );
+      ).populate([
+        { path: "patient", select: "fullName dob gender" },
+        { path: "addedBy", select: "fullName specialty" },
+        { path: "appointment", select: "date reason" }
+      ]);
 
       if (!updatedRecord) {
         return res.status(404).json({ error: "Medical record not found" });
-      }
-
-      res.json(updatedRecord);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
-
-  /**
-   * Update diagnosis status (doctor only)
-   */
-  static async updateDiagnosisStatus(req, res) {
-    try {
-      // Verify user is a doctor
-      if (req.user.role !== "Doctor") {
-        return res.status(403).json({ error: "Only doctors can update diagnoses" });
-      }
-
-      const { recordId, diagnosisId } = req.params;
-      const { status } = req.body;
-
-      if (!status || !["Active", "Resolved", "In Remission", "Chronic"].includes(status)) {
-        return res.status(400).json({ error: "Valid status is required" });
-      }
-
-      const updateData = {
-        "diagnoses.$.status": status
-      };
-
-      if (status === "Resolved") {
-        updateData["diagnoses.$.resolvedDate"] = new Date();
-      }
-
-      const updatedRecord = await MedicalRecord.findOneAndUpdate(
-        {
-          _id: recordId,
-          "diagnoses._id": diagnosisId
-        },
-        {
-          $set: updateData
-        },
-        { new: true }
-      );
-
-      if (!updatedRecord) {
-        return res.status(404).json({ error: "Record or diagnosis not found" });
       }
 
       res.json(updatedRecord);
@@ -259,15 +278,15 @@ class MedicalRecordController {
   static async addPrescription(req, res) {
     try {
       // Verify user is a doctor
-      if (req.user.role !== "Doctor") {
+      if (req.user.role !== "doctor") {
         return res.status(403).json({ error: "Only doctors can add prescriptions" });
       }
 
       const { recordId } = req.params;
       const { medication, dosage, frequency, route, duration, notes } = req.body;
 
-      if (!medication) {
-        return res.status(400).json({ error: "Medication name is required" });
+      if (!medication || !dosage) {
+        return res.status(400).json({ error: "Medication name and dosage are required" });
       }
 
       const prescriptionData = {
@@ -288,7 +307,11 @@ class MedicalRecordController {
           }
         },
         { new: true }
-      );
+      ).populate([
+        { path: "patient", select: "fullName dob gender" },
+        { path: "addedBy", select: "fullName specialty" },
+        { path: "appointment", select: "date reason" }
+      ]);
 
       if (!updatedRecord) {
         return res.status(404).json({ error: "Medical record not found" });
@@ -301,17 +324,17 @@ class MedicalRecordController {
   }
 
   /**
-   * Add lab result to a record (doctor/system only)
+   * Add lab result to a record (doctor only)
    */
   static async addLabResult(req, res) {
     try {
-      // Verify user is authorized (doctor or system)
-      if (req.user.role !== "Doctor" && req.user.role !== "System") {
-        return res.status(403).json({ error: "Only doctors or system can add lab results" });
+      // Verify user is a doctor
+      if (req.user.role !== "doctor") {
+        return res.status(403).json({ error: "Only doctors can add lab results" });
       }
 
       const { recordId } = req.params;
-      const { testName, result, units, referenceRange, comments } = req.body;
+      const { testName, result, units, referenceRange, date, comments } = req.body;
 
       if (!testName || !result) {
         return res.status(400).json({ error: "Test name and result are required" });
@@ -322,7 +345,7 @@ class MedicalRecordController {
         result,
         units,
         referenceRange,
-        date: new Date(),
+        date: date || new Date(),
         comments
       };
 
@@ -334,7 +357,11 @@ class MedicalRecordController {
           }
         },
         { new: true }
-      );
+      ).populate([
+        { path: "patient", select: "fullName dob gender" },
+        { path: "addedBy", select: "fullName specialty" },
+        { path: "appointment", select: "date reason" }
+      ]);
 
       if (!updatedRecord) {
         return res.status(404).json({ error: "Medical record not found" });
@@ -351,8 +378,8 @@ class MedicalRecordController {
    */
   static async addImagingReport(req, res) {
     try {
-      // Verify user is authorized (doctor or system)
-      if (req.user.role !== "Doctor" && req.user.role !== "System") {
+      // Verify user is authorized
+      if (!SOURCE_OPTIONS.includes(req.user.role)) {
         return res.status(403).json({ error: "Only doctors or system can add imaging reports" });
       }
 
@@ -379,7 +406,11 @@ class MedicalRecordController {
           }
         },
         { new: true }
-      );
+      ).populate([
+        { path: "patient", select: "fullName dob gender" },
+        { path: "addedBy", select: "fullName specialty" },
+        { path: "appointment", select: "date reason" }
+      ]);
 
       if (!updatedRecord) {
         return res.status(404).json({ error: "Medical record not found" });
@@ -397,7 +428,7 @@ class MedicalRecordController {
   static async addProcedure(req, res) {
     try {
       // Verify user is a doctor
-      if (req.user.role !== "Doctor") {
+      if (req.user.role !== "doctor") {
         return res.status(403).json({ error: "Only doctors can add procedures" });
       }
 
@@ -425,7 +456,11 @@ class MedicalRecordController {
           }
         },
         { new: true }
-      );
+      ).populate([
+        { path: "patient", select: "fullName dob gender" },
+        { path: "addedBy", select: "fullName specialty" },
+        { path: "appointment", select: "date reason" }
+      ]);
 
       if (!updatedRecord) {
         return res.status(404).json({ error: "Medical record not found" });
@@ -443,7 +478,7 @@ class MedicalRecordController {
   static async addHospitalization(req, res) {
     try {
       // Verify user is a doctor
-      if (req.user.role !== "Doctor") {
+      if (req.user.role !== "doctor") {
         return res.status(403).json({ error: "Only doctors can add hospitalizations" });
       }
 
@@ -470,7 +505,11 @@ class MedicalRecordController {
           }
         },
         { new: true }
-      );
+      ).populate([
+        { path: "patient", select: "fullName dob gender" },
+        { path: "addedBy", select: "fullName specialty" },
+        { path: "appointment", select: "date reason" }
+      ]);
 
       if (!updatedRecord) {
         return res.status(404).json({ error: "Medical record not found" });
@@ -483,13 +522,13 @@ class MedicalRecordController {
   }
 
   /**
-   * Add vital signs to a record (doctor/system only)
+   * Add vital signs to a record (doctor only)
    */
   static async addVitalSigns(req, res) {
     try {
-      // Verify user is authorized (doctor or system)
-      if (req.user.role !== "Doctor" && req.user.role !== "System") {
-        return res.status(403).json({ error: "Only doctors or system can add vital signs" });
+      // Verify user is a doctor
+      if (req.user.role !== "doctor") {
+        return res.status(403).json({ error: "Only doctors can add vital signs" });
       }
 
       const { recordId } = req.params;
@@ -512,7 +551,11 @@ class MedicalRecordController {
           }
         },
         { new: true }
-      );
+      ).populate([
+        { path: "patient", select: "fullName dob gender" },
+        { path: "addedBy", select: "fullName specialty" },
+        { path: "appointment", select: "date reason" }
+      ]);
 
       if (!updatedRecord) {
         return res.status(404).json({ error: "Medical record not found" });
@@ -529,8 +572,8 @@ class MedicalRecordController {
    */
   static async addImmunization(req, res) {
     try {
-      // Verify user is authorized (doctor or system)
-      if (req.user.role !== "Doctor" && req.user.role !== "System") {
+      // Verify user is authorized
+      if (!SOURCE_OPTIONS.includes(req.user.role)) {
         return res.status(403).json({ error: "Only doctors or system can add immunizations" });
       }
 
@@ -558,7 +601,11 @@ class MedicalRecordController {
           }
         },
         { new: true }
-      );
+      ).populate([
+        { path: "patient", select: "fullName dob gender" },
+        { path: "addedBy", select: "fullName specialty" },
+        { path: "appointment", select: "date reason" }
+      ]);
 
       if (!updatedRecord) {
         return res.status(404).json({ error: "Medical record not found" });
@@ -576,7 +623,7 @@ class MedicalRecordController {
   static async searchByDiagnosis(req, res) {
     try {
       // Verify user is a doctor
-      if (req.user.role !== "Doctor") {
+      if (req.user.role !== "doctor") {
         return res.status(403).json({ error: "Only doctors can search records" });
       }
 
@@ -590,84 +637,10 @@ class MedicalRecordController {
         "diagnoses.name": { $regex: diagnosis, $options: "i" }
       })
         .populate("patient", "fullName dob gender")
-        .populate("addedBy", "fullName specialty");
+        .populate("addedBy", "fullName specialty")
+        .populate("appointment", "date reason");
 
       res.json(records);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
-
-  /**
-   * Get patient timeline (all medical events in chronological order)
-   */
-  static async getPatientTimeline(req, res) {
-    try {
-      const { patientId } = req.params;
-
-      // For patients: only their own records
-      if (req.user.role === "patient" && req.user.sub !== patientId) {
-        return res.status(403).json({ error: "You can only view your own medical timeline" });
-      }
-
-      // Get all records for the patient
-      const records = await MedicalRecord.find({ patient: patientId })
-        .populate("appointment", "date reason")
-        .populate("addedBy", "fullName");
-
-      if (!records || records.length === 0) {
-        return res.status(404).json({ error: "No medical records found for this patient" });
-      }
-
-      // Create a timeline array with all events
-      const timeline = [];
-
-      records.forEach(record => {
-        // Add clinical notes
-        if (record.clinicalNotes && record.clinicalNotes.length > 0) {
-          record.clinicalNotes.forEach(note => {
-            timeline.push({
-              type: "Clinical Note",
-              date: note.date,
-              content: note.note,
-              addedBy: record.addedBy,
-              recordId: record._id
-            });
-          });
-        }
-
-        // Add diagnoses
-        if (record.diagnoses && record.diagnoses.length > 0) {
-          record.diagnoses.forEach(diagnosis => {
-            timeline.push({
-              type: "Diagnosis",
-              date: diagnosis.diagnosisDate || record.createdAt,
-              content: `${diagnosis.name} (${diagnosis.status})`,
-              addedBy: record.addedBy,
-              recordId: record._id
-            });
-          });
-        }
-
-        // Add prescriptions
-        if (record.prescriptions && record.prescriptions.length > 0) {
-          record.prescriptions.forEach(prescription => {
-            timeline.push({
-              type: "Prescription",
-              date: prescription.startDate,
-              content: `${prescription.medication} - ${prescription.dosage}`,
-              addedBy: record.addedBy,
-              recordId: record._id
-            });
-          });
-        }
-
-      });
-
-      // Sort timeline by date
-      timeline.sort((a, b) => b.date - a.date);
-
-      res.json(timeline);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

@@ -69,7 +69,12 @@ const ReviewsRatings = () => {
     isFetching: isFetchingReviews,
     error: reviewsError,
   } = useQuery({
-    queryKey: ["reviews", currentDoctor?.data?.data?.doctor?._id, filters, pagination],
+    queryKey: [
+      "reviews",
+      currentDoctor?.data?.data?.doctor?._id,
+      filters,
+      pagination,
+    ],
     queryFn: async () => {
       if (!currentDoctor?.data?.data?.doctor?._id) {
         throw new Error("No doctor ID available");
@@ -91,23 +96,29 @@ const ReviewsRatings = () => {
   // Local search implementation
   const filteredReviews = useMemo(() => {
     if (!reviewsData?.reviews) return [];
-    
-    return reviewsData.reviews.filter(review => {
+
+    return reviewsData.reviews.filter((review) => {
       // Search by review text or patient name
-      const matchesSearch = !filters.search || 
-        review.reviewText?.toLowerCase().includes(filters.search.toLowerCase()) ||
-        (review.patient && !review.anonymous && 
+      const matchesSearch =
+        !filters.search ||
+        review.reviewText
+          ?.toLowerCase()
+          .includes(filters.search.toLowerCase()) ||
+        (review.patient &&
+          !review.anonymous &&
           `${review.patient.firstName} ${review.patient.lastName}`
             .toLowerCase()
             .includes(filters.search.toLowerCase()));
-      
+
       // Filter by rating if selected
-      const matchesRating = !filters.rating || review.rating === parseInt(filters.rating);
-      
+      const matchesRating =
+        !filters.rating || review.rating === parseInt(filters.rating);
+
       // Filter by tags if any selected
-      const matchesTags = filters.tags.length === 0 || 
-        filters.tags.every(tag => review.tags.includes(tag));
-      
+      const matchesTags =
+        filters.tags.length === 0 ||
+        filters.tags.every((tag) => review.tags.includes(tag));
+
       return matchesSearch && matchesRating && matchesTags;
     });
   }, [reviewsData?.reviews, filters]);
@@ -126,26 +137,31 @@ const ReviewsRatings = () => {
   };
 
   const handlePageChange = (newPage) => {
-    setPagination(prev => ({ ...prev, page: newPage }));
+    setPagination((prev) => ({ ...prev, page: newPage }));
   };
 
   if (isReviewsLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Clock className="animate-spin w-8 h-8 text-blue-500 mr-2" />
-        <span>Loading reviews...</span>
-      </div>
+      <DoctorLayout>
+        <div className="flex items-center justify-center">
+          <Clock className="animate-spin w-8 h-8 text-blue-500 mr-2" />
+          <span>Loading reviews...</span>
+        </div>
+      </DoctorLayout>
     );
   }
 
   if (reviewsError) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <AlertCircle className="w-8 h-8 text-red-500 mr-2" />
-        <span>Failed to load reviews</span>
-      </div>
+      <DoctorLayout>
+        <div className="flex items-center justify-center h-64">
+          <AlertCircle className="w-8 h-8 text-red-500 mr-2" />
+          <span>Failed to load reviews</span>
+        </div>
+      </DoctorLayout>
     );
   }
+  
 
   return (
     <DoctorLayout>
@@ -314,7 +330,7 @@ const ReviewsRatings = () => {
 
         {/* Review List */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          {(isReviewsLoading || isFetchingReviews) ? (
+          {isReviewsLoading || isFetchingReviews ? (
             <div className="p-8 text-center text-gray-500 flex items-center justify-center">
               <Clock className="animate-spin w-5 h-5 mr-2" />
               Loading reviews...
@@ -450,11 +466,15 @@ const ReviewsRatings = () => {
                   Previous
                 </button>
                 <span className="text-sm text-gray-700">
-                  Page {pagination.page} of {Math.ceil(reviewsData.totalReviews / pagination.pageSize)}
+                  Page {pagination.page} of{" "}
+                  {Math.ceil(reviewsData.totalReviews / pagination.pageSize)}
                 </span>
                 <button
                   onClick={() => handlePageChange(pagination.page + 1)}
-                  disabled={pagination.page * pagination.pageSize >= reviewsData.totalReviews}
+                  disabled={
+                    pagination.page * pagination.pageSize >=
+                    reviewsData.totalReviews
+                  }
                   className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next

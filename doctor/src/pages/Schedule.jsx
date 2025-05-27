@@ -48,7 +48,6 @@ const ScheduleContent = () => {
       console.error('Schedule error:', error);
     }
   });
-
   // Fetch slots for selected date
   const { data: slots, isLoading: isSlotsLoading } = useQuery({
     queryKey: ['slots', selectedDate],
@@ -84,7 +83,20 @@ const ScheduleContent = () => {
       console.error('Blocked slots error:', error);
     }
   });
-
+  //Mutation 
+  const createScheduleMutation = useMutation({
+    mutationFn: (data) => {
+      if (!doctorData?._id) {
+        throw new Error('Doctor ID not available');
+      }
+      return adminAPI.schedule.createSchedule(doctorData._id, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['schedule']);
+      toast.success('Schedule created successfully');
+    },
+    onError: (error) => toast.error(error.message || 'Failed to create schedule')
+  });
   // Mutations
   const generateSlotsMutation = useMutation({
     mutationFn: (data) => {
@@ -232,6 +244,9 @@ const ScheduleContent = () => {
   const handleUpdateSchedule = (data) => {
     updateScheduleMutation.mutate(data);
   };
+  const handleCreateSchedule = (data) => {
+    createScheduleMutation.mutate(data);
+  };
 
   const handleUpdateRecurringSchedule = (data) => {
     updateRecurringScheduleMutation.mutate(data);
@@ -330,6 +345,7 @@ const ScheduleContent = () => {
           <Tab.Panel>
             <ScheduleSettings
               schedule={schedule}
+              onCreateSchedule={handleCreateSchedule}
               onUpdateSchedule={handleUpdateSchedule}
               onUpdateRecurringSchedule={handleUpdateRecurringSchedule}
               onUpdateBreakSettings={handleUpdateBreakSettings}

@@ -6,6 +6,7 @@ import {
   LayoutDashboardIcon,
   LogIn,
   LogOut,
+  LucideLayoutDashboard,
   Menu as MenuIcon,
   MessageCircle,
   X,
@@ -19,6 +20,8 @@ const publicLinks = [
   { to: "/", label: "Home", icon: Home },
   { to: "/about", label: "About", icon: HeartPulse },
   { to: "/contact", label: "Contact", icon: MessageCircle },
+  // {user ? to="/patient/dashboard" : to="/auth/login", label: "Dashboard", icon: LayoutDashboardIcon },
+  // { to: "/patient/dashboard", label: "dashboard", icon: LucideLayoutDashboard },
 ];
 
 const Navbar = () => {
@@ -46,6 +49,19 @@ const Navbar = () => {
               </NavLink>
             );
           })}
+          {user && (
+            <NavLink
+              className={({ isActive }) =>
+                `flex items-center space-x-2 hover:text-blue-600 transition-colors ${
+                  isActive ? "text-blue-600 font-semibold" : "text-gray-700"
+                }`
+              }
+              to="/patient/dashboard"
+            >
+              <LucideLayoutDashboard className="h-5 w-5" />
+              <span>Dashboard</span>
+            </NavLink>
+          )}
         </div>
 
         <div className="hidden md:flex items-center space-x-4">
@@ -65,7 +81,7 @@ const Navbar = () => {
               </Link>
             </>
           ) : (
-            <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-md transition-all">
+            <button onClick={logout.mutate} className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-md transition-all">
               Logout
             </button>
           )}
@@ -137,7 +153,7 @@ const Navbar = () => {
                     </Link>
                   </>
                 ) : (
-                  <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-md transition-all">
+                  <button onClick={logout} className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-md transition-all">
                     Logout
                   </button>
                 )}

@@ -3,7 +3,7 @@ import { FaTimes } from "react-icons/fa";
 import { format } from "date-fns";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
-import { adminAPI } from "../lib/api";
+import { medicalRecordAPI } from "../lib/api/medicalRecord";
 
 const MedicalRecordModal = ({ patient, onClose, currentDoctor }) => {
   const queryClient = useQueryClient();
@@ -89,10 +89,17 @@ const MedicalRecordModal = ({ patient, onClose, currentDoctor }) => {
 
   // Add medical record mutation
   const addNoteMutation = useMutation({
-    mutationFn: ({ patientId, record }) => {
+    mutationFn: async ({ patientId, record }) => {
       const doctorId = currentDoctor?.data?.data?.doctor?._id;
       if (!doctorId) {
         throw new Error("Doctor information not available");
+      }
+
+      // Validate required fields
+      if (!record.clinicalNotes[0].note.trim() && 
+          record.diagnoses.length === 0 && 
+          record.prescriptions.length === 0) {
+        throw new Error("Please add at least clinical notes or a diagnosis/prescription");
       }
 
       const medicalRecordData = {
@@ -108,8 +115,8 @@ const MedicalRecordModal = ({ patient, onClose, currentDoctor }) => {
         vitalSigns: record.vitalSigns,
         immunizations: record.immunizations
       };
-      console.log("medicalRecordData", medicalRecordData);
-      return adminAPI.patients.addMedicalRecord(patientId, medicalRecordData);
+
+      return medicalRecordAPI.create(patientId, medicalRecordData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(["patientMedicalRecords"]);
@@ -117,9 +124,7 @@ const MedicalRecordModal = ({ patient, onClose, currentDoctor }) => {
       onClose();
     },
     onError: (error) => {
-      toast.error(
-        error.response?.data?.message || "Failed to add medical record"
-      );
+      toast.error(error.message || "Failed to add medical record");
     },
   });
 
@@ -633,12 +638,6 @@ const MedicalRecordModal = ({ patient, onClose, currentDoctor }) => {
             </button>
             <button
               onClick={() => {
-                if (!medicalRecord.clinicalNotes[0].note.trim() && 
-                    medicalRecord.diagnoses.length === 0 && 
-                    medicalRecord.prescriptions.length === 0) {
-                  toast.error("Please add at least clinical notes or a diagnosis/prescription");
-                  return;
-                }
                 addNoteMutation.mutate({
                   patientId: patient._id,
                   record: medicalRecord
