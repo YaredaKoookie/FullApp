@@ -80,6 +80,5 @@ router.delete("/users/:id", adminController.deleteUser);
 router.get("/appointments", adminController.listAppointments); // List all appointments
 router.get("/appointments/:id", adminController.getAppointmentDetails); // View appointment details
 
-
 router.get("/banks", adminController.getBanks)
 export default router;

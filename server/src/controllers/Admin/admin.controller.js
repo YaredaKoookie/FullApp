@@ -68,7 +68,7 @@ export const addNewDoctor = async (req, res) => {
   try {
     const { email, password, paymentDetails, ...doctorData } = req.body;
 
-    // Parse paymentDetails if it's a string (from multipart/form-data)
+      // Parse paymentDetails if it's a string (from multipart/form-data)
     let parsedPaymentDetails = paymentDetails;
     if (typeof paymentDetails === "string") {
       try {
@@ -831,7 +831,7 @@ export const getAppointmentDetails = async (req, res) => {
 
 export const getBanks = async (req, res) => {
   try {
-    const banks = await axios.get("https://api.chapa.co/v1/banks", {
+      const banks = await axios.get("https://api.chapa.co/v1/banks", {
       headers: {
         Authorization: `Bearer ${env.CHAPA_SECRET_KEY}`,
         accept: "application/json",

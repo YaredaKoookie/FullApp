@@ -233,7 +233,6 @@ export const rejectAppointment = async (req, res) => {
   }
 };
 
-
 export const rescheduleAppointment = async (req, res) => {
   try {
     const { id: appointmentId } = req.params;
