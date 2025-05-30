@@ -54,4 +54,32 @@ router.put(
 
 router.get("/", patientController.getProfile);
 
+// INSURANCE ROUTES
+router.post(
+    "/insurance",
+    patientController.addInsurance
+);
+router.put(
+    "/insurance/:insuranceId",
+    patientController.updateInsurance
+);
+router.delete(
+    "/insurance/:insuranceId",
+    patientController.deleteInsurance
+);
+
+// EMERGENCY CONTACT ROUTES
+router.post(
+    "/emergency-contact",
+    patientController.addEmergencyContact
+);
+router.put(
+    "/emergency-contact/:contactId",
+    patientController.updateEmergencyContact
+);
+router.delete(
+    "/emergency-contact/:contactId",
+    patientController.deleteEmergencyContact
+);
+
 export default router;

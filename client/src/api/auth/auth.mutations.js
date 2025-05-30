@@ -55,8 +55,8 @@ export const useLogout = () => {
         mutationFn: logout,
         onSuccess: () => {
             logoutUser();
-            toast.success("You have logged out successfully")
             navigate("/");
+            toast.success("You have logged out successfully")
         }
     })
 }

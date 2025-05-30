@@ -38,114 +38,42 @@ import About from "@/pages/Public/About";
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route errorElement={<ErrorBoundary />}>
-
       <Route path="/" element={<App />}>
         <Route index element={<CureLogicHomepage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/about" element={<About />} />
       </Route>
 
-
-
       <Route
-        path="/patient"
+        path="/dashboard"
         element={
           <AppProtector allowedRoles={["patient"]}>
             <PatientLayout />
           </AppProtector>
         }
       >
-        <Route
-          index
-          path="dashboard"
-          element={
-            <ProtectedRoute>
-              <PatientDashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="appointments"
-          element={
-            <ProtectedRoute>
-              <Appointments />
-            </ProtectedRoute>
-          }
-        />
+        <Route index element={<Navigate to="/dashboard/overview" replace />} />
+        <Route path="overview" element={<PatientDashboard />} />
+        <Route path="appointments" element={<Appointments />} />
         <Route
           path="appointments/:appointmentId/join"
-          element={
-            <ProtectedRoute>
-              <VideoCall />
-            </ProtectedRoute>
-          }
+          element={<VideoCall />}
         />
         <Route
           path="doctors/:doctorId/details"
-          element={
-            <ProtectedRoute>
-              <DoctorProfileDetails />
-            </ProtectedRoute>
-          }
+          element={<DoctorProfileDetails />}
         />
         <Route
           path="appointments/:appointmentId/details"
-          element={
-            <ProtectedRoute>
-              <AppointmentDetailsPage />
-            </ProtectedRoute>
-          }
+          element={<AppointmentDetailsPage />}
         />
-        <Route
-          path="doctors"
-          element={
-            <ProtectedRoute>
-              <PatientDoctors />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="payments"
-          element={
-            <ProtectedRoute>
-              <Payments />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="medical-history"
-          element={
-            <ProtectedRoute>
-              <MedicalHistoryPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="profile"
-          element={
-            <ProtectedRoute>
-              <PatientProfile />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="doctors" element={<PatientDoctors />} />
+        <Route path="payments" element={<Payments />} />
+        <Route path="medical-history" element={<MedicalHistoryPage />} />
+        <Route path="profile" element={<PatientProfile />} />
 
-        <Route
-          path="appointments/:id"
-          element={
-            <ProtectedRoute>
-              <AppointmentDetails />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="security"
-          element={
-            <ProtectedRoute>
-              <SecurityPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="appointments/:id" element={<AppointmentDetails />} />
+        <Route path="security" element={<SecurityPage />} />
       </Route>
 
       <Route
@@ -156,7 +84,6 @@ const router = createBrowserRouter(
           </ProtectedRoute>
         }
       />
-
 
       <Route path="auth" element={<RedirectIfLoggedIn />}>
         <Route index element={<Navigate to="/auth/login" replace />} />

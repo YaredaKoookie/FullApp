@@ -4,186 +4,236 @@ import {
   oneOf,
   optional,
   check,
-  query
+  query,
 } from "express-validator";
 import { phoneRegex } from "../../models/patient/patient.model";
 
 // Patient Validation Middleware
 export const validateProfileCreation = [
   // Basic Information
-  body('firstName')
+  body("firstName")
     .trim()
-    .notEmpty().withMessage('First name is required')
-    .isLength({ max: 50 }).withMessage('First name cannot exceed 50 characters'),
-    
-  body('middleName')
+    .notEmpty()
+    .withMessage("First name is required")
+    .isLength({ max: 50 })
+    .withMessage("First name cannot exceed 50 characters"),
+
+  body("middleName")
     .trim()
-    .notEmpty().withMessage('Middle name is required')
-    .isLength({ max: 50 }).withMessage('Middle name cannot exceed 50 characters'),
-    
-  body('lastName')
+    .notEmpty()
+    .withMessage("Middle name is required")
+    .isLength({ max: 50 })
+    .withMessage("Middle name cannot exceed 50 characters"),
+
+  body("lastName")
     .trim()
-    .notEmpty().withMessage('Last name is required')
-    .isLength({ max: 50 }).withMessage('Last name cannot exceed 50 characters'),
-    
-  body('gender')
-    .isIn(['male', 'female', 'other']).withMessage('Invalid gender value'),
-    
-  body('phone')
+    .notEmpty()
+    .withMessage("Last name is required")
+    .isLength({ max: 50 })
+    .withMessage("Last name cannot exceed 50 characters"),
+
+  body("gender")
+    .isIn(["male", "female", "other"])
+    .withMessage("Invalid gender value"),
+
+  body("phone")
     .trim()
-    .notEmpty().withMessage('Phone number is required')
-    .matches(phoneRegex).withMessage('Invalid phone number format'),
-    
-  body('dateOfBirth')
-    .notEmpty().withMessage('Date of birth is required')
-    .isISO8601().withMessage('Invalid date format')
+    .notEmpty()
+    .withMessage("Phone number is required")
+    .matches(phoneRegex)
+    .withMessage("Invalid phone number format"),
+
+  body("dateOfBirth")
+    .notEmpty()
+    .withMessage("Date of birth is required")
+    .isISO8601()
+    .withMessage("Invalid date format")
     .custom((value) => {
       const dob = new Date(value);
       const today = new Date();
       return dob < today;
-    }).withMessage('Date of birth must be in the past'),
-    
-  body('bloodType')
+    })
+    .withMessage("Date of birth must be in the past"),
+
+  body("bloodType")
     .optional()
-    .isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', '']).withMessage('Invalid blood type'),
-    
+    .isIn(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", ""])
+    .withMessage("Invalid blood type"),
+
   // Location Validation
-  body('location')
-    .exists().withMessage('Location is required')
-    .isObject().withMessage('Location must be an object'),
-    
-  body('location.locationType')
+  body("location")
+    .exists()
+    .withMessage("Location is required")
+    .isObject()
+    .withMessage("Location must be an object"),
+
+  body("location.locationType")
     .optional()
-    .isIn(['home', 'work', 'other']).withMessage('Invalid location type'),
-    
-  body('location.country')
+    .isIn(["home", "work", "other"])
+    .withMessage("Invalid location type"),
+
+  body("location.country")
     .trim()
-    .notEmpty().withMessage('Country is required')
-    .isLength({ max: 100 }).withMessage('Country cannot exceed 100 characters'),
-    
-  body('location.city')
+    .notEmpty()
+    .withMessage("Country is required")
+    .isLength({ max: 100 })
+    .withMessage("Country cannot exceed 100 characters"),
+
+  body("location.city")
     .trim()
-    .notEmpty().withMessage('City is required')
-    .isLength({ max: 100 }).withMessage('City cannot exceed 100 characters'),
-    
-  body('location.address')
-    .optional()
-    .trim()
-    .isLength({ max: 255 }).withMessage('Address cannot exceed 255 characters'),
-    
-  body('location.postalCode')
-    .optional()
-    .trim()
-    .isLength({ max: 20 }).withMessage('Postal code cannot exceed 20 characters'),
-    
-  body('location.state')
+    .notEmpty()
+    .withMessage("City is required")
+    .isLength({ max: 100 })
+    .withMessage("City cannot exceed 100 characters"),
+
+  body("location.address")
     .optional()
     .trim()
-    .isLength({ max: 100 }).withMessage('State cannot exceed 100 characters'),
-    
-  body('location.coordinates')
+    .isLength({ max: 255 })
+    .withMessage("Address cannot exceed 255 characters"),
+
+  body("location.postalCode")
     .optional()
-    .isArray({ min: 2, max: 2 }).withMessage('Coordinates must be an array of [longitude, latitude]')
+    .trim()
+    .isLength({ max: 20 })
+    .withMessage("Postal code cannot exceed 20 characters"),
+
+  body("location.state")
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage("State cannot exceed 100 characters"),
+
+  body("location.coordinates")
+    .optional()
+    .isArray({ min: 2, max: 2 })
+    .withMessage("Coordinates must be an array of [longitude, latitude]")
     .custom((value) => {
-      return value.every(coord => typeof coord === 'number');
-    }).withMessage('Coordinates must be numbers'),
-    
+      return value.every((coord) => typeof coord === "number");
+    })
+    .withMessage("Coordinates must be numbers"),
+
   // Emergency Contact Validation
-  body('emergencyContact')
-    .isArray({ min: 1 }).withMessage('At least one emergency contact is required'),
-    
-  body('emergencyContact.*.name')
+  body("emergencyContact")
+    .isArray({ min: 1 })
+    .withMessage("At least one emergency contact is required"),
+
+  body("emergencyContact.*.name")
     .trim()
-    .notEmpty().withMessage('Emergency contact name is required')
-    .isLength({ max: 100 }).withMessage('Name cannot exceed 100 characters'),
-    
-  body('emergencyContact.*.relation')
+    .notEmpty()
+    .withMessage("Emergency contact name is required")
+    .isLength({ max: 100 })
+    .withMessage("Name cannot exceed 100 characters"),
+
+  body("emergencyContact.*.relation")
     .trim()
-    .notEmpty().withMessage('Emergency contact relation is required')
-    .isLength({ max: 50 }).withMessage('Relation cannot exceed 50 characters'),
-    
-  body('emergencyContact.*.phone')
+    .notEmpty()
+    .withMessage("Emergency contact relation is required")
+    .isLength({ max: 50 })
+    .withMessage("Relation cannot exceed 50 characters"),
+
+  body("emergencyContact.*.phone")
     .trim()
-    .notEmpty().withMessage('Emergency contact phone is required')
-    .matches(phoneRegex).withMessage('Invalid phone number format'),
-    
-  body('emergencyContact.*.email')
+    .notEmpty()
+    .withMessage("Emergency contact phone is required")
+    .matches(phoneRegex)
+    .withMessage("Invalid phone number format"),
+
+  body("emergencyContact.*.email")
     .optional()
     .trim()
-    .isEmail().withMessage('Invalid email address')
+    .isEmail()
+    .withMessage("Invalid email address")
     .normalizeEmail(),
-    
+
   // Insurance Validation
-  body('insurance')
-    .optional()
-    .isArray(),
-    
-  body('insurance.*.provider')
-    .if(body('insurance').exists())
+  body("insurance").optional().isArray(),
+
+  body("insurance.*.provider")
+    .if(body("insurance").exists())
     .trim()
-    .notEmpty().withMessage('Insurance provider is required')
-    .isLength({ max: 100 }).withMessage('Provider name cannot exceed 100 characters'),
-    
-  body('insurance.*.policyNumber')
-    .if(body('insurance').exists())
+    .notEmpty()
+    .withMessage("Insurance provider is required")
+    .isLength({ max: 100 })
+    .withMessage("Provider name cannot exceed 100 characters"),
+
+  body("insurance.*.policyNumber")
+    .if(body("insurance").exists())
     .trim()
-    .notEmpty().withMessage('Policy number is required')
-    .isLength({ max: 50 }).withMessage('Policy number cannot exceed 50 characters'),
-    
-  body('insurance.*.coverageDetails')
+    .notEmpty()
+    .withMessage("Policy number is required")
+    .isLength({ max: 50 })
+    .withMessage("Policy number cannot exceed 50 characters"),
+
+  body("insurance.*.coverageDetails")
     .optional()
     .trim()
-    .isLength({ max: 500 }).withMessage('Coverage details cannot exceed 500 characters'),
-    
-  body('insurance.*.validTill')
+    .isLength({ max: 500 })
+    .withMessage("Coverage details cannot exceed 500 characters"),
+
+  body("insurance.*.validTill")
     .optional()
-    .isISO8601().withMessage('Invalid date format'),
-    
-  body('insurance.*.status')
+    .isISO8601()
+    .withMessage("Invalid date format"),
+
+  body("insurance.*.status")
     .optional()
-    .isIn(['active', 'expired', 'pending']).withMessage('Invalid insurance status'),
-    
+    .isIn(["active", "expired", "pending"])
+    .withMessage("Invalid insurance status"),
+
   // Preferences
-  body('preferredLanguage')
+  body("preferredLanguage")
     .optional()
     .trim()
-    .isLength({ max: 50 }).withMessage('Preferred language cannot exceed 50 characters'),
-    
-  body('martialStatus')
+    .isLength({ max: 50 })
+    .withMessage("Preferred language cannot exceed 50 characters"),
+
+  body("martialStatus")
     .optional()
-    .isIn(['single', 'married', 'divorced', 'widowed', 'separated', 'other', '']).withMessage('Invalid marital status'),
-    
-  body('notificationPreference')
+    .isIn([
+      "single",
+      "married",
+      "divorced",
+      "widowed",
+      "separated",
+      "other",
+      "",
+    ])
+    .withMessage("Invalid marital status"),
+
+  body("notificationPreference").optional().isObject(),
+
+  body("notificationPreference.systemNotification")
     .optional()
-    .isObject(),
-    
-  body('notificationPreference.systemNotification')
+    .isBoolean()
+    .withMessage("System notification preference must be boolean"),
+
+  body("notificationPreference.emailNotification")
     .optional()
-    .isBoolean().withMessage('System notification preference must be boolean'),
-    
-  body('notificationPreference.emailNotification')
+    .isBoolean()
+    .withMessage("Email notification preference must be boolean"),
+
+  body("notificationPreference.smsNotification")
     .optional()
-    .isBoolean().withMessage('Email notification preference must be boolean'),
-    
-  body('notificationPreference.smsNotification')
-    .optional()
-    .isBoolean().withMessage('SMS notification preference must be boolean'),
-    
+    .isBoolean()
+    .withMessage("SMS notification preference must be boolean"),
+
   // File Validation (if using multer)
-  check('file')
+  check("file")
     .optional()
     .custom((value, { req }) => {
       if (req.file) {
-        const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif'];
+        const allowedMimeTypes = ["image/jpeg", "image/png", "image/gif"];
         if (!allowedMimeTypes.includes(req.file.mimetype)) {
-          throw new Error('Only JPEG, PNG, and GIF images are allowed');
+          throw new Error("Only JPEG, PNG, and GIF images are allowed");
         }
-        if (req.file.size > 5 * 1024 * 1024) { // 5MB
-          throw new Error('Image size cannot exceed 5MB');
+        if (req.file.size > 5 * 1024 * 1024) {
+          // 5MB
+          throw new Error("Image size cannot exceed 5MB");
         }
       }
       return true;
-    })
+    }),
 ];
 
 export const validateGetDoctorStatistics = [
@@ -228,7 +278,6 @@ export const validateGetDoctorStatistics = [
     .withMessage("Maximum rating must be a float between 0 and 5"),
 ];
 
-
 export const validatePatientUpdate = [
   body("firstName")
     .optional()
@@ -263,12 +312,6 @@ export const validatePatientUpdate = [
     .optional()
     .isBoolean()
     .withMessage("SMS notification preference must be true/false"),
-
-  body("bloodType")
-    .optional()
-    .isIn(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", ""])
-    .withMessage("Invalid blood type"),
-
   body("emergencyContact")
     .optional()
     .isArray()
@@ -287,21 +330,39 @@ export const validatePatientUpdate = [
     .isEmail()
     .withMessage("Invalid emergency contact email"),
 
-  body("insurance")
-    .optional()
-    .isArray()
-    .withMessage("Insurance must be an array"),
-  body("insurance.*.provider")
-    .optional()
-    .trim()
-    .notEmpty()
-    .withMessage("Insurance provider is required"),
-  body("insurance.*.policyNumber")
-    .optional()
-    .trim()
-    .notEmpty()
-    .withMessage("Policy number is required"),
+ body("insurance").optional().isArray(),
 
+  body("insurance.*.provider")
+    .if(body("insurance").exists())
+    .trim()
+    .notEmpty()
+    .withMessage("Insurance provider is required")
+    .isLength({ max: 100 })
+    .withMessage("Provider name cannot exceed 100 characters"),
+
+  body("insurance.*.policyNumber")
+    .if(body("insurance").exists())
+    .trim()
+    .notEmpty()
+    .withMessage("Policy number is required")
+    .isLength({ max: 50 })
+    .withMessage("Policy number cannot exceed 50 characters"),
+
+  body("insurance.*.coverageDetails")
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage("Coverage details cannot exceed 500 characters"),
+
+  body("insurance.*.validTill")
+    .optional()
+    .isISO8601()
+    .withMessage("Invalid date format"),
+
+  body("insurance.*.status")
+    .optional()
+    .isIn(["active", "expired", "pending"])
+    .withMessage("Invalid insurance status"),
   body("preferredLanguage")
     .optional()
     .trim()
@@ -322,25 +383,47 @@ export const validatePatientUpdate = [
     .withMessage("Invalid marital status"),
 
   // Location validation
+  body("location")
+    .exists()
+    .withMessage("Location is required")
+    .isObject()
+    .withMessage("Location must be an object"),
+
+  body("location.locationType")
+    .optional()
+    .isIn(["home", "work", "other"])
+    .withMessage("Invalid location type"),
+
   body("location.country")
-    .optional()
     .trim()
     .notEmpty()
-    .withMessage("Country is required"),
+    .withMessage("Country is required")
+    .isLength({ max: 100 })
+    .withMessage("Country cannot exceed 100 characters"),
+
   body("location.city")
-    .optional()
     .trim()
     .notEmpty()
-    .withMessage("City is required"),
-  body("location.coordinates.coordinates")
+    .withMessage("City is required")
+    .isLength({ max: 100 })
+    .withMessage("City cannot exceed 100 characters"),
+
+  body("location.address")
     .optional()
-    .isArray({ min: 2, max: 2 })
-    .withMessage("Coordinates must be [longitude, latitude]")
-    .custom((coords) => {
-      const [lng, lat] = coords;
-      return lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90;
-    })
-    .withMessage(
-      "Invalid coordinates: longitude [-180,180], latitude [-90,90]"
-    ),
+    .trim()
+    .isLength({ max: 255 })
+    .withMessage("Address cannot exceed 255 characters"),
+
+  body("location.postalCode")
+    .optional()
+    .trim()
+    .isLength({ max: 20 })
+    .withMessage("Postal code cannot exceed 20 characters"),
+
+  body("location.state")
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage("State cannot exceed 100 characters"),
+
 ];

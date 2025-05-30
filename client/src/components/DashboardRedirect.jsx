@@ -10,7 +10,7 @@ export const DashboardRedirect = () => {
   }
 
   if (user?.role === 'patient') {
-    return <Navigate to="/patient/dashboard" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <Navigate to="/auth/login" replace />;

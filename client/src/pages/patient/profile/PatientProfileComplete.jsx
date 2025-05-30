@@ -169,7 +169,7 @@ export default function ProfileCompletion() {
         <Dialog
           open={showSuccess}
           className="z-50 relative"
-          onClose={() => navigate("/patient/dashboard", { replace: true })}
+          onClose={() => navigate("/dashboard", { replace: true })}
         >
           <DialogBackdrop className="fixed inset-0 bg-black/80" />
           <div className="fixed inset-0 flex items-center justify-center">
@@ -182,7 +182,7 @@ export default function ProfileCompletion() {
             </Description>
             <div className="flex justify-center gap-4">
               <button
-                onClick={() => navigate("/patient/dashboard", { replace: true })}
+                onClick={() => navigate("/dashboard", { replace: true })}
                 className="px-5 py-2 bg-green-500 hover:bg-green-400 rounded text-sm font-semibold text-white"
               >
                 Ok

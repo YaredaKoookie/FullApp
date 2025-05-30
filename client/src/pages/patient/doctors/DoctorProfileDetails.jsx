@@ -189,6 +189,8 @@ const DoctorProfilePage = () => {
     });
   };
 
+  console.log("can review", canReviewData);
+
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Hero Section */}
@@ -385,7 +387,7 @@ const DoctorProfilePage = () => {
                           ({doctor.totalReviews} reviews)
                         </span>
                       </div>
-                      {canReviewData?.data?.canReview && (
+                      {canReviewData.canReview && (
                         <button
                           onClick={() => setIsReviewModalOpen(true)}
                           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -547,6 +549,7 @@ const DoctorProfilePage = () => {
                   <h3 className="font-medium text-gray-900">Select Date</h3>
                   <div className="flex space-x-2">
                     <button
+
                       onClick={handlePreviousDay}
                       className="p-1 rounded-full hover:bg-gray-100"
                     >
@@ -904,14 +907,14 @@ const DoctorProfilePage = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                         value={selectedAppointment?._id || ""}
                         onChange={(e) => {
-                          const appointment = canReviewData.data.availableAppointments.find(
+                          const appointment = canReviewData?.availableAppointments.find(
                             (a) => a._id === e.target.value
                           );
                           setSelectedAppointment(appointment);
                         }}
                       >
                         <option value="">Select an appointment</option>
-                        {canReviewData?.data?.availableAppointments.map((appointment) => (
+                        {canReviewData?.availableAppointments.map((appointment) => (
                           <option key={appointment._id} value={appointment._id}>
                             {format(new Date(appointment.slot.start), "MMM d, yyyy")}
                           </option>

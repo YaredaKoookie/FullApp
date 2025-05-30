@@ -109,11 +109,11 @@ const SecurityCard = ({ title, description, icon: Icon, children }) => (
 );
 
 const SecurityPage = () => {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeSection, setActiveSection] = useState("overview");
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const {logout } = useAuth();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
 
 
   // User data query
@@ -158,9 +158,10 @@ const SecurityPage = () => {
       return apiClient.post(endpoint, payload);
     },
     onSuccess: () => {
-      toast.success(`Password ${user?.isPasswordSet ? "changed" : "set"} successfully`);
       reset();
-      queryClient.invalidateQueries(["user"]);
+      toast.success(`Password ${user?.isPasswordSet ? "changed" : "set"} successfully`);
+      logout();
+      navigate("/auth/login");
     },
     onError: (error) => {
       toast.error(error.message || "Failed to update password");
@@ -216,15 +217,6 @@ const SecurityPage = () => {
         : "Unknown Location"
     };
   };
-
-  // Password requirements
-  const passwordRequirements = [
-    { met: newPassword.length >= 8, text: "At least 8 characters long" },
-    { met: /[A-Z]/.test(newPassword), text: "At least one uppercase letter" },
-    { met: /[a-z]/.test(newPassword), text: "At least one lowercase letter" },
-    { met: /[0-9]/.test(newPassword), text: "At least one number" },
-    { met: /[@$!%*?&]/.test(newPassword), text: "At least one special character" },
-  ];
   
 
   return (

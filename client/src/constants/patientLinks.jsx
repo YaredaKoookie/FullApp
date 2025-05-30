@@ -4,43 +4,43 @@ const patientLinks = [
     {
         id: 1, 
         name: "Overview",
-        url: "/patient/dashboard",
+        url: "overview",
         icon: AppWindowIcon       
     },
     {
         id: 2,
         name: "Appointments",
-        url: "/patient/appointments",
+        url: "appointments",
         icon: NewspaperIcon 
     },
     {
         id: 3,
         name: "Doctors",
-        url: "/patient/doctors",
+        url: "doctors",
         icon: HeartPlusIcon
     },
     {
         id: 8,
         name: "Profile",
-        url: "/patient/profile",
+        url: "profile",
         icon: UserIcon
     },
     {
         id: 4,
         name: "Security and Privacy",
-        url: "/patient/security",
+        url: "security",
         icon: Shield
     },
     {
         id: 5,
         name: "Medical Histories",
-        url: "/patient/medical-history",
+        url: "medical-history",
         icon: HistoryIcon
     },
     {
         id: 6,
         name: "Payments",
-        url: "/patient/payments",
+        url: "payments",
         icon: CurrencyIcon
     },
 ]

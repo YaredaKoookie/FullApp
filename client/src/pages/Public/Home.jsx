@@ -45,36 +45,6 @@ const CureLogicHomepage = () => {
     { icon: HeartPulse, title: "AI Triage", desc: "Smart symptom assessment" },
   ];
 
-  const footerLinks = [
-    {
-      title: "Company",
-      links: [
-        { name: "About Us", href: "/about" },
-        { name: "Careers", href: "/careers" },
-        { name: "Press", href: "/press" },
-        { name: "Blog", href: "/blog" },
-      ],
-    },
-    {
-      title: "Resources",
-      links: [
-        { name: "Help Center", href: "/help" },
-        { name: "Privacy Policy", href: "/privacy" },
-        { name: "Terms of Service", href: "/terms" },
-        { name: "Health Library", href: "/health-library" },
-      ],
-    },
-    {
-      title: "Specialties",
-      links: [
-        { name: "Primary Care", href: "/specialties/primary" },
-        { name: "Cardiology", href: "/specialties/cardio" },
-        { name: "Dermatology", href: "/specialties/derm" },
-        { name: "Pediatrics", href: "/specialties/peds" },
-      ],
-    },
-  ];
-
   return (
     <div className="min-h-screen bg-white overflow-x-hidden">
       {/* Animated Hero Section */}

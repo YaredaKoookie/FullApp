@@ -1,13 +1,16 @@
 import Patient, { phoneRegex } from "../../models/patient/patient.model.js";
 import User from "../../models/user.model.js";
-import {ServerError} from "../../utils";
+import { ServerError } from "../../utils";
 import Doctor from "../../models/doctors/doctor.model.js";
 import Appointment from "../../models/appointment/appointment.model.js";
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
 import logger from "../../utils/logger.util.js";
-import { deleteImage, uploadImageCloud } from "../../config/cloudinary.config.js";
+import {
+  deleteImage,
+  uploadImageCloud,
+} from "../../config/cloudinary.config.js";
 import { generateAccessToken } from "../../utils/token.util.js";
 import mongoose from "mongoose";
 import Schedule from "../../models/schedule/Schedule.model.js";
@@ -167,7 +170,7 @@ export const createPatientProfile = async (req, res) => {
       success: true,
       data: {
         patient: responseProfile,
-        user, 
+        user,
         accessToken: generateAccessToken(user),
       },
     });
@@ -218,12 +221,26 @@ export const updateProfile = async (req, res) => {
 
   if (!patient) throw ServerError.notFound("Profile not found");
 
-  console.log("body update", req.body);
+  console.log("body", req.body)
+  let updateBody = req.body;
+  if (req.body?.location && Array.isArray(req.body?.location.coordinates))
+    updateBody = {
+      ...req.body,
+      location: {
+        ...req.body.location,
+        coordinates: {
+          type: req.body.location?.coordinates?.type || "Point",
+          coordinates: req.body?.location?.coordinates || [0, 0],
+        },
+      },
+    };
+
+    console.log("update profile body", req.body);
 
   // Only update specific fields from req.body to prevent unwanted changes
   const updatedPatient = await Patient.findByIdAndUpdate(
     patient._id, // Find by the patient's id
-    req.body, // Fields to update
+    updateBody, // Fields to update
     {
       new: true, // Return the updated document
       runValidators: true, // Apply validation rules
@@ -576,7 +593,7 @@ export const getApprovedDoctors = async (req, res) => {
     const pageNumber = parseInt(page);
     const limitNumber = parseInt(limit);
     const skip = (pageNumber - 1) * limitNumber;
-  console.log("query", query)
+    console.log("query", query);
     // Execute query with pagination and sorting
     let doctors = await Doctor.find(query)
       .sort(sortOption)
@@ -585,7 +602,7 @@ export const getApprovedDoctors = async (req, res) => {
       .populate("userId", "email isActive") // Include basic user info
       .populate("schedule"); // Include schedule info
 
-    doctors = doctors.filter(doctor => doctor.userId.isActive === true);
+    doctors = doctors.filter((doctor) => doctor.userId.isActive === true);
 
     // Get total count for pagination info
     const total = await Doctor.countDocuments(query);
@@ -620,8 +637,8 @@ export const getDoctorStatistics = async (req, res) => {
         from: "users",
         localField: "userId",
         foreignField: "_id",
-        as: "user"
-      }
+        as: "user",
+      },
     };
 
     const [
@@ -636,12 +653,14 @@ export const getDoctorStatistics = async (req, res) => {
       averages,
     ] = await Promise.all([
       Doctor.aggregate([
-        { $lookup: {
-          from: "users",
-          localField: "userId",
-          foreignField: "_id",
-          as: "user"
-        }},
+        {
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
         { $match: { "user.isActive": true } },
         { $group: { _id: "$specialization", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
@@ -649,12 +668,14 @@ export const getDoctorStatistics = async (req, res) => {
       ]),
 
       Doctor.aggregate([
-        { $lookup: {
-          from: "users",
-          localField: "userId",
-          foreignField: "_id",
-          as: "user"
-        }},
+        {
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
         { $match: { "user.isActive": true } },
         {
           $bucket: {
@@ -674,12 +695,14 @@ export const getDoctorStatistics = async (req, res) => {
         },
       ]),
       Doctor.aggregate([
-        { $lookup: {
-          from: "users",
-          localField: "userId",
-          foreignField: "_id",
-          as: "user"
-        }},
+        {
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
         { $match: { "user.isActive": true } },
         {
           $bucket: {
@@ -710,34 +733,14 @@ export const getDoctorStatistics = async (req, res) => {
         },
       ]),
       Doctor.aggregate([
-        { $lookup: {
-          from: "users",
-          localField: "userId",
-          foreignField: "_id",
-          as: "user"
-        }},
-        { $match: { "user.isActive": true } },
         {
-          $project: {
-            roundedRating: {
-              $divide: [
-                { $multiply: { $round: { $multiply: ["$rating", 2] } } },
-                2,
-              ],
-            },
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "user",
           },
         },
-        { $group: { _id: "$roundedRating", count: { $sum: 1 } } },
-        { $sort: { _id: 1 } },
-      ]),
-
-      Doctor.aggregate([
-        { $lookup: {
-          from: "users",
-          localField: "userId",
-          foreignField: "_id",
-          as: "user"
-        }},
         { $match: { "user.isActive": true } },
         { $unwind: "$languages" },
         // Group by doctor first to deduplicate languages per doctor
@@ -761,12 +764,14 @@ export const getDoctorStatistics = async (req, res) => {
       ]),
 
       Doctor.aggregate([
-        { $lookup: {
-          from: "users",
-          localField: "userId",
-          foreignField: "_id",
-          as: "user"
-        }},
+        {
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
         { $match: { "user.isActive": true } },
         { $group: { _id: "$location.city", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
@@ -774,34 +779,40 @@ export const getDoctorStatistics = async (req, res) => {
       ]),
 
       Doctor.aggregate([
-        { $lookup: {
-          from: "users",
-          localField: "userId",
-          foreignField: "_id",
-          as: "user"
-        }},
+        {
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
         { $match: { "user.isActive": true } },
-        { $count: "total" }
-      ]).then(result => result[0]?.total || 0),
+        { $count: "total" },
+      ]).then((result) => result[0]?.total || 0),
 
       Doctor.aggregate([
-        { $lookup: {
-          from: "users",
-          localField: "userId",
-          foreignField: "_id",
-          as: "user"
-        }},
+        {
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
         { $match: { "user.isActive": true } },
-        { $count: "total" }
-      ]).then(result => result[0]?.total || 0),
+        { $count: "total" },
+      ]).then((result) => result[0]?.total || 0),
 
       Doctor.aggregate([
-        { $lookup: {
-          from: "users",
-          localField: "userId",
-          foreignField: "_id",
-          as: "user"
-        }},
+        {
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
         { $match: { "user.isActive": true } },
         {
           $group: {
@@ -904,23 +915,24 @@ export const getPatientOverview = async (req, res) => {
         $group: {
           _id: "$status",
           count: { $sum: 1 },
-          totalAmount: { $sum: "$fee" }
-        }
-      }
+          totalAmount: { $sum: "$fee" },
+        },
+      },
     ]);
 
     // Get upcoming appointments
     const upcomingAppointments = await Appointment.find({
       patient: patient._id,
       status: "confirmed",
-      "slot.start": { $gt: new Date() }
+      "slot.start": { $gt: new Date() },
     })
-    .populate("doctor", "firstName lastName specialization profilePhoto")
-    .sort({ "slot.start": 1 })
-    .limit(3);
+      .populate("doctor", "firstName lastName specialization profilePhoto")
+      .sort({ "slot.start": 1 })
+      .limit(3);
 
     // Get recent medical records
-    const recentMedicalRecords = await mongoose.model("MedicalRecord")
+    const recentMedicalRecords = await mongoose
+      .model("MedicalRecord")
       .find({ patient: patient._id })
       .populate("appointment", "slot")
       .populate("addedBy", "firstName middleName lastName specialization")
@@ -928,7 +940,8 @@ export const getPatientOverview = async (req, res) => {
       .limit(3);
 
     // Get medical history summary
-    const medicalHistory = await mongoose.model("MedicalHistory")
+    const medicalHistory = await mongoose
+      .model("MedicalHistory")
       .findOne({ patient: patient._id })
       .select("conditions allergies currentMedications immunizations");
 
@@ -939,13 +952,14 @@ export const getPatientOverview = async (req, res) => {
         $group: {
           _id: "$status",
           count: { $sum: 1 },
-          totalAmount: { $sum: "$amount" }
-        }
-      }
+          totalAmount: { $sum: "$amount" },
+        },
+      },
     ]);
 
     // Get recent payments
-    const recentPayments = await mongoose.model("Payment")
+    const recentPayments = await mongoose
+      .model("Payment")
       .find({ patient: patient._id })
       .populate("appointment", "slot")
       .populate("doctor", "firstName lastName")
@@ -959,10 +973,10 @@ export const getPatientOverview = async (req, res) => {
       pending: 0,
       completed: 0,
       cancelled: 0,
-      totalSpent: 0
+      totalSpent: 0,
     };
 
-    appointmentStats.forEach(stat => {
+    appointmentStats.forEach((stat) => {
       formattedAppointmentStats[stat._id] = stat.count;
       formattedAppointmentStats.total += stat.count;
       if (stat._id === "completed") {
@@ -976,10 +990,10 @@ export const getPatientOverview = async (req, res) => {
       paid: 0,
       pending: 0,
       refunded: 0,
-      totalAmount: 0
+      totalAmount: 0,
     };
 
-    paymentStats.forEach(stat => {
+    paymentStats.forEach((stat) => {
       formattedPaymentStats[stat._id] = stat.count;
       formattedPaymentStats.total += stat.count;
       if (stat._id === "paid") {
@@ -993,65 +1007,67 @@ export const getPatientOverview = async (req, res) => {
         fullName: patient.fullName,
         profileImage: patient.profileImage,
         bloodType: patient.bloodType,
-        age: Math.floor((new Date() - patient.dateOfBirth) / (365.25 * 24 * 60 * 60 * 1000)),
-        location: patient.location
+        age: Math.floor(
+          (new Date() - patient.dateOfBirth) / (365.25 * 24 * 60 * 60 * 1000)
+        ),
+        location: patient.location,
       },
       appointments: {
         stats: formattedAppointmentStats,
-        upcoming: upcomingAppointments.map(apt => ({
+        upcoming: upcomingAppointments.map((apt) => ({
           id: apt._id,
           doctor: apt.doctor,
           date: apt.slot.start,
           type: apt.appointmentType,
-          status: apt.status
-        }))
+          status: apt.status,
+        })),
       },
       medical: {
-        recentRecords: recentMedicalRecords.map(record => ({
+        recentRecords: recentMedicalRecords.map((record) => ({
           id: record._id,
           date: record.createdAt,
           doctor: {
             fullName: `${record.addedBy.firstName} ${record.addedBy.middleName} ${record.addedBy.lastName}`,
-            specialization: record.addedBy.specialization
+            specialization: record.addedBy.specialization,
           },
           diagnoses: record.diagnoses,
-          prescriptions: record.prescriptions
+          prescriptions: record.prescriptions,
         })),
         history: {
-          activeConditions: medicalHistory?.conditions?.filter(c => c.status === "Active") || [],
+          activeConditions:
+            medicalHistory?.conditions?.filter((c) => c.status === "Active") ||
+            [],
           allergies: medicalHistory?.allergies || [],
           currentMedications: medicalHistory?.currentMedications || [],
-          recentImmunizations: medicalHistory?.immunizations?.slice(-3) || []
-        }
+          recentImmunizations: medicalHistory?.immunizations?.slice(-3) || [],
+        },
       },
       payments: {
         stats: formattedPaymentStats,
-        recent: recentPayments.map(payment => ({
+        recent: recentPayments.map((payment) => ({
           id: payment._id,
           amount: payment.amount,
           status: payment.status,
           date: payment.createdAt,
           appointment: payment.appointment,
-          doctor: payment.doctor
-        }))
-      }
+          doctor: payment.doctor,
+        })),
+      },
     };
 
     res.json({
       success: true,
-      data: overview
+      data: overview,
     });
-
   } catch (error) {
     console.error("Error fetching patient overview:", error);
     res.status(500).json({
       success: false,
       message: "Failed to fetch patient overview",
-      error: error.message
+      error: error.message,
     });
   }
 };
-
 
 export const getSlots = async (req, res) => {
   try {
@@ -1132,4 +1148,200 @@ export const getSlots = async (req, res) => {
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
+};
+
+/**
+ * --- INSURANCE & EMERGENCY CONTACT CONTROLLERS ---
+ */
+
+/**
+ * Add a new insurance to the patient's profile
+ * @route POST /api/patients/profiles/insurance
+ * @access Private
+ */
+export const addInsurance = async (req, res) => {
+  const { sub: userId } = req.user;
+  const patient = await Patient.findOne({ user: userId });
+  if (!patient)
+    return res
+      .status(404)
+      .json({ success: false, message: "Patient not found" });
+
+  const {
+    provider,
+    policyNumber,
+    coverageDetails = "",
+    validTill = null,
+    status = "active",
+  } = req.body;
+  if (!provider || !policyNumber) {
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "Provider and policy number are required",
+      });
+  }
+  patient.insurance.push({
+    provider,
+    policyNumber,
+    coverageDetails,
+    validTill,
+    status,
+  });
+  await patient.save();
+  res.json({
+    success: true,
+    message: "Insurance added",
+    data: { insurance: patient.insurance },
+  });
+};
+
+/**
+ * Update an existing insurance by insurance _id
+ * @route PUT /api/patients/profiles/insurance/:insuranceId
+ * @access Private
+ */
+export const updateInsurance = async (req, res) => {
+  const { sub: userId } = req.user;
+  const { insuranceId } = req.params;
+  const patient = await Patient.findOne({ user: userId });
+  if (!patient)
+    return res
+      .status(404)
+      .json({ success: false, message: "Patient not found" });
+  const insurance = patient.insurance.id(insuranceId);
+  if (!insurance)
+    return res
+      .status(404)
+      .json({ success: false, message: "Insurance not found" });
+  Object.assign(insurance, req.body);
+  await patient.save();
+  
+  res.json({
+    success: true,
+    message: "Insurance updated",
+    data: { insurance },
+  });
+};
+
+/**
+ * Delete an insurance by insurance _id
+ * @route DELETE /api/patients/profiles/insurance/:insuranceId
+ * @access Private
+ */
+export const deleteInsurance = async (req, res) => {
+  const { sub: userId } = req.user;
+  const { insuranceId } = req.params;
+  const patient = await Patient.findOne({ user: userId });
+  if (!patient)
+    return res
+      .status(404)
+      .json({ success: false, message: "Patient not found" });
+  const insurance = patient.insurance.id(insuranceId);
+  if (!insurance)
+    return res
+      .status(404)
+      .json({ success: false, message: "Insurance not found" });
+  insurance.deleteOne();
+  await patient.save();
+  res.json({
+    success: true,
+    message: "Insurance deleted",
+    data: { insurance: patient.insurance },
+  });
+};
+
+/**
+ * Add a new emergency contact
+ * @route POST /api/patients/profiles/emergency-contact
+ * @access Private
+ */
+export const addEmergencyContact = async (req, res) => {
+  const { sub: userId } = req.user;
+  const patient = await Patient.findOne({ user: userId });
+  if (!patient)
+    return res
+      .status(404)
+      .json({ success: false, message: "Patient not found" });
+  const { name, relation, phone, email = "" } = req.body;
+  if (!name || !relation || !phone) {
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "Name, relation, and phone are required",
+      });
+  }
+  patient.emergencyContact.push({ name, relation, phone, email });
+  
+  await patient.save();
+
+  res.json({
+    success: true,
+    message: "Emergency contact added",
+    data: { emergencyContact: patient.emergencyContact },
+  });
+};
+
+/**
+ * Update an emergency contact by _id
+ * @route PUT /api/patients/profiles/emergency-contact/:contactId
+ * @access Private
+ */
+export const updateEmergencyContact = async (req, res) => {
+  const { sub: userId } = req.user;
+  const { contactId } = req.params;
+  const patient = await Patient.findOne({ user: userId });
+  if (!patient)
+    return res
+      .status(404)
+      .json({ success: false, message: "Patient not found" });
+  const contact = patient.emergencyContact.id(contactId);
+  if (!contact)
+    return res
+      .status(404)
+      .json({ success: false, message: "Emergency contact not found" });
+  Object.assign(contact, req.body);
+  await patient.save();
+  res.json({
+    success: true,
+    message: "Emergency contact updated",
+    data: { contact },
+  });
+};
+
+/**
+ * Delete an emergency contact by _id (must keep at least one)
+ * @route DELETE /api/patients/profiles/emergency-contact/:contactId
+ * @access Private
+ */
+export const deleteEmergencyContact = async (req, res) => {
+  const { sub: userId } = req.user;
+  const { contactId } = req.params;
+  const patient = await Patient.findOne({ user: userId });
+  if (!patient)
+    return res
+      .status(404)
+      .json({ success: false, message: "Patient not found" });
+  if (patient.emergencyContact.length <= 1) {
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "At least one emergency contact is required",
+      });
+  }
+  const contact = patient.emergencyContact.id(contactId);
+  if (!contact)
+    return res
+      .status(404)
+      .json({ success: false, message: "Emergency contact not found" });
+  contact.deleteOne();
+  await patient.save();
+  res.json({
+    success: true,
+    message: "Emergency contact deleted",
+    data: { emergencyContact: patient.emergencyContact },
+  });
 };

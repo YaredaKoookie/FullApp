@@ -92,7 +92,6 @@ const emergencyContactSchema = new Schema(
       default: "",
     },
   },
-  { _id: false }
 );
 
 // Insurance Schema
@@ -123,7 +122,6 @@ const insuranceSchema = new Schema(
       default: "active",
     },
   },
-  { _id: false }
 );
 
 // Patient Schema
@@ -160,11 +158,6 @@ const patientSchema = new Schema(
     notificationPreferences: {
       type: notificationPreferencesSchema,
       default: {},
-    },
-    bloodType: {
-      type: String,
-      enum: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", ""],
-      default: "",
     },
     dateOfBirth: {
       type: Date,

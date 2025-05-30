@@ -560,7 +560,7 @@ export const changePassword = async (req, res) => {
   // Logout from all other sessions for security
   await Session.deleteMany({ 
     user: userId,
-    _id: { $ne: req.user.sessionId } // Keep current session
+    // _id: { $ne: req.user.sessionId } // Keep current session
   });
 
   res.json({

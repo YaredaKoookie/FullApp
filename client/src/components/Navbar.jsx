@@ -15,19 +15,28 @@ import { Link, NavLink } from "react-router-dom";
 import { useLogout } from "@api/auth";
 import { useAuth } from "@/context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "react-toastify";
 
 const publicLinks = [
   { to: "/", label: "Home", icon: Home },
   { to: "/about", label: "About", icon: HeartPulse },
   { to: "/contact", label: "Contact", icon: MessageCircle },
-  // {user ? to="/patient/dashboard" : to="/auth/login", label: "Dashboard", icon: LayoutDashboardIcon },
-  // { to: "/patient/dashboard", label: "dashboard", icon: LucideLayoutDashboard },
 ];
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user } = useAuth();
-  const logout = useLogout();
+  const logoutMutation = useLogout();
+
+  const onLogout = async () => {
+    try {
+      await logoutMutation.mutateAsync();
+      
+    } catch (error) {
+      toast.error(error.message || "Unable to logout");
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-sm border-b border-gray-100">
       <nav className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -43,9 +52,16 @@ const Navbar = () => {
         <div className="hidden md:flex items-center space-x-8">
           {publicLinks.map((link) => {
             return (
-              <NavLink  className={({isActive}) => `flex items-center space-x-2 hover:text-blue-600 transition-colors ${isActive ? "text-blue-600 font-semibold" : "text-gray-700"}`} to={link.to}>
-                  <link.icon className="h-5 w-5" />
-                  <span>{link.label}</span>
+              <NavLink
+                className={({ isActive }) =>
+                  `flex items-center space-x-2 hover:text-blue-600 transition-colors ${
+                    isActive ? "text-blue-600 font-semibold" : "text-gray-700"
+                  }`
+                }
+                to={link.to}
+              >
+                <link.icon className="h-5 w-5" />
+                <span>{link.label}</span>
               </NavLink>
             );
           })}
@@ -56,7 +72,7 @@ const Navbar = () => {
                   isActive ? "text-blue-600 font-semibold" : "text-gray-700"
                 }`
               }
-              to="/patient/dashboard"
+              to="/dashboard"
             >
               <LucideLayoutDashboard className="h-5 w-5" />
               <span>Dashboard</span>
@@ -81,8 +97,26 @@ const Navbar = () => {
               </Link>
             </>
           ) : (
-            <button onClick={logout.mutate} className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-md transition-all">
-              Logout
+            <button
+              onClick={onLogout}
+              className="flex items-center justify-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-md transition-all"
+            >
+              {logoutMutation.isPending && <svg className="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24">
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>}
+              {logoutMutation.isPending ? "Logging out..." : "Logout"}
             </button>
           )}
         </div>
@@ -130,10 +164,19 @@ const Navbar = () => {
             <div className="px-4 py-4 space-y-4 bg-white border-t border-gray-100">
               {publicLinks.map((link) => {
                 return (
-                 <NavLink  className={({isActive}) => `flex items-center space-x-2 hover:text-blue-600 transition-colors ${isActive ? "text-blue-600 font-semibold" : "text-gray-700"}`} to={link.to}>
-                  <link.icon className="h-5 w-5" />
-                  <span>{link.label}</span>
-              </NavLink>
+                  <NavLink
+                    className={({ isActive }) =>
+                      `flex items-center space-x-2 hover:text-blue-600 transition-colors ${
+                        isActive
+                          ? "text-blue-600 font-semibold"
+                          : "text-gray-700"
+                      }`
+                    }
+                    to={link.to}
+                  >
+                    <link.icon className="h-5 w-5" />
+                    <span>{link.label}</span>
+                  </NavLink>
                 );
               })}
               <div className="pt-4 space-y-3 flex flex-col text-center">
@@ -153,7 +196,10 @@ const Navbar = () => {
                     </Link>
                   </>
                 ) : (
-                  <button onClick={logout} className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-md transition-all">
+                  <button
+                    onClick={logout}
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-md transition-all"
+                  >
                     Logout
                   </button>
                 )}

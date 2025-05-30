@@ -49,7 +49,7 @@ const AppointmentDetailsPage = () => {
           <h2 className="text-xl font-semibold text-gray-800 mb-2">Error Loading Appointment</h2>
           <p className="text-gray-600 mb-4">{error?.message}</p>
           <button
-            onClick={() => navigate('/patient/appointments')}
+            onClick={() => navigate('/dashboard/appointments')}
             className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
           >
             Back to Appointments
@@ -67,7 +67,7 @@ const AppointmentDetailsPage = () => {
           <h2 className="text-xl font-semibold text-gray-800 mb-2">Appointment Not Found</h2>
           <p className="text-gray-600 mb-4">The requested appointment could not be found.</p>
           <button
-            onClick={() => navigate('/patient/appointments')}
+            onClick={() => navigate('/dashboard/appointments')}
             className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
           >
             Back to Appointments
@@ -83,7 +83,7 @@ const AppointmentDetailsPage = () => {
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <Link
-            to={'/patient/appointments'}
+            to={'/dashboard/appointments'}
             className="flex items-center text-indigo-600 hover:text-indigo-800 transition-colors"
           >
             <ChevronLeft className="h-5 w-5 mr-1" />
@@ -490,7 +490,7 @@ const AppointmentDetailsPage = () => {
                       onClick={async () => {
                         await cancelAppointmentMutation.mutateAsync(appointmentId, { cancellationReason });
                         setIsCancelOpen(false)
-                        navigate('/patient/appointments')
+                        navigate('/dashboard/appointments')
                       }}
                     >
                       Confirm Cancellation

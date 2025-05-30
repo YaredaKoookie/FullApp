@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import apiClient from '@api/apiClient';
+import { endpoints } from '@/api/endpoints';
 
 const BLOOD_TYPES = [
   "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "Unknown"
@@ -96,7 +97,7 @@ const UpdateVitalsModal = ({ isOpen, onClose, initialData }) => {
 
   const { mutate: updateVitals } = useMutation({
     mutationFn: async (data) => {
-      const response = await apiClient.put('/medical-history', data);
+      const response = await apiClient.put(endpoints.patient.medicalHistory.base(), data);
       return response.data;
     },
     onSuccess: () => {

@@ -10,9 +10,8 @@ const Footer = () => {
       title: "Company",
       links: [
         { name: "About Us", href: "/about" },
-        { name: "Careers", href: "/careers" },
-        { name: "Press", href: "/press" },
-        { name: "Blog", href: "/blog" },
+        { name: "Contact Us", href: "/contact" },
+        { name: "Home", href: "/" },
       ],
     },
     {
@@ -23,16 +22,7 @@ const Footer = () => {
         { name: "Terms of Service", href: "/terms" },
         { name: "Health Library", href: "/health-library" },
       ],
-    },
-    {
-      title: "Specialties",
-      links: [
-        { name: "Primary Care", href: "/specialties/primary" },
-        { name: "Cardiology", href: "/specialties/cardio" },
-        { name: "Dermatology", href: "/specialties/derm" },
-        { name: "Pediatrics", href: "/specialties/peds" },
-      ],
-    },
+    }
   ];
   return (
     <footer className="bg-gray-50 border-t border-gray-200">
@@ -91,16 +81,16 @@ const Footer = () => {
             <ul className="space-y-3">
               <li className="flex items-start">
                 <Phone className="h-5 w-5 text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
-                <span className="text-gray-600">+1 (555) 123-4567</span>
+                <span className="text-gray-600">+251901798641</span>
               </li>
               <li className="flex items-start">
                 <Mail className="h-5 w-5 text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
-                <span className="text-gray-600">hello@curelogic.com</span>
+                <span className="text-gray-600">yaredaddisu@curelogic.com</span>
               </li>
               <li className="flex items-start">
                 <MapPin className="h-5 w-5 text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
                 <span className="text-gray-600">
-                  123 Health St, San Francisco, CA 94107
+                  Maraki Kebelle, Bahir Dar, Ethiopia
                 </span>
               </li>
             </ul>

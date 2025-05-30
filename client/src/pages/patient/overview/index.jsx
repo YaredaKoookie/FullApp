@@ -460,7 +460,7 @@ const OverviewPage = () => {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Recent Medical Records</h3>
                 <button
-                  onClick={() => navigate("/patient/medical-records")}
+                  onClick={() => navigate("/dashboard/medical-records")}
                   className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                 >
                   View All
@@ -489,7 +489,7 @@ const OverviewPage = () => {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Upcoming Appointments</h3>
                 <button
-                  onClick={() => navigate("/patient/appointments")}
+                  onClick={() => navigate("/dashboard/appointments")}
                   className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                 >
                   View All

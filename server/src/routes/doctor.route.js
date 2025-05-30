@@ -55,18 +55,18 @@ router.delete('/:doctorId/schedule/blocked/:slotId', scheduleController.removeBl
 router.get('/:doctorId/reviews', doctorReviewController.getReviews);
 
 // Medical Record Routes
-router.post('/medical-records', medicalRecordController.createMedicalRecord);
-router.get('/medical-records/patient/:patientId', medicalRecordController.getPatientRecords);
-router.get('/medical-records/:recordId', medicalRecordController.getRecordById);
-router.post('/medical-records/:recordId/clinical-notes', medicalRecordController.addClinicalNote);
-router.post('/medical-records/:recordId/diagnoses', medicalRecordController.addDiagnosis);
-router.post('/medical-records/:recordId/prescriptions', medicalRecordController.addPrescription);
-router.post('/medical-records/:recordId/lab-results', medicalRecordController.addLabResult);
-router.post('/medical-records/:recordId/imaging-reports', medicalRecordController.addImagingReport);
-router.post('/medical-records/:recordId/procedures', medicalRecordController.addProcedure);
-router.post('/medical-records/:recordId/hospitalizations', medicalRecordController.addHospitalization);
-router.post('/medical-records/:recordId/vital-signs', medicalRecordController.addVitalSigns);
-router.post('/medical-records/:recordId/immunizations', medicalRecordController.addImmunization);
-router.get('/medical-records/search/diagnosis', medicalRecordController.searchByDiagnosis);
+// router.post('/medical-records', medicalRecordController.createMedicalRecord);
+// router.get('/medical-records/patient/:patientId', medicalRecordController.getPatientRecords);
+// router.get('/medical-records/:recordId', medicalRecordController.getRecordById);
+// router.post('/medical-records/:recordId/clinical-notes', medicalRecordController.addClinicalNote);
+// router.post('/medical-records/:recordId/diagnoses', medicalRecordController.addDiagnosis);
+// router.post('/medical-records/:recordId/prescriptions', medicalRecordController.addPrescription);
+// router.post('/medical-records/:recordId/lab-results', medicalRecordController.addLabResult);
+// router.post('/medical-records/:recordId/imaging-reports', medicalRecordController.addImagingReport);
+// router.post('/medical-records/:recordId/procedures', medicalRecordController.addProcedure);
+// router.post('/medical-records/:recordId/hospitalizations', medicalRecordController.addHospitalization);
+// router.post('/medical-records/:recordId/vital-signs', medicalRecordController.addVitalSigns);
+// router.post('/medical-records/:recordId/immunizations', medicalRecordController.addImmunization);
+// router.get('/medical-records/search/diagnosis', medicalRecordController.searchByDiagnosis);
 
 export default router
