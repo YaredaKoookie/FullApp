@@ -1,1 +1,0 @@
-export * as appointmentJobs from "./appointment.job";
